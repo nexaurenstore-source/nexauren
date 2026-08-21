@@ -26,37 +26,24 @@
     >
 
     <style>
-        /* =====================================================
-           REGISTER PAGE
-           ===================================================== */
-
         .auth-page {
             min-height: calc(100vh - 76px);
-
             display: flex;
             align-items: center;
             justify-content: center;
-
             padding: 70px 20px;
-
             position: relative;
             overflow: hidden;
         }
 
         .auth-glow {
             position: absolute;
-
             width: 420px;
             height: 420px;
-
             border-radius: 50%;
-
             background: var(--nx-primary);
-
             filter: blur(130px);
-
             opacity: 0.11;
-
             pointer-events: none;
         }
 
@@ -73,14 +60,12 @@
         .auth-container {
             position: relative;
             z-index: 2;
-
             width: 100%;
             max-width: 460px;
         }
 
         .auth-card {
             padding: 42px;
-
             border: 1px solid var(--nx-border);
             border-radius: 26px;
 
@@ -106,56 +91,44 @@
         .auth-heading .brand-mark {
             width: 46px;
             height: 46px;
-
             margin: 0 auto 20px;
-
             border-radius: 14px;
-
             font-size: 1.15rem;
         }
 
         .auth-heading h1 {
             font-size: 2.25rem;
-
             line-height: 1;
-
             letter-spacing: -0.055em;
         }
 
         .auth-heading p {
             margin-top: 12px;
-
             color: var(--nx-text-muted);
-
             font-size: 0.9rem;
         }
 
         .auth-form {
             display: flex;
             flex-direction: column;
-
             gap: 17px;
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
-
             gap: 8px;
         }
 
         .form-label {
             color: var(--nx-text-soft);
-
             font-size: 0.82rem;
             font-weight: 650;
         }
 
         .form-input {
             width: 100%;
-
             height: 50px;
-
             padding: 0 15px;
 
             border: 1px solid var(--nx-border);
@@ -167,7 +140,6 @@
                 rgba(255, 255, 255, 0.035);
 
             color: var(--nx-text);
-
             font: inherit;
 
             transition:
@@ -181,8 +153,7 @@
         }
 
         .form-input:focus {
-            border-color:
-                rgba(124, 92, 255, 0.7);
+            border-color: rgba(124, 92, 255, 0.7);
 
             background:
                 rgba(124, 92, 255, 0.045);
@@ -192,37 +163,36 @@
                 rgba(124, 92, 255, 0.08);
         }
 
+        .form-input.invalid {
+            border-color: #e05252;
+        }
+
+        .form-input.valid {
+            border-color: #45b97c;
+        }
+
         .password-hint {
             color: var(--nx-text-muted);
-
             font-size: 0.72rem;
-
             line-height: 1.5;
         }
 
         .terms {
             display: flex;
             align-items: flex-start;
-
             gap: 10px;
-
             margin-top: 2px;
 
             color: var(--nx-text-muted);
-
             font-size: 0.74rem;
-
             line-height: 1.5;
         }
 
         .terms input {
             width: 16px;
             height: 16px;
-
             flex: 0 0 auto;
-
             margin-top: 1px;
-
             accent-color: var(--nx-primary);
         }
 
@@ -236,13 +206,11 @@
 
         .auth-submit {
             width: 100%;
-
             min-height: 50px;
-
             margin-top: 4px;
 
             cursor: pointer;
-
+            border: 0;
             border-radius: 12px;
 
             color: #ffffff;
@@ -262,10 +230,11 @@
 
             transition:
                 transform var(--nx-transition),
-                box-shadow var(--nx-transition);
+                box-shadow var(--nx-transition),
+                opacity var(--nx-transition);
         }
 
-        .auth-submit:hover {
+        .auth-submit:hover:not(:disabled) {
             transform: translateY(-2px);
 
             box-shadow:
@@ -273,19 +242,48 @@
                 rgba(124, 92, 255, 0.32);
         }
 
+        .auth-submit:disabled {
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+
+        .auth-message {
+            display: none;
+
+            margin-bottom: 18px;
+            padding: 12px 14px;
+
+            border-radius: 12px;
+
+            font-size: 0.82rem;
+            line-height: 1.5;
+        }
+
+        .auth-message.show {
+            display: block;
+        }
+
+        .auth-message.error {
+            color: #ffb4b4;
+            background: rgba(224, 82, 82, 0.10);
+            border: 1px solid rgba(224, 82, 82, 0.25);
+        }
+
+        .auth-message.success {
+            color: #a9e8c7;
+            background: rgba(69, 185, 124, 0.10);
+            border: 1px solid rgba(69, 185, 124, 0.25);
+        }
+
         .auth-login {
             margin-top: 25px;
-
             text-align: center;
-
             color: var(--nx-text-muted);
-
             font-size: 0.85rem;
         }
 
         .auth-login a {
             color: var(--nx-primary-light);
-
             font-weight: 700;
         }
 
@@ -295,13 +293,9 @@
 
         .back-home {
             display: block;
-
             margin-top: 22px;
-
             text-align: center;
-
             color: var(--nx-text-muted);
-
             font-size: 0.78rem;
         }
 
@@ -310,16 +304,13 @@
         }
 
         @media (max-width: 620px) {
-
             .auth-page {
                 min-height: calc(100vh - 68px);
-
                 padding: 40px 14px;
             }
 
             .auth-card {
                 padding: 30px 22px;
-
                 border-radius: 22px;
             }
 
@@ -332,283 +323,642 @@
 
 <body>
 
-    <!-- =====================================================
-         HEADER
-         ===================================================== -->
+<header class="site-header">
 
-    <header class="site-header">
+    <nav class="navigation">
 
-        <nav class="navigation">
+        <a
+            href="../index.html"
+            class="brand"
+            aria-label="Nexauren Home"
+        >
+            <span class="brand-mark">N</span>
 
-            <a
-                href="../index.html"
-                class="brand"
-                aria-label="Nexauren Home"
-            >
-                <span class="brand-mark">N</span>
+            <span class="brand-name">
+                Nexauren
+            </span>
+        </a>
 
-                <span class="brand-name">
-                    Nexauren
-                </span>
+        <div class="nav-links">
+
+            <a href="../index.html#tools">
+                Tools
             </a>
 
-            <div class="nav-links">
+            <a href="../index.html#categories">
+                Categories
+            </a>
 
-                <a href="../index.html#tools">
-                    Tools
-                </a>
+            <a
+                href="login.html"
+                class="nav-login"
+            >
+                Sign in
+            </a>
 
-                <a href="../index.html#categories">
-                    Categories
-                </a>
+        </div>
 
-                <a
-                    href="login.html"
-                    class="nav-login"
-                >
-                    Sign in
-                </a>
+    </nav>
+
+</header>
+
+
+<main class="auth-page">
+
+    <div class="auth-glow auth-glow-one"></div>
+    <div class="auth-glow auth-glow-two"></div>
+
+    <div class="auth-container">
+
+        <section class="auth-card">
+
+            <div class="auth-heading">
+
+                <div class="brand-mark">
+                    N
+                </div>
+
+                <h1>
+                    Create your account
+                </h1>
+
+                <p>
+                    Join Nexauren and start exploring.
+                </p>
 
             </div>
 
-        </nav>
 
-    </header>
+            <!-- API MESSAGE -->
+
+            <div
+                id="auth-message"
+                class="auth-message"
+                role="alert"
+                aria-live="polite"
+            ></div>
 
 
-    <!-- =====================================================
-         REGISTER
-         ===================================================== -->
+            <!-- REGISTER FORM -->
 
-    <main class="auth-page">
+            <form
+                id="register-form"
+                class="auth-form"
+                novalidate
+            >
 
-        <div class="auth-glow auth-glow-one"></div>
-        <div class="auth-glow auth-glow-two"></div>
+                <!-- NAME -->
 
-        <div class="auth-container">
+                <div class="form-group">
 
-            <section class="auth-card">
+                    <label
+                        class="form-label"
+                        for="name"
+                    >
+                        Name
+                    </label>
 
-                <div class="auth-heading">
-
-                    <div class="brand-mark">
-                        N
-                    </div>
-
-                    <h1>
-                        Create your account
-                    </h1>
-
-                    <p>
-                        Join Nexauren and start exploring.
-                    </p>
+                    <input
+                        class="form-input"
+                        id="name"
+                        name="name"
+                        type="text"
+                        autocomplete="name"
+                        maxlength="100"
+                        placeholder="Your name"
+                        required
+                    >
 
                 </div>
 
 
-                <form
-                    class="auth-form"
-                    action="#"
-                    method="post"
-                >
+                <!-- EMAIL -->
 
-                    <!-- NAME -->
+                <div class="form-group">
 
-                    <div class="form-group">
-
-                        <label
-                            class="form-label"
-                            for="name"
-                        >
-                            Name
-                        </label>
-
-                        <input
-                            class="form-input"
-                            id="name"
-                            name="name"
-                            type="text"
-                            autocomplete="name"
-                            maxlength="100"
-                            placeholder="Your name"
-                            required
-                        >
-
-                    </div>
-
-
-                    <!-- EMAIL -->
-
-                    <div class="form-group">
-
-                        <label
-                            class="form-label"
-                            for="email"
-                        >
-                            Email
-                        </label>
-
-                        <input
-                            class="form-input"
-                            id="email"
-                            name="email"
-                            type="email"
-                            autocomplete="email"
-                            maxlength="254"
-                            placeholder="you@example.com"
-                            required
-                        >
-
-                    </div>
-
-
-                    <!-- PASSWORD -->
-
-                    <div class="form-group">
-
-                        <label
-                            class="form-label"
-                            for="password"
-                        >
-                            Password
-                        </label>
-
-                        <input
-                            class="form-input"
-                            id="password"
-                            name="password"
-                            type="password"
-                            autocomplete="new-password"
-                            minlength="8"
-                            maxlength="200"
-                            placeholder="Create a password"
-                            required
-                        >
-
-                        <span class="password-hint">
-                            Use at least 8 characters.
-                        </span>
-
-                    </div>
-
-
-                    <!-- CONFIRM PASSWORD -->
-
-                    <div class="form-group">
-
-                        <label
-                            class="form-label"
-                            for="confirm-password"
-                        >
-                            Confirm password
-                        </label>
-
-                        <input
-                            class="form-input"
-                            id="confirm-password"
-                            name="confirm_password"
-                            type="password"
-                            autocomplete="new-password"
-                            minlength="8"
-                            maxlength="200"
-                            placeholder="Repeat your password"
-                            required
-                        >
-
-                    </div>
-
-
-                    <!-- TERMS -->
-
-                    <label class="terms">
-
-                        <input
-                            type="checkbox"
-                            name="terms"
-                            required
-                        >
-
-                        <span>
-                            I agree to the
-                            <a href="#">
-                                Terms of Service
-                            </a>
-                            and
-                            <a href="#">
-                                Privacy Policy
-                            </a>.
-                        </span>
-
+                    <label
+                        class="form-label"
+                        for="email"
+                    >
+                        Email
                     </label>
 
-
-                    <!-- SUBMIT -->
-
-                    <button
-                        class="auth-submit"
-                        type="submit"
+                    <input
+                        class="form-input"
+                        id="email"
+                        name="email"
+                        type="email"
+                        autocomplete="email"
+                        maxlength="254"
+                        placeholder="you@example.com"
+                        required
                     >
-                        Create account
-                    </button>
 
-                </form>
+                </div>
 
 
-                <p class="auth-login">
+                <!-- PASSWORD -->
 
-                    Already have an account?
+                <div class="form-group">
 
-                    <a href="login.html">
-                        Sign in
-                    </a>
+                    <label
+                        class="form-label"
+                        for="password"
+                    >
+                        Password
+                    </label>
 
-                </p>
+                    <input
+                        class="form-input"
+                        id="password"
+                        name="password"
+                        type="password"
+                        autocomplete="new-password"
+                        minlength="8"
+                        maxlength="200"
+                        placeholder="Create a password"
+                        required
+                    >
 
-            </section>
+                    <span class="password-hint">
+                        Use at least 8 characters.
+                    </span>
+
+                </div>
 
 
-            <a
-                href="../index.html"
-                class="back-home"
-            >
-                ← Back to Nexauren
-            </a>
+                <!-- CONFIRM PASSWORD -->
 
-        </div>
+                <div class="form-group">
 
-    </main>
+                    <label
+                        class="form-label"
+                        for="confirm-password"
+                    >
+                        Confirm password
+                    </label>
+
+                    <input
+                        class="form-input"
+                        id="confirm-password"
+                        name="confirm_password"
+                        type="password"
+                        autocomplete="new-password"
+                        minlength="8"
+                        maxlength="200"
+                        placeholder="Repeat your password"
+                        required
+                    >
+
+                </div>
 
 
-    <!-- =====================================================
-         FOOTER
-         ===================================================== -->
+                <!-- TERMS -->
 
-    <footer class="site-footer">
+                <label class="terms">
 
-        <div class="footer-content">
+                    <input
+                        id="terms"
+                        type="checkbox"
+                        name="terms"
+                        required
+                    >
 
-            <a
-                href="../index.html"
-                class="brand footer-brand"
-            >
-                <span class="brand-mark">N</span>
+                    <span>
+                        I agree to the
+                        <a href="#">
+                            Terms of Service
+                        </a>
+                        and
+                        <a href="#">
+                            Privacy Policy
+                        </a>.
+                    </span>
 
-                <span class="brand-name">
-                    Nexauren
-                </span>
-            </a>
+                </label>
 
-            <p>
-                Simple tools. Powerful possibilities.
+
+                <!-- SUBMIT -->
+
+                <button
+                    id="register-button"
+                    class="auth-submit"
+                    type="submit"
+                >
+                    Create account
+                </button>
+
+            </form>
+
+
+            <p class="auth-login">
+
+                Already have an account?
+
+                <a href="login.html">
+                    Sign in
+                </a>
+
             </p>
 
-            <span class="footer-copy">
-                © 2026 Nexauren.
+        </section>
+
+
+        <a
+            href="../index.html"
+            class="back-home"
+        >
+            ← Back to Nexauren
+        </a>
+
+    </div>
+
+</main>
+
+
+<footer class="site-footer">
+
+    <div class="footer-content">
+
+        <a
+            href="../index.html"
+            class="brand footer-brand"
+        >
+            <span class="brand-mark">N</span>
+
+            <span class="brand-name">
+                Nexauren
             </span>
+        </a>
 
-        </div>
+        <p>
+            Simple tools. Powerful possibilities.
+        </p>
 
-    </footer>
+        <span class="footer-copy">
+            © 2026 Nexauren.
+        </span>
 
-</body>
-  </html>
+    </div>
+
+</footer>
+
+
+<!-- =====================================================
+     REGISTER API
+     ===================================================== -->
+
+<script>
+(function () {
+
+    "use strict";
+
+    const form = document.getElementById("register-form");
+    const button = document.getElementById("register-button");
+    const message = document.getElementById("auth-message");
+
+    const nameInput = document.getElementById("name");
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const confirmPasswordInput =
+        document.getElementById("confirm-password");
+    const termsInput = document.getElementById("terms");
+
+
+    function showMessage(text, type) {
+
+        message.textContent = text;
+
+        message.className =
+            "auth-message show " + type;
+
+    }
+
+
+    function clearMessage() {
+
+        message.textContent = "";
+
+        message.className =
+            "auth-message";
+
+    }
+
+
+    function setLoading(loading) {
+
+        button.disabled = loading;
+
+        button.textContent =
+            loading
+                ? "Creating account..."
+                : "Create account";
+
+    }
+
+
+    function markInvalid(input) {
+
+        input.classList.remove("valid");
+        input.classList.add("invalid");
+
+    }
+
+
+    function markValid(input) {
+
+        input.classList.remove("invalid");
+        input.classList.add("valid");
+
+    }
+
+
+    function clearValidation(input) {
+
+        input.classList.remove("invalid");
+        input.classList.remove("valid");
+
+    }
+
+
+    function validateForm() {
+
+        clearMessage();
+
+        let valid = true;
+
+        const name =
+            nameInput.value.trim();
+
+        const email =
+            emailInput.value.trim();
+
+        const password =
+            passwordInput.value;
+
+        const confirmPassword =
+            confirmPasswordInput.value;
+
+
+        /*
+         * NAME
+         */
+
+        if (!name) {
+
+            markInvalid(nameInput);
+
+            valid = false;
+
+        } else {
+
+            markValid(nameInput);
+
+        }
+
+
+        /*
+         * EMAIL
+         */
+
+        if (!emailInput.checkValidity()) {
+
+            markInvalid(emailInput);
+
+            valid = false;
+
+        } else {
+
+            markValid(emailInput);
+
+        }
+
+
+        /*
+         * PASSWORD
+         */
+
+        if (
+            password.length < 8 ||
+            password.length > 200
+        ) {
+
+            markInvalid(passwordInput);
+
+            valid = false;
+
+        } else {
+
+            markValid(passwordInput);
+
+        }
+
+
+        /*
+         * CONFIRM PASSWORD
+         */
+
+        if (
+            !confirmPassword ||
+            password !== confirmPassword
+        ) {
+
+            markInvalid(confirmPasswordInput);
+
+            showMessage(
+                "Passwords do not match.",
+                "error"
+            );
+
+            valid = false;
+
+        } else {
+
+            markValid(confirmPasswordInput);
+
+        }
+
+
+        /*
+         * TERMS
+         */
+
+        if (!termsInput.checked) {
+
+            showMessage(
+                "Please accept the Terms of Service and Privacy Policy.",
+                "error"
+            );
+
+            valid = false;
+
+        }
+
+
+        /*
+         * BASIC NAME VALIDATION
+         */
+
+        if (name.length > 100) {
+
+            markInvalid(nameInput);
+
+            showMessage(
+                "Name is too long.",
+                "error"
+            );
+
+            valid = false;
+
+        }
+
+
+        return valid;
+
+    }
+
+
+    /*
+     * REMOVE ERROR STATE WHILE EDITING
+     */
+
+    [
+        nameInput,
+        emailInput,
+        passwordInput,
+        confirmPasswordInput
+    ].forEach(function (input) {
+
+        input.addEventListener(
+            "input",
+            function () {
+
+                clearValidation(input);
+
+                if (message.classList.contains("error")) {
+                    clearMessage();
+                }
+
+            }
+        );
+
+    });
+
+
+    /*
+     * SUBMIT
+     */
+
+    form.addEventListener(
+        "submit",
+        async function (event) {
+
+            event.preventDefault();
+
+            if (!validateForm()) {
+                return;
+            }
+
+
+            const name =
+                nameInput.value.trim();
+
+            const email =
+                emailInput.value.trim();
+
+            const password =
+                passwordInput.value;
+
+
+            setLoading(true);
+
+            clearMessage();
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        "/api/register",
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                                "Accept":
+                                    "application/json"
+                            },
+
+                            body: JSON.stringify({
+                                name: name,
+                                email: email,
+                                password: password
+                            })
+                        }
+                    );
+
+
+                let data = {};
+
+                try {
+
+                    data =
+                        await response.json();
+
+                } catch (jsonError) {
+
+                    data = {};
+
+                }
+
+
+                if (!response.ok) {
+
+                    const errorMessage =
+                        data.error ||
+                        data.message ||
+                        "Unable to create your account.";
+
+                    throw new Error(
+                        errorMessage
+                    );
+
+                }
+
+
+                showMessage(
+                    data.message ||
+                    "Account created successfully.",
+                    "success"
+                );
+
+
+                /*
+                 * Prevent duplicate submissions.
+                 */
+
+                button.disabled = true;
+
+
+                /*
+                 * Redirect to login after
+                 * successful registration.
+                 */
+
+                setTimeout(
+                    function () {
+
+                        window.location.href =
+                            "login.html";
+
+                    },
+                    1200
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Registration error:",
+ 
