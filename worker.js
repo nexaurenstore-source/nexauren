@@ -1,6 +1,4 @@
-
  */
-
 const ALLOWED_ORIGIN = "https://nexaurenstory.com";
 
 const MAX_NAME_LENGTH = 100;
