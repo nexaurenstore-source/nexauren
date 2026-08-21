@@ -143,12 +143,6 @@ export default {
    MAIN
    ========================================================= */
 
-export default {
-    async fetch(request, env, ctx) {
-
-        try {
-
-            const url = new URL(request.url);
 
 
             /* -------------------------------------------------
