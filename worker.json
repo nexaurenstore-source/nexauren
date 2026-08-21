@@ -1,8 +1,17 @@
 {
-    "name": "nexauren",
-    "main": "backend/worker.js",
-    "compatibility_date": "2026-08-21",
-    "assets": {
-        "directory": "./frontend"
+  "name": "nexauren",
+  "main": "worker.js",
+  "compatibility_date": "2026-08-21",
+
+  "assets": {
+    "directory": "./frontend"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nexauren-db",
+      "database_id": "b521297c-ada5-4818-bb66-9bde85bee2a1"
     }
+  ]
 }
