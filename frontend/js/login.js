@@ -4,12 +4,17 @@
  * LOGIN
  *
  * Responsabilidade:
- * - Validar o formulário
- * - Enviar email e password para /api/login
- * - Mostrar a resposta da API
+ * - Validar formulário
+ * - Enviar email/password para /api/login
+ * - Guardar a sessão através do cookie HttpOnly
+ * - Mostrar mensagens ao utilizador
  *
- * A autenticação real fica no Worker.
- * A senha NÃO é armazenada neste JavaScript.
+ * NÃO contém:
+ * - SQL
+ * - Password hashing
+ * - Criação de sessão
+ *
+ * Tudo isso fica no Worker.
  * =========================================================
  */
 
@@ -68,27 +73,43 @@ if (!form) {
 
 
 /* =========================================================
-   HELPERS
+   CLEAR ERRORS
    ========================================================= */
 
 function clearErrors() {
 
-    emailError.textContent = "";
+    if (emailError) {
+        emailError.textContent = "";
+    }
 
-    passwordError.textContent = "";
+    if (passwordError) {
+        passwordError.textContent = "";
+    }
 
-    message.textContent = "";
+    if (message) {
 
-    message.className =
-        "auth-message";
+        message.textContent = "";
+
+        message.className =
+            "auth-message";
+
+    }
 
 }
 
+
+/* =========================================================
+   MESSAGE
+   ========================================================= */
 
 function showMessage(
     text,
     type = "error"
 ) {
+
+    if (!message) {
+        return;
+    }
 
     message.textContent =
         text;
@@ -99,13 +120,20 @@ function showMessage(
 }
 
 
+/* =========================================================
+   LOADING
+   ========================================================= */
+
 function setLoading(
     loading
 ) {
 
+    if (!loginButton) {
+        return;
+    }
+
     loginButton.disabled =
         loading;
-
 
     if (loading) {
 
@@ -136,7 +164,6 @@ function validateForm() {
             .trim()
             .toLowerCase();
 
-
     const password =
         passwordInput.value;
 
@@ -149,15 +176,6 @@ function validateForm() {
 
         emailError.textContent =
             "Please enter your email.";
-
-        valid = false;
-
-    } else if (
-        email.length > 254
-    ) {
-
-        emailError.textContent =
-            "Email is too long.";
 
         valid = false;
 
@@ -187,11 +205,11 @@ function validateForm() {
         valid = false;
 
     } else if (
-        password.length > 200
+        password.length < 8
     ) {
 
         passwordError.textContent =
-            "Password is too long.";
+            "Password must contain at least 8 characters.";
 
         valid = false;
 
@@ -257,13 +275,12 @@ async function login() {
                 {
                     method: "POST",
 
+                    credentials: "include",
+
                     headers: {
                         "Content-Type":
                             "application/json"
                     },
-
-                    credentials:
-                        "include",
 
                     body:
                         JSON.stringify(
@@ -274,11 +291,10 @@ async function login() {
 
 
         /* ---------------------------------------------------
-           RESPONSE
+           READ RESPONSE
            --------------------------------------------------- */
 
         let result;
-
 
         try {
 
@@ -333,15 +349,26 @@ async function login() {
         passwordInput.value = "";
 
 
-        /*
-         * Não redirecionamos ainda.
-         *
-         * Primeiro vamos implementar a sessão
-         * no Worker.
-         *
-         * Depois o login poderá redirecionar
-         * para a área autenticada.
-         */
+        /* ---------------------------------------------------
+           REDIRECT
+           ---------------------------------------------------
+
+           The Worker creates the session cookie.
+
+           After successful authentication,
+           the user can enter the dashboard.
+
+        */
+
+        setTimeout(
+            function () {
+
+                window.location.href =
+                    "../dashboard.html";
+
+            },
+            500
+        );
 
 
     } catch (error) {
@@ -371,16 +398,20 @@ async function login() {
    FORM SUBMIT
    ========================================================= */
 
-form.addEventListener(
-    "submit",
-    function (event) {
+if (form) {
 
-        event.preventDefault();
+    form.addEventListener(
+        "submit",
+        function (event) {
 
-        login();
+            event.preventDefault();
 
-    }
-);
+            login();
+
+        }
+    );
+
+}
 
 
 /* =========================================================
