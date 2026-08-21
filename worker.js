@@ -3,15 +3,14 @@
  * NEXAUREN
  * CLOUDFLARE WORKER
  *
- * MVP — ETAPA 2
- * Registro de contas
+ * MVP — AUTENTICATION CORE
  *
- * Neste momento temos:
+ * Nesta etapa:
  * - Frontend
  * - Cloudflare Worker
  * - D1
  * - API
- * - Criação de contas
+ * - Registro de contas
  *
  * Ainda NÃO temos:
  * - Créditos
@@ -39,19 +38,16 @@ const MAX_NAME_LENGTH = 100;
 
 const MAX_EMAIL_LENGTH = 254;
 
-const MAX_PASSWORD_LENGTH = 200;
-
 const MIN_PASSWORD_LENGTH = 8;
+
+const MAX_PASSWORD_LENGTH = 200;
 
 
 /* =========================================================
-   REGISTRATION LIMITS
+   PASSWORD HASHING
    ========================================================= */
 
-const REGISTER_WINDOW_SECONDS =
-    60 * 60;
-
-const REGISTER_MAX_ATTEMPTS = 5;
+const PBKDF2_ITERATIONS = 100000;
 
 
 /* =========================================================
@@ -92,6 +88,7 @@ export default {
                ------------------------------------------------- */
 
             if (
+                url.pathname === "/api" ||
                 url.pathname.startsWith("/api/")
             ) {
 
@@ -139,59 +136,6 @@ export default {
 };
 
 
-            /* -------------------------------------------------
-               CORS / PREFLIGHT
-               ------------------------------------------------- */
-
-            if (request.method === "OPTIONS") {
-                return handleOptions(request);
-            }
-
-
-            /* -------------------------------------------------
-               API
-               ------------------------------------------------- */
-
-            if (url.pathname.startsWith("/api/")) {
-
-                return await handleApiRequest(
-                    request,
-                    env,
-                    ctx,
-                    url
-                );
-
-            }
-
-
-            /* -------------------------------------------------
-               FRONTEND
-               ------------------------------------------------- */
-
-            return env.ASSETS.fetch(request);
-
-        } catch (error) {
-
-            console.error(
-                "Worker error:",
-                error
-            );
-
-            return json(
-                {
-                    success: false,
-                    message: "Internal server error."
-                },
-                500,
-                request
-            );
-
-        }
-
-    }
-};
-
-
 /* =========================================================
    API ROUTER
    ========================================================= */
@@ -203,11 +147,12 @@ async function handleApiRequest(
     url
 ) {
 
-    const path = url.pathname;
+    const path =
+        url.pathname;
 
 
     /* -------------------------------------------------------
-       HEALTH CHECK
+       API HEALTH CHECK
        ------------------------------------------------------- */
 
     if (
@@ -218,7 +163,30 @@ async function handleApiRequest(
         return json(
             {
                 success: true,
-                message: "Nexauren API is running."
+                message:
+                    "Nexauren API is running."
+            },
+            200,
+            request
+        );
+
+    }
+
+
+    /* -------------------------------------------------------
+       API HEALTH CHECK
+       ------------------------------------------------------- */
+
+    if (
+        path === "/api/health" &&
+        request.method === "GET"
+    ) {
+
+        return json(
+            {
+                success: true,
+                service: "Nexauren API",
+                status: "online"
             },
             200,
             request
@@ -236,7 +204,7 @@ async function handleApiRequest(
         request.method === "POST"
     ) {
 
-        return register(
+        return await register(
             request,
             env
         );
@@ -245,13 +213,14 @@ async function handleApiRequest(
 
 
     /* -------------------------------------------------------
-       UNKNOWN ENDPOINT
+       UNKNOWN API ENDPOINT
        ------------------------------------------------------- */
 
     return json(
         {
             success: false,
-            message: "API endpoint not found."
+            message:
+                "API endpoint not found."
         },
         404,
         request
@@ -269,70 +238,24 @@ async function register(
     env
 ) {
 
-    /*
-     * Rate limiting.
-     *
-     * O IP é usado apenas para limitar tentativas.
-     */
-
-    const ip = getClientIp(request);
-
-    const allowed =
-        await checkRateLimit(
-            env,
-            `register:${ip}`,
-            REGISTER_MAX_ATTEMPTS,
-            REGISTER_WINDOW_SECONDS
-        );
-
-    if (!allowed) {
-
-        return json(
-            {
-                success: false,
-                message:
-                    "Too many registration attempts. Please try again later."
-            },
-            429,
-            request
-        );
-
-    }
-
-
     /* -------------------------------------------------------
-       READ JSON
+       READ REQUEST BODY
        ------------------------------------------------------- */
 
     let data;
 
     try {
 
-        data = await request.json();
+        data =
+            await request.json();
 
-    } catch {
-
-        return json(
-            {
-                success: false,
-                message: "Invalid JSON."
-            },
-            400,
-            request
-        );
-
-    }
-
-
-    if (
-        !data ||
-        typeof data !== "object"
-    ) {
+    } catch (error) {
 
         return json(
             {
                 success: false,
-                message: "Invalid request body."
+                message:
+                    "Invalid JSON."
             },
             400,
             request
@@ -342,7 +265,30 @@ async function register(
 
 
     /* -------------------------------------------------------
-       INPUT
+       VALIDATE BODY
+       ------------------------------------------------------- */
+
+    if (
+        !data ||
+        typeof data !== "object" ||
+        Array.isArray(data)
+    ) {
+
+        return json(
+            {
+                success: false,
+                message:
+                    "Invalid request body."
+            },
+            400,
+            request
+        );
+
+    }
+
+
+    /* -------------------------------------------------------
+       READ INPUT
        ------------------------------------------------------- */
 
     const name =
@@ -355,8 +301,8 @@ async function register(
         String(
             data.email ?? ""
         )
-            .trim()
-            .toLowerCase();
+        .trim()
+        .toLowerCase();
 
 
     const password =
@@ -377,7 +323,8 @@ async function register(
         return json(
             {
                 success: false,
-                message: "Invalid name."
+                message:
+                    "Invalid name."
             },
             400,
             request
@@ -399,7 +346,8 @@ async function register(
         return json(
             {
                 success: false,
-                message: "Invalid email."
+                message:
+                    "Invalid email."
             },
             400,
             request
@@ -425,6 +373,29 @@ async function register(
                     "Password must contain between 8 and 200 characters."
             },
             400,
+            request
+        );
+
+    }
+
+
+    /* -------------------------------------------------------
+       CHECK DATABASE
+       ------------------------------------------------------- */
+
+    if (!env.DB) {
+
+        console.error(
+            "D1 binding DB is missing."
+        );
+
+        return json(
+            {
+                success: false,
+                message:
+                    "Database is not configured."
+            },
+            500,
             request
         );
 
@@ -470,13 +441,17 @@ async function register(
     }
 
 
+    /* -------------------------------------------------------
+       EXISTING ACCOUNT
+       ------------------------------------------------------- */
+
     if (existingUser) {
 
         return json(
             {
                 success: false,
                 message:
-                    "Unable to create account."
+                    "An account with this email already exists."
             },
             409,
             request
@@ -486,7 +461,7 @@ async function register(
 
 
     /* -------------------------------------------------------
-       PASSWORD HASH
+       HASH PASSWORD
        ------------------------------------------------------- */
 
     let passwordHash;
@@ -494,7 +469,9 @@ async function register(
     try {
 
         passwordHash =
-            await hashPassword(password);
+            await hashPassword(
+                password
+            );
 
     } catch (error) {
 
@@ -517,12 +494,16 @@ async function register(
 
 
     /* -------------------------------------------------------
-       IDs / TIMESTAMP
+       CREATE USER ID
        ------------------------------------------------------- */
 
     const userId =
-        generateId();
+        crypto.randomUUID();
 
+
+    /* -------------------------------------------------------
+       TIMESTAMP
+       ------------------------------------------------------- */
 
     const now =
         Math.floor(
@@ -565,13 +546,6 @@ async function register(
             error
         );
 
-        /*
-         * A UNIQUE constraint on users.email
-         * protects against duplicate accounts
-         * even if two requests arrive at the
-         * same time.
-         */
-
         return json(
             {
                 success: false,
@@ -594,11 +568,10 @@ async function register(
             success: true,
             message:
                 "Account created successfully.",
-
             user: {
                 id: userId,
-                name,
-                email
+                name: name,
+                email: email
             }
         },
         201,
@@ -609,37 +582,36 @@ async function register(
 
 
 /* =========================================================
-   PASSWORD HASHING
+   PASSWORD HASH
    ========================================================= */
 
-/*
- * PBKDF2 is available through the Web Crypto API.
- *
- * We generate a unique random salt for every password.
- *
- * Stored format:
- *
- * pbkdf2$iterations$salt$hash
- */
-
-const PBKDF2_ITERATIONS = 100000;
-
-
-async function hashPassword(password) {
+async function hashPassword(
+    password
+) {
 
     const encoder =
         new TextEncoder();
 
 
     const passwordBytes =
-        encoder.encode(password);
+        encoder.encode(
+            password
+        );
 
+
+    /* -------------------------------------------------------
+       RANDOM SALT
+       ------------------------------------------------------- */
 
     const salt =
         crypto.getRandomValues(
             new Uint8Array(16)
         );
 
+
+    /* -------------------------------------------------------
+       IMPORT PASSWORD
+       ------------------------------------------------------- */
 
     const key =
         await crypto.subtle.importKey(
@@ -655,11 +627,15 @@ async function hashPassword(password) {
         );
 
 
+    /* -------------------------------------------------------
+       DERIVE HASH
+       ------------------------------------------------------- */
+
     const derivedBits =
         await crypto.subtle.deriveBits(
             {
                 name: "PBKDF2",
-                salt,
+                salt: salt,
                 iterations:
                     PBKDF2_ITERATIONS,
                 hash: "SHA-256"
@@ -675,6 +651,17 @@ async function hashPassword(password) {
         );
 
 
+    /* -------------------------------------------------------
+       STORAGE FORMAT
+       -------------------------------------------------------
+
+       pbkdf2$iterations$salt$hash
+
+       Example:
+
+       pbkdf2$100000$xxxxx$xxxxx
+    */
+
     return [
         "pbkdf2",
         PBKDF2_ITERATIONS,
@@ -689,14 +676,9 @@ async function hashPassword(password) {
    EMAIL VALIDATION
    ========================================================= */
 
-function isValidEmail(email) {
-
-    /*
-     * Deliberately simple validation.
-     *
-     * The email provider is responsible
-     * for actual email delivery.
-     */
+function isValidEmail(
+    email
+) {
 
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
         email
@@ -706,87 +688,22 @@ function isValidEmail(email) {
 
 
 /* =========================================================
-   ID GENERATOR
+   CORS OPTIONS
    ========================================================= */
 
-function generateId() {
-
-    return crypto.randomUUID();
-
-}
-
-
-/* =========================================================
-   IP
-   ========================================================= */
-
-function getClientIp(request) {
-
-    return (
-        request.headers.get(
-            "CF-Connecting-IP"
-        ) ||
-        request.headers.get(
-            "X-Forwarded-For"
-        ) ||
-        "unknown"
-    );
-
-}
-
-
-/* =========================================================
-   RATE LIMIT
-   ========================================================= */
-
-/*
- * This is a simple D1-backed rate limiter.
- *
- * It requires a table called:
- *
- * rate_limits
- *
- * We are NOT creating that table in this stage.
- *
- * Therefore, until the rate-limit table exists,
- * registration continues normally.
- *
- * We will add proper rate limiting later,
- * after the authentication core works.
- */
-
-async function checkRateLimit(
-    env,
-    key,
-    maxAttempts,
-    windowSeconds
+function handleOptions(
+    request
 ) {
-
-    /*
-     * MVP:
-     * Do not block registration because the
-     * optional rate-limit table does not exist.
-     *
-     * Cloudflare's own protection can be used
-     * while we finish the authentication system.
-     */
-
-    return true;
-
-}
-
-
-/* =========================================================
-   CORS
-   ========================================================= */
-
-function handleOptions(request) {
 
     const origin =
         request.headers.get(
             "Origin"
         );
 
+
+    /* -------------------------------------------------------
+       Reject unknown origins
+       ------------------------------------------------------- */
 
     if (
         origin &&
@@ -819,7 +736,9 @@ function handleOptions(request) {
    CORS HEADERS
    ========================================================= */
 
-function corsHeaders(request) {
+function corsHeaders(
+    request
+) {
 
     const origin =
         request.headers.get(
@@ -831,9 +750,9 @@ function corsHeaders(request) {
         new Headers();
 
 
-    /*
-     * Only allow the Nexauren site.
-     */
+    /* -------------------------------------------------------
+       Allowed origin
+       ------------------------------------------------------- */
 
     if (
         origin === ALLOWED_ORIGIN
@@ -852,17 +771,29 @@ function corsHeaders(request) {
     }
 
 
+    /* -------------------------------------------------------
+       Methods
+       ------------------------------------------------------- */
+
     headers.set(
         "Access-Control-Allow-Methods",
         "GET, POST, OPTIONS"
     );
 
 
+    /* -------------------------------------------------------
+       Headers
+       ------------------------------------------------------- */
+
     headers.set(
         "Access-Control-Allow-Headers",
         "Content-Type"
     );
 
+
+    /* -------------------------------------------------------
+       Cache
+       ------------------------------------------------------- */
 
     headers.set(
         "Vary",
@@ -902,6 +833,10 @@ function json(
     );
 
 
+    /* -------------------------------------------------------
+       Extra headers
+       ------------------------------------------------------- */
+
     for (
         const [
             key,
@@ -922,8 +857,8 @@ function json(
     return new Response(
         JSON.stringify(data),
         {
-            status,
-            headers
+            status: status,
+            headers: headers
         }
     );
 
@@ -940,6 +875,7 @@ function bytesToBase64Url(
 
     let binary = "";
 
+
     for (
         const byte of bytes
     ) {
@@ -952,8 +888,17 @@ function bytesToBase64Url(
 
 
     return btoa(binary)
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=+$/g, "");
+        .replace(
+            /\+/g,
+            "-"
+        )
+        .replace(
+            /\//g,
+            "_"
+        )
+        .replace(
+            /=+$/,
+            ""
+        );
 
-                    }
+        }
