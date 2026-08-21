@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Nexauren Audio Tools — simple tools for working with audio files."
+    >
+
+    <meta
+        name="theme-color"
+        content="#08080d"
+    >
+
+    <title>Audio Tools — Nexauren</title>
+
+    <link
+        rel="stylesheet"
+        href="../css/style.css"
+    >
+
+    <style>
+        /* =====================================================
+           AUDIO CATEGORY PAGE
+           ===================================================== */
+
+        .category-page {
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* =====================================================
+           HERO
+           ===================================================== */
+
+        .category-hero {
+            position: relative;
+
+            padding: 100px 20px 70px;
+
+            text-align: center;
+        }
+
+        .category-hero-glow {
+            position: absolute;
+
+            width: 500px;
+            height: 300px;
+
+            top: -120px;
+            left: 50%;
+
+            transform: translateX(-50%);
+
+            border-radius: 50%;
+
+            background: var(--nx-primary);
+
+            filter: blur(140px);
+
+            opacity: 0.12;
+
+            pointer-events: none;
+        }
+
+        .category-hero-content {
+            position: relative;
+            z-index: 1;
+
+            max-width: 760px;
+
+            margin: 0 auto;
+        }
+
+        .category-badge {
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 7px;
+
+            padding: 7px 13px;
+
+            margin-bottom: 22px;
+
+            border: 1px solid
+                rgba(124, 92, 255, 0.25);
+
+            border-radius: 999px;
+
+            background:
+                rgba(124, 92, 255, 0.07);
+
+            color: var(--nx-primary-light);
+
+            font-size: 0.75rem;
+
+            font-weight: 700;
+        }
+
+        .category-main-icon {
+            width: 62px;
+            height: 62px;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            margin: 0 auto 20px;
+
+            border: 1px solid
+                rgba(124, 92, 255, 0.22);
+
+            border-radius: 18px;
+
+            background:
+                rgba(124, 92, 255, 0.08);
+
+            color: var(--nx-primary-light);
+
+            font-size: 1.5rem;
+
+            box-shadow:
+                0 15px 50px
+                rgba(124, 92, 255, 0.12);
+        }
+
+        .category-hero h1 {
+            font-size: clamp(
+                2.5rem,
+                6vw,
+                4.5rem
+            );
+
+            line-height: 1;
+
+            letter-spacing: -0.065em;
+        }
+
+        .category-hero h1 span {
+            background:
+                linear-gradient(
+                    135deg,
+                    #ffffff,
+                    var(--nx-primary-light)
+                );
+
+            -webkit-background-clip: text;
+            background-clip: text;
+
+            color: transparent;
+        }
+
+        .category-hero p {
+            max-width: 620px;
+
+            margin: 20px auto 0;
+
+            color: var(--nx-text-muted);
+
+            font-size: 1rem;
+
+            line-height: 1.7;
+        }
+
+        /* =====================================================
+           BREADCRUMB
+           ===================================================== */
+
+        .breadcrumb {
+            max-width: 1180px;
+
+            margin: 0 auto;
+
+            padding: 0 20px 20px;
+
+            color: var(--nx-text-muted);
+
+            font-size: 0.75rem;
+        }
+
+        .breadcrumb a {
+            color: var(--nx-text-muted);
+        }
+
+        .breadcrumb a:hover {
+            color: var(--nx-text);
+        }
+
+        .breadcrumb-separator {
+            margin: 0 7px;
+
+            opacity: 0.5;
+        }
+
+        /* =====================================================
+           TOOLS
+           ===================================================== */
+
+        .category-section {
+            padding: 30px 20px 100px;
+        }
+
+        .category-container {
+            width: 100%;
+            max-width: 1180px;
+
+            margin: 0 auto;
+        }
+
+        .section-heading {
+            margin-bottom: 25px;
+        }
+
+        .section-heading h2 {
+            font-size: 1.65rem;
+
+            letter-spacing: -0.04em;
+        }
+
+        .section-heading p {
+            margin-top: 6px;
+
+            color: var(--nx-text-muted);
+
+            font-size: 0.82rem;
+        }
+
+        .audio-tools-grid {
+            display: grid;
+
+            grid-template-columns:
+                repeat(3, 1fr);
+
+            gap: 17px;
+        }
+
+        /* =====================================================
+           TOOL CARD
+           ===================================================== */
+
+        .audio-tool-card {
+            position: relative;
+
+            min-height: 235px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            padding: 25px;
+
+            border: 1px solid var(--nx-border);
+
+            border-radius: 20px;
+
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(255,255,255,0.04),
+                    rgba(255,255,255,0.015)
+                );
+
+            overflow: hidden;
+
+            transition:
+                transform var(--nx-transition),
+                border-color var(--nx-transition),
+                box-shadow var(--nx-transition);
+        }
+
+        .audio-tool-card::before {
+            content: "";
+
+            position: absolute;
+
+            width: 170px;
+            height: 170px;
+
+            top: -90px;
+            right: -80px;
+
+            border-radius: 50%;
+
+            background: var(--nx-primary);
+
+            filter: blur(70px);
+
+            opacity: 0.07;
+
+            pointer-events: none;
+        }
+
+        .audio-tool-card:hover {
+            transform: translateY(-6px);
+
+            border-color:
+                rgba(124, 92, 255, 0.38);
+
+            box-shadow:
+                0 20px 60px
+                rgba(0, 0, 0, 0.22);
+        }
+
+        .audio-tool-icon {
+            width: 48px;
+            height: 48px;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            border-radius: 14px;
+
+            background:
+                rgba(124, 92, 255, 0.1);
+
+            color: var(--nx-primary-light);
+
+            font-size: 1.2rem;
+        }
+
+        .audio-tool-card h3 {
+            margin-top: 21px;
+
+            font-size: 1rem;
+
+            letter-spacing: -0.02em;
+        }
+
+        .audio-tool-card p {
+            max-width: 350px;
+
+            margin-top: 8px;
+
+            color: var(--nx-text-muted);
+
+            font-size: 0.78rem;
+
+            line-height: 1.6;
+        }
+
+        .audio-tool-button {
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            width: fit-content;
+
+            min-height: 36px;
+
+            margin-top: auto;
+            padding: 0 14px;
+
+            border: 1px solid
+                rgba(124, 92, 255, 0.22);
+
+            border-radius: 10px;
+
+            background:
+                rgba(124, 92, 255, 0.07);
+
+            color: var(--nx-primary-light);
+
+            font-size: 0.72rem;
+
+            font-weight: 700;
+
+            transition:
+                background var(--nx-transition),
+                transform var(--nx-transition);
+        }
+
+        .audio-tool-button:hover {
+            transform: translateY(-1px);
+
+            background:
+                rgba(124, 92, 255, 0.13);
+        }
+
+        .tool-status {
+            position: absolute;
+
+            top: 18px;
+            right: 18px;
+
+            padding: 5px 8px;
+
+            border-radius: 999px;
+
+            background:
+                rgba(255, 255, 255, 0.05);
+
+            color: var(--nx-text-muted);
+
+            font-size: 0.6rem;
+
+            font-weight: 700;
+        }
+
+        /* =====================================================
+           INFO
+           ===================================================== */
+
+        .category-info {
+            margin-top: 60px;
+
+            padding: 28px;
+
+            border: 1px solid var(--nx-border);
+
+            border-radius: 20px;
+
+            background:
+                rgba(255, 255, 255, 0.025);
+        }
+
+        .category-info h2 {
+            font-size: 1.15rem;
+        }
+
+        .category-info p {
+            max-width: 800px;
+
+            margin-top: 9px;
+
+            color: var(--nx-text-muted);
+
+            font-size: 0.82rem;
+
+            line-height: 1.7;
+        }
+
+        /* =====================================================
+           RESPONSIVE
+           ===================================================== */
+
+        @media (max-width: 950px) {
+
+            .audio-tools-grid {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 620px) {
+
+            .category-hero {
+                padding: 70px 15px 50px;
+            }
+
+            .breadcrumb {
+                padding-left: 15px;
+                padding-right: 15px;
+            }
+
+            .category-section {
+                padding:
+                    20px 15px 70px;
+            }
+
+            .audio-tools-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .category-info {
+                padding: 22px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- =====================================================
+         HEADER
+         ===================================================== -->
+
+    <header class="site-header">
+
+        <nav class="navigation">
+
+            <a
+                href="../index.html"
+                class="brand"
+                aria-label="Nexauren Home"
+            >
+
+                <span class="brand-mark">
+                    N
+                </span>
+
+                <span class="brand-name">
+                    Nexauren
+                </span>
+
+            </a>
+
+
+            <div class="nav-links">
+
+                <a
+                    href="../index.html"
+                >
+                    Home
+                </a>
+
+                <a
+                    href="tools.html"
+                    class="active"
+                >
+                    Tools
+                </a>
+
+                <a
+                    href="login.html"
+                    class="nav-login"
+                >
+                    Sign in
+                </a>
+
+            </div>
+
+        </nav>
+
+    </header>
+
+
+    <!-- =====================================================
+         MAIN
+         ===================================================== -->
+
+    <main class="category-page">
+
+        <!-- HERO -->
+
+        <section class="category-hero">
+
+            <div class="category-hero-glow"></div>
+
+            <div class="category-hero-content">
+
+                <div class="category-main-icon">
+                    ♪
+                </div>
+
+                <span class="category-badge">
+                    Nexauren Audio
+                </span>
+
+                <h1>
+                    Audio
+                    <span>Tools.</span>
+                </h1>
+
+                <p>
+                    Simple tools for converting,
+                    processing and working with audio
+                    files directly in your browser.
+                </p>
+
+            </div>
+
+        </section>
+
+
+        <!-- BREADCRUMB -->
+
+        <div class="breadcrumb">
+
+            <a href="../index.html">
+                Home
+            </a>
+
+            <span class="breadcrumb-separator">
+                /
+            </span>
+
+            <a href="tools.html">
+                Tools
+            </a>
+
+            <span class="breadcrumb-separator">
+                /
+            </span>
+
+            <span>
+                Audio
+            </span>
+
+        </div>
+
+
+        <!-- AUDIO TOOLS -->
+
+        <section class="category-section">
+
+            <div class="category-container">
+
+                <div class="section-heading">
+
+                    <h2>
+                        Audio tools
+                    </h2>
+
+                    <p>
+                        Choose a tool to get started.
+                    </p>
+
+                </div>
+
+
+                <div class="audio-tools-grid">
+
+                    <!-- AUDIO CONVERTER -->
+
+                    <article class="audio-tool-card">
+
+                        <div class="audio-tool-icon">
+                            ⇄
+                        </div>
+
+                        <h3>
+                            Audio Converter
+                        </h3>
+
+                        <p>
+                            Convert audio files between
+                            supported formats quickly and
+                            easily.
+                        </p>
+
+                        <a
+                            href="../tools/audio/audio-converter.html"
+                            class="audio-tool-button"
+                        >
+                            Open tool →
+                        </a>
+
+                    </article>
+
+
+                    <!-- MP3 CUTTER -->
+
+                    <article class="audio-tool-card">
+
+                        <div class="audio-tool-icon">
+                            ✂
+                        </div>
+
+                        <h3>
+                            MP3 Cutter
+                        </h3>
+
+                        <p>
+                            Cut and trim an audio file by
+                            selecting the part you need.
+                        </p>
+
+                        <a
+                            href="../tools/audio/mp3-cutter.html"
+                            class="audio-tool-button"
+                        >
+                            Open tool →
+                        </a>
+
+                    </article>
+
+
+                    <!-- AUDIO JOINER -->
+
+                    <article class="audio-tool-card">
+
+                        <div class="audio-tool-icon">
+                            +
+                        </div>
+
+                        <h3>
+                            Audio Joiner
+                        </h3>
+
+                        <p>
+                            Combine multiple audio files
+                            into one file.
+                        </p>
+
+                        <a
+                            href="../tools/audio/audio-joiner.html"
+                            class="audio-tool-button"
+                        >
+                            Open tool →
+                        </a>
+
+                    </article>
+
+
+                    <!-- AUDIO COMPRESSOR -->
+
+                    <article class="audio-tool-card">
+
+                        <div class="audio-tool-icon">
+                            ↓
+                        </div>
+
+                        <h3>
+                            Audio Compressor
+                        </h3>
+
+                        <p>
+                            Reduce audio file size while
+                            keeping useful quality.
+                        </p>
+
+                        <a
+                            href="../tools/audio/audio-compressor.html"
+                            class="audio-tool-button"
+                        >
+                            Open tool →
+                        </a>
+
+                    </article>
+
+
+                    <!-- VOLUME BOOSTER -->
+
+                    <article class="audio-tool-card">
+
+                        <div class="audio-tool-icon">
+                            ↑
+                        </div>
+
+                        <h3>
+                            Volume Booster
+                        </h3>
+
+                        <p>
+                            Increase or adjust the volume
+                            level of an audio file.
+                        </p>
+
+                        <a
+                            href="../tools/audio/volume-booster.html"
+                            class="audio-tool-button"
+                        >
+                            Open tool →
+                        </a>
+
+                    </article>
+
+
+                    <!-- AUDIO SPEED -->
+
+                    <article class="audio-tool-card">
+
+                        <div class="audio-tool-icon">
+                            »
+                        </div>
+
+                        <h3>
+                            Audio Speed Changer
+                        </h3>
+
+                        <p>
+                            Change audio playback speed
+                            without changing the original file.
+                        </p>
+
+                        <a
+                            href="../tools/audio/audio-speed.html"
+                            class="audio-tool-button"
+                        >
+                            Open tool →
+                        </a>
+
+                    </article>
+
+
+                    <!-- AUDIO TRIMMER -->
+
+                    <article class="audio-tool-card">
+
+                        <div class="audio-tool-icon">
+                            ◷
+                        </div>
+
+                        <h3>
+                            Audio Trimmer
+                        </h3>
+
+                        <p>
+                            Quickly remove unwanted sections
+                            from an audio file.
+                        </p>
+
+                        <a
+                            href="../tools/audio/audio-trimmer.html"
+                            class="audio-tool-button"
+                        >
+                            Open tool →
+                        </a>
+
+                    </article>
+
+
+                    <!-- MUTE AUDIO -->
+
+                    <article class="audio-tool-card">
+
+                        <div class="audio-tool-icon">
+                            ×
+                        </div>
+
+                        <h3>
+                            Remove Audio
+                        </h3>
+
+                        <p>
+                            Create a muted version of a
+                            supported video or media file.
+                        </p>
+
+                        <a
+                            href="../tools/audio/remove-audio.html"
+                            class="audio-tool-button"
+                        >
+                            Open tool →
+                        </a>
+
+                    </article>
+
+
+                    <!-- AUDIO RECORDER -->
+
+                    <article class="audio-tool-card">
+
+                        <span class="tool-status">
+                            Coming soon
+                        </span>
+
+                        <div class="audio-tool-icon">
+                            ●
+                        </div>
+
+                        <h3>
+                            Audio Recorder
+                        </h3>
+
+                        <p>
+                            Record audio directly from your
+                            browser.
+                        </p>
+
+                        <a
+                            href="#"
+                            class="audio-tool-button"
+                        >
+                            Coming soon
+                        </a>
+
+                    </article>
+
+                </div>
+
+
+                <!-- INFO -->
+
+                <div class="category-info">
+
+                    <h2>
+                        About Nexauren Audio Tools
+                    </h2>
+
+                    <p>
+                        Nexauren is building a collection
+                        of simple and accessible tools for
+                   
