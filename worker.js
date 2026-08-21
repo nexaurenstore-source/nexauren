@@ -1,13 +1,142 @@
+/*
+ * =========================================================
+ * NEXAUREN
+ * CLOUDFLARE WORKER
+ *
+ * MVP — ETAPA 2
+ * Registro de contas
+ *
+ * Neste momento temos:
+ * - Frontend
+ * - Cloudflare Worker
+ * - D1
+ * - API
+ * - Criação de contas
+ *
+ * Ainda NÃO temos:
+ * - Créditos
+ * - Planos
+ * - PayPal
+ * - Marketplace
+ * - Pagamentos
+ * =========================================================
  */
-const ALLOWED_ORIGIN = "https://nexaurenstory.com";
+
+
+/* =========================================================
+   CONFIGURATION
+   ========================================================= */
+
+const ALLOWED_ORIGIN =
+    "https://nexaurenstory.com";
+
+
+/* =========================================================
+   INPUT LIMITS
+   ========================================================= */
 
 const MAX_NAME_LENGTH = 100;
+
 const MAX_EMAIL_LENGTH = 254;
+
 const MAX_PASSWORD_LENGTH = 200;
+
 const MIN_PASSWORD_LENGTH = 8;
 
-const REGISTER_WINDOW_SECONDS = 60 * 60;
+
+/* =========================================================
+   REGISTRATION LIMITS
+   ========================================================= */
+
+const REGISTER_WINDOW_SECONDS =
+    60 * 60;
+
 const REGISTER_MAX_ATTEMPTS = 5;
+
+
+/* =========================================================
+   MAIN WORKER
+   ========================================================= */
+
+export default {
+
+    async fetch(
+        request,
+        env,
+        ctx
+    ) {
+
+        try {
+
+            const url =
+                new URL(request.url);
+
+
+            /* -------------------------------------------------
+               CORS PREFLIGHT
+               ------------------------------------------------- */
+
+            if (
+                request.method === "OPTIONS"
+            ) {
+
+                return handleOptions(
+                    request
+                );
+
+            }
+
+
+            /* -------------------------------------------------
+               API
+               ------------------------------------------------- */
+
+            if (
+                url.pathname.startsWith("/api/")
+            ) {
+
+                return await handleApiRequest(
+                    request,
+                    env,
+                    ctx,
+                    url
+                );
+
+            }
+
+
+            /* -------------------------------------------------
+               FRONTEND
+               ------------------------------------------------- */
+
+            return env.ASSETS.fetch(
+                request
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Nexauren Worker Error:",
+                error
+            );
+
+
+            return json(
+                {
+                    success: false,
+                    message:
+                        "Internal server error."
+                },
+                500,
+                request
+            );
+
+        }
+
+    }
+
+};
 
 
 /* =========================================================
