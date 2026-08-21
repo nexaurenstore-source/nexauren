@@ -1,21 +1,4 @@
-/*
- * Nexauren
- * Cloudflare Worker
- *
- * MVP - Etapa 2
- * Registro de contas
- *
- * Neste momento NÃO temos:
- * - créditos
- * - planos
- * - PayPal
- * - marketplace
- * - pagamentos
- *
- * Temos apenas:
- * - frontend
- * - D1
- * - criação de conta
+
  */
 
 const ALLOWED_ORIGIN = "https://nexaurenstory.com";
