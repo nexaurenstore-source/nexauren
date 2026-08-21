@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Explore Nexauren's collection of creative, media and business tools."
+    >
+
+    <meta
+        name="theme-color"
+        content="#08080d"
+    >
+
+    <title>Tools — Nexauren</title>
+
+    <link
+        rel="stylesheet"
+        href="../css/style.css"
+    >
+
+    <style>
+        /* =====================================================
+           TOOLS PAGE
+           ===================================================== */
+
+        .tools-page {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tools-hero {
+            position: relative;
+
+            padding: 100px 20px 70px;
+
+            text-align: center;
+        }
+
+        .tools-hero-glow {
+            position: absolute;
+
+            width: 500px;
+            height: 300px;
+
+            top: -120px;
+            left: 50%;
+
+            transform: translateX(-50%);
+
+            border-radius: 50%;
+
+            background: var(--nx-primary);
+
+            filter: blur(140px);
+
+            opacity: 0.12;
+
+            pointer-events: none;
+        }
+
+        .tools-hero-content {
+            position: relative;
+
+            max-width: 760px;
+
+            margin: 0 auto;
+        }
+
+        .tools-badge {
+            display: inline-flex;
+
+            align-items: center;
+
+            padding: 7px 13px;
+
+            margin-bottom: 22px;
+
+            border: 1px solid
+                rgba(124, 92, 255, 0.25);
+
+            border-radius: 999px;
+
+            background:
+                rgba(124, 92, 255, 0.07);
+
+            color: var(--nx-primary-light);
+
+            font-size: 0.75rem;
+
+            font-weight: 700;
+        }
+
+        .tools-hero h1 {
+            font-size: clamp(
+                2.5rem,
+                6vw,
+                4.7rem
+            );
+
+            line-height: 0.98;
+
+            letter-spacing: -0.065em;
+        }
+
+        .tools-hero h1 span {
+            background:
+                linear-gradient(
+                    135deg,
+                    #ffffff,
+                    var(--nx-primary-light)
+                );
+
+            -webkit-background-clip: text;
+            background-clip: text;
+
+            color: transparent;
+        }
+
+        .tools-hero p {
+            max-width: 620px;
+
+            margin: 22px auto 0;
+
+            color: var(--nx-text-muted);
+
+            font-size: 1rem;
+
+            line-height: 1.7;
+        }
+
+        /* =====================================================
+           SEARCH
+           ===================================================== */
+
+        .tools-search {
+            width: 100%;
+
+            max-width: 620px;
+
+            margin: 35px auto 0;
+
+            position: relative;
+        }
+
+        .tools-search input {
+            width: 100%;
+
+            height: 58px;
+
+            padding:
+                0 20px 0 52px;
+
+            border: 1px solid var(--nx-border);
+
+            border-radius: 16px;
+
+            outline: none;
+
+            background:
+                rgba(255, 255, 255, 0.04);
+
+            color: var(--nx-text);
+
+            font: inherit;
+
+            box-shadow:
+                0 20px 60px
+                rgba(0, 0, 0, 0.18);
+
+            transition:
+                border-color var(--nx-transition),
+                background var(--nx-transition),
+                box-shadow var(--nx-transition);
+        }
+
+        .tools-search input:focus {
+            border-color:
+                rgba(124, 92, 255, 0.6);
+
+            background:
+                rgba(124, 92, 255, 0.06);
+
+            box-shadow:
+                0 20px 70px
+                rgba(124, 92, 255, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+
+            left: 19px;
+            top: 50%;
+
+            transform: translateY(-50%);
+
+            color: var(--nx-text-muted);
+
+            font-size: 1rem;
+
+            pointer-events: none;
+        }
+
+        /* =====================================================
+           CATEGORIES
+           ===================================================== */
+
+        .tools-section {
+            padding: 30px 20px 100px;
+        }
+
+        .tools-container {
+            width: 100%;
+            max-width: 1180px;
+
+            margin: 0 auto;
+        }
+
+        .section-heading {
+            display: flex;
+
+            align-items: flex-end;
+            justify-content: space-between;
+
+            gap: 20px;
+
+            margin-bottom: 25px;
+        }
+
+        .section-heading h2 {
+            font-size: 1.65rem;
+
+            letter-spacing: -0.04em;
+        }
+
+        .section-heading p {
+            margin-top: 6px;
+
+            color: var(--nx-text-muted);
+
+            font-size: 0.82rem;
+        }
+
+        .category-grid {
+            display: grid;
+
+            grid-template-columns:
+                repeat(5, 1fr);
+
+            gap: 14px;
+        }
+
+        .category-card {
+            min-height: 150px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            justify-content: space-between;
+
+            padding: 20px;
+
+            border: 1px solid var(--nx-border);
+
+            border-radius: 18px;
+
+            background:
+                rgba(255, 255, 255, 0.025);
+
+            transition:
+                transform var(--nx-transition),
+                border-color var(--nx-transition),
+                background var(--nx-transition);
+        }
+
+        .category-card:hover {
+            transform: translateY(-5px);
+
+            border-color:
+                rgba(124, 92, 255, 0.35);
+
+            background:
+                rgba(124, 92, 255, 0.055);
+        }
+
+        .category-icon {
+            width: 42px;
+            height: 42px;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            border-radius: 12px;
+
+            background:
+                rgba(124, 92, 255, 0.1);
+
+            color: var(--nx-primary-light);
+
+            font-size: 1.1rem;
+        }
+
+        .category-card h3 {
+            margin-top: 20px;
+
+            font-size: 0.95rem;
+        }
+
+        .category-card p {
+            margin-top: 5px;
+
+            color: var(--nx-text-muted);
+
+            font-size: 0.72rem;
+
+            line-height: 1.5;
+        }
+
+        /* =====================================================
+           TOOL CARDS
+           ===================================================== */
+
+        .tools-grid {
+            display: grid;
+
+            grid-template-columns:
+                repeat(3, 1fr);
+
+            gap: 16px;
+        }
+
+        .tool-card {
+            position: relative;
+
+            min-height: 205px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            padding: 24px;
+
+            border: 1px solid var(--nx-border);
+
+            border-radius: 20px;
+
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(255,255,255,0.04),
+                    rgba(255,255,255,0.015)
+                );
+
+            overflow: hidden;
+
+            transition:
+                transform var(--nx-transition),
+                border-color var(--nx-transition),
+                box-shadow var(--nx-transition);
+        }
+
+        .tool-card::before {
+            content: "";
+
+            position: absolute;
+
+            width: 150px;
+            height: 150px;
+
+            top: -80px;
+            right: -70px;
+
+            border-radius: 50%;
+
+            background: var(--nx-primary);
+
+            filter: blur(65px);
+
+            opacity: 0.08;
+
+            pointer-events: none;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-6px);
+
+            border-color:
+                rgba(124, 92, 255, 0.35);
+
+            box-shadow:
+                0 20px 60px
+                rgba(0, 0, 0, 0.2);
+        }
+
+        .tool-icon {
+            width: 46px;
+            height: 46px;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            border-radius: 13px;
+
+            background:
+                rgba(124, 92, 255, 0.1);
+
+            color: var(--nx-primary-light);
+
+            font-size: 1.15rem;
+        }
+
+        .tool-card h3 {
+            margin-top: 22px;
+
+            font-size: 1rem;
+
+            letter-spacing: -0.02em;
+        }
+
+        .tool-card p {
+            max-width: 340px;
+
+            margin-top: 8px;
+
+            color: var(--nx-text-muted);
+
+            font-size: 0.78rem;
+
+            line-height: 1.6;
+        }
+
+        .tool-link {
+            margin-top: auto;
+
+            padding-top: 20px;
+
+            color: var(--nx-primary-light);
+
+            font-size: 0.76rem;
+
+            font-weight: 700;
+        }
+
+        .tool-link:hover {
+            text-decoration: underline;
+        }
+
+        .coming-soon {
+            position: absolute;
+
+            top: 18px;
+            right: 18px;
+
+            padding: 5px 8px;
+
+            border-radius: 999px;
+
+            background:
+                rgba(255, 255, 255, 0.05);
+
+            color: var(--nx-text-muted);
+
+            font-size: 0.6rem;
+
+            font-weight: 700;
+        }
+
+        /* =====================================================
+           RESPONSIVE
+           ===================================================== */
+
+        @media (max-width: 950px) {
+
+            .category-grid {
+                grid-template-columns:
+                    repeat(3, 1fr);
+            }
+
+            .tools-grid {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 620px) {
+
+            .tools-hero {
+                padding: 70px 15px 50px;
+            }
+
+            .tools-section {
+                padding: 20px 15px 70px;
+            }
+
+            .section-heading {
+                display: block;
+            }
+
+            .category-grid {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+
+            .tools-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .category-card {
+                min-height: 135px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- =====================================================
+         HEADER
+         ===================================================== -->
+
+    <header class="site-header">
+
+        <nav class="navigation">
+
+            <a
+                href="../index.html"
+                class="brand"
+                aria-label="Nexauren Home"
+            >
+                <span class="brand-mark">N</span>
+
+                <span class="brand-name">
+                    Nexauren
+                </span>
+            </a>
+
+            <div class="nav-links">
+
+                <a
+                    href="../index.html"
+                >
+                    Home
+                </a>
+
+                <a
+                    href="tools.html"
+                    class="active"
+                >
+                    Tools
+                </a>
+
+                <a
+                    href="login.html"
+                    class="nav-login"
+                >
+                    Sign in
+                </a>
+
+            </div>
+
+        </nav>
+
+    </header>
+
+
+    <!-- =====================================================
+         MAIN
+         ===================================================== -->
+
+    <main class="tools-page">
+
+        <!-- HERO -->
+
+        <section class="tools-hero">
+
+            <div class="tools-hero-glow"></div>
+
+            <div class="tools-hero-content">
+
+                <span class="tools-badge">
+                    Nexauren Tools
+                </span>
+
+                <h1>
+                    Tools for
+                    <span>creating more.</span>
+                </h1>
+
+                <p>
+                    Simple online tools for audio, images,
+                    video, business and everyday creative work.
+                </p>
+
+
+                <div class="tools-search">
+
+                    <span
+                        class="search-icon"
+                        aria-hidden="true"
+                    >
+                        ⌕
+                    </span>
+
+                    <input
+                        type="search"
+                        id="tool-search"
+                        placeholder="Search tools..."
+                        autocomplete="off"
+                    >
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- CATEGORIES -->
+
+        <section class="tools-section">
+
+            <div class="tools-container">
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>
+                            Categories
+                        </h2>
+
+                        <p>
+                            Explore tools by category.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="category-grid">
+
+                    <a
+                        href="#audio"
+                        class="category-card"
+                    >
+
+                        <div class="category-icon">
+                            ♪
+                        </div>
+
+                        <div>
+                            <h3>Audio</h3>
+
+                            <p>
+                                Convert, edit and process audio.
+                            </p>
+                        </div>
+
+                    </a>
+
+
+                    <a
+                        href="#image"
+                        class="category-card"
+                    >
+
+                        <div class="category-icon">
+                            ◈
+                        </div>
+
+                        <div>
+                            <h3>Image</h3>
+
+                            <p>
+                                Resize, compress and transform images.
+                            </p>
+                        </div>
+
+                    </a>
+
+
+                    <a
+                        href="#video"
+                        class="category-card"
+                    >
+
+                        <div class="category-icon">
+                            ▶
+                        </div>
+
+                        <div>
+                            <h3>Video</h3>
+
+                            <p>
+                                Process and optimize video files.
+                            </p>
+                        </div>
+
+                    </a>
+
+
+                    <a
+                        href="#business"
+                        class="category-card"
+                    >
+
+                        <div class="category-icon">
+                            ◫
+                        </div>
+
+                        <div>
+                            <h3>Business</h3>
+
+                            <p>
+                                Useful tools for everyday business.
+                            </p>
+                        </div>
+
+                    </a>
+
+
+                    <a
+                        href="#utilities"
+                        class="category-card"
+                    >
+
+                        <div class="category-icon">
+                            +
+                        </div>
+
+                        <div>
+                            <h3>Utilities</h3>
+
+                            <p>
+                                Small tools that make work easier.
+                            </p>
+                        </div>
+
+                    </a>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- FEATURED TOOLS -->
+
+        <section
+            class="tools-section"
+            id="featured"
+        >
+
+            <div class="tools-container">
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>
+                            Featured tools
+                        </h2>
+
+                        <p>
+                            More tools will be added as Nexauren grows.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="tools-grid">
+
+                    <!-- IMAGE RESIZER -->
+
+                    <article
+                        class="tool-card"
+                        id="image"
+                    >
+
+                        <div class="tool-icon">
+                            ◈
+                        </div>
+
+                        <h3>
+                            Image Resizer
+                        </h3>
+
+                        <p>
+                            Resize images quickly while keeping
+                            control over their dimensions.
+                        </p>
+
+                        <a
+                            href="../tools/image/image-resizer.html"
+                            class="tool-link"
+                        >
+                            Open tool →
+                        </a>
+
+                    </article>
+
+
+                    <!-- AUDIO -->
+
+                    <article
+                        class="tool-card"
+                        id="audio"
+                    >
+
+                        <span class="coming-soon">
+                            Coming soon
+                        </span>
+
+                        <div class="tool-icon">
+                            ♪
+                        </div>
+
+                        <h3>
+                            Audio Tools
+                        </h3>
+
+                        <p>
+                            A collection of tools for converting,
+                            processing and working with audio.
+                        </p>
+
+                        <a
+                            href="#"
+                            class="tool-link"
+                        >
+                            Explore audio →
+                        </a>
+
+                    </article>
+
+
+                    <!-- VIDEO -->
+
+                    <article
+                        class="tool-card"
+                        id="video"
+                    >
+
+                        <span class="coming-soon">
+                            Coming soon
+                        </span>
+
+                        <div class="tool-icon">
+                            ▶
+                        </div>
+
+                        <h3>
+                            Video Tools
+                        </h3>
+
+                        <p>
+                            Simple tools for everyday video
+                            processing and optimization.
+                        </p>
+
+                        <a
+                            href="#"
+                            class="tool-link"
+                        >
+                            Explore video →
+                        </a>
+
+                    </article>
+
+
+                    <!-- BUSINESS -->
+
+                    <article
+                        class="tool-card"
+                        id="business"
+                    >
+
+                        <span class="coming-soon">
+                            Coming soon
+                        </span>
+
+                        <div class="tool-icon">
+                            ◫
+                        </div>
+
+                        <h3>
+                            Business Tools
+                        </h3>
+
+                        <p>
+                            Practical tools designed to help
+                            businesses and creators work faster.
+                        </p>
+
+                        <a
+                            href="#"
+                            class="tool-link"
+                        >
+                            Explore business →
+                        </a>
+
+      
