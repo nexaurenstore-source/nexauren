@@ -1,99 +1,48 @@
-/* =========================================================
-   NEXAUREN — DASHBOARD ENGINE V1
-   ========================================================= */
-
 "use strict";
 
 
 /* =========================================================
-   CATEGORY REGISTRY
+   NEXAUREN DASHBOARD
    ========================================================= */
-
-const categories = [
-
-    {
-        id: "audio",
-        name: "Audio",
-        description:
-            "Tools for working with sound and audio.",
-        icon: "♪",
-        path: "/categories/audio/"
-    },
-
-    {
-        id: "image",
-        name: "Images",
-        description:
-            "Tools for editing and working with images.",
-        icon: "◈",
-        path: "/categories/image/"
-    },
-
-    {
-        id: "text",
-        name: "Text",
-        description:
-            "Tools for writing, editing and processing text.",
-        icon: "T",
-        path: "/categories/text/"
-    },
-
-    {
-        id: "pdf",
-        name: "PDF",
-        description:
-            "Tools for creating, editing and processing PDF files.",
-        icon: "PDF",
-        path: "/categories/pdf/"
-    }
-
-];
 
 
 /* =========================================================
-   START
+   DOM
+   ========================================================= */
+
+const categoriesGrid =
+    document.getElementById(
+        "categories-grid"
+    );
+
+
+const accountStatus =
+    document.getElementById(
+        "account-status"
+    );
+
+
+const logoutButton =
+    document.getElementById(
+        "logout-button"
+    );
+
+
+/* =========================================================
+   INITIALIZATION
    ========================================================= */
 
 document.addEventListener(
     "DOMContentLoaded",
-    async () => {
-
-        const authenticated =
-            await checkSession();
-
-        /*
-         * Só renderiza a Dashboard
-         * se existir uma sessão válida.
-         */
-
-        if (!authenticated) {
-            return;
-        }
-
-        renderCategories();
-
-        setupLogout();
-
-    }
+    initializeDashboard
 );
 
 
 /* =========================================================
-   SESSION
+   DASHBOARD
    ========================================================= */
 
-async function checkSession() {
-
-    const status =
-        document.getElementById(
-            "account-status"
-        );
-
-
-    if (!status) {
-        return false;
-    }
-
+async function initializeDashboard() {
 
     try {
 
@@ -103,10 +52,8 @@ async function checkSession() {
                 {
                     method: "GET",
                     credentials: "include",
-
                     headers: {
-                        "Accept":
-                            "application/json"
+                        "Accept": "application/json"
                     }
                 }
             );
@@ -116,24 +63,34 @@ async function checkSession() {
             await response.json();
 
 
+        /*
+         * No active session.
+         */
+
         if (
+            !response.ok ||
             !data.success ||
-            !data.authenticated ||
             !data.user
         ) {
 
             window.location.href =
                 "/login";
 
-            return false;
+            return;
 
         }
 
 
-        status.textContent =
-            `Welcome back, ${data.user.name}.`;
+        /*
+         * Active session.
+         */
 
-        return true;
+        updateAccountStatus(
+            data.user
+        );
+
+
+        loadCategories();
 
 
     } catch (error) {
@@ -147,7 +104,115 @@ async function checkSession() {
         window.location.href =
             "/login";
 
-        return false;
+    }
+
+}
+
+
+/* =========================================================
+   ACCOUNT STATUS
+   ========================================================= */
+
+function updateAccountStatus(
+    user
+) {
+
+    if (!accountStatus) {
+        return;
+    }
+
+
+    const name =
+        user.name ||
+        user.email ||
+        "Account";
+
+
+    accountStatus.textContent =
+        `Signed in as ${name}`;
+
+}
+
+
+/* =========================================================
+   LOAD CATEGORIES
+   ========================================================= */
+
+async function loadCategories() {
+
+    if (!categoriesGrid) {
+        return;
+    }
+
+
+    categoriesGrid.innerHTML = "";
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/data/categories.json",
+                {
+                    method: "GET",
+                    headers: {
+                        "Accept": "application/json"
+                    }
+                }
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Unable to load categories."
+            );
+
+        }
+
+
+        const categories =
+            await response.json();
+
+
+        if (
+            !Array.isArray(categories) ||
+            categories.length === 0
+        ) {
+
+            showEmptyCategories();
+
+            return;
+
+        }
+
+
+        categories.forEach(
+            category => {
+
+                const card =
+                    createCategoryCard(
+                        category
+                    );
+
+
+                categoriesGrid.appendChild(
+                    card
+                );
+
+            }
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Category loading error:",
+            error
+        );
+
+
+        showCategoryError();
 
     }
 
@@ -155,99 +220,139 @@ async function checkSession() {
 
 
 /* =========================================================
-   RENDER CATEGORIES
+   CREATE CATEGORY CARD
    ========================================================= */
 
-function renderCategories() {
+function createCategoryCard(
+    category
+) {
 
-    const grid =
-        document.getElementById(
-            "categories-grid"
+    const card =
+        document.createElement(
+            "a"
         );
 
 
-    if (!grid) {
-        return;
-    }
+    card.className =
+        "card category-card";
 
 
-    grid.innerHTML = "";
+    card.href =
+        category.url ||
+        `/categories/${category.id}/`;
 
 
-    categories.forEach(
-        (category, index) => {
-
-            const card =
-                document.createElement(
-                    "a"
-                );
+    const icon =
+        document.createElement(
+            "div"
+        );
 
 
-            card.href =
-                category.path;
+    icon.className =
+        "category-icon";
 
 
-            card.className =
-                "category-card reveal";
+    icon.textContent =
+        category.icon ||
+        "•";
 
 
-            card.style.animationDelay =
-                `${index * 70}ms`;
+    const title =
+        document.createElement(
+            "h3"
+        );
 
 
-            card.innerHTML = `
-
-                <div class="category-icon">
-                    ${escapeHtml(category.icon)}
-                </div>
-
-                <h3>
-                    ${escapeHtml(category.name)}
-                </h3>
-
-                <p>
-                    ${escapeHtml(category.description)}
-                </p>
-
-                <span class="category-open">
-                    Explore
-                    <span>→</span>
-                </span>
-
-            `;
+    title.textContent =
+        category.name ||
+        category.id;
 
 
-            grid.appendChild(
-                card
-            );
+    const description =
+        document.createElement(
+            "p"
+        );
 
-        }
+
+    description.textContent =
+        category.description ||
+        "Explore tools in this category.";
+
+
+    card.appendChild(
+        icon
     );
 
 
-    /*
-     * Ativar animações
-     */
-
-    requestAnimationFrame(
-        () => {
-
-            document
-                .querySelectorAll(
-                    ".category-card.reveal"
-                )
-                .forEach(
-                    element => {
-
-                        element.classList.add(
-                            "visible"
-                        );
-
-                    }
-                );
-
-        }
+    card.appendChild(
+        title
     );
+
+
+    card.appendChild(
+        description
+    );
+
+
+    return card;
+
+}
+
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+function showEmptyCategories() {
+
+    categoriesGrid.innerHTML = `
+
+        <div
+            class="card"
+            style="text-align:center;"
+        >
+
+            <h3>
+                No categories available
+            </h3>
+
+            <p>
+                Nexauren does not have any
+                available categories yet.
+            </p>
+
+        </div>
+
+    `;
+
+}
+
+
+/* =========================================================
+   ERROR STATE
+   ========================================================= */
+
+function showCategoryError() {
+
+    categoriesGrid.innerHTML = `
+
+        <div
+            class="card"
+            style="text-align:center;"
+        >
+
+            <h3>
+                Unable to load categories
+            </h3>
+
+            <p>
+                Please refresh the page
+                and try again.
+            </p>
+
+        </div>
+
+    `;
 
 }
 
@@ -256,75 +361,50 @@ function renderCategories() {
    LOGOUT
    ========================================================= */
 
-function setupLogout() {
+if (logoutButton) {
 
-    const button =
-        document.getElementById(
-            "logout-button"
-        );
-
-
-    if (!button) {
-        return;
-    }
-
-
-    button.addEventListener(
+    logoutButton.addEventListener(
         "click",
-        async () => {
-
-            button.disabled = true;
-
-            button.textContent =
-                "Signing out...";
-
-
-            try {
-
-                await fetch(
-                    "/api/logout",
-                    {
-                        method: "POST",
-                        credentials: "include",
-
-                        headers: {
-                            "Accept":
-                                "application/json"
-                        }
-                    }
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    "Logout error:",
-                    error
-                );
-
-            }
-
-
-            window.location.href =
-                "/";
-
-        }
+        logout
     );
 
 }
 
 
-/* =========================================================
-   HTML ESCAPE
-   ========================================================= */
+async function logout() {
 
-function escapeHtml(value) {
+    if (logoutButton) {
 
-    return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+        logoutButton.disabled =
+            true;
 
-   }
+        logoutButton.textContent =
+            "Signing out...";
+
+    }
+
+
+    try {
+
+        await fetch(
+            "/api/logout",
+            {
+                method: "POST",
+                credentials: "include"
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Logout error:",
+            error
+        );
+
+    }
+
+
+    window.location.href =
+        "/";
+
+       }
