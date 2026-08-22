@@ -1,192 +1,87 @@
 "use strict";
 
-/* =========================================================
-   NEXAUREN — CATEGORY ENGINE V1
-   Sistema automático de categorias e ferramentas
-   ========================================================= */
+/*
+ * NEXAUREN — CATEGORY ENGINE V1
+ *
+ * Loads tools from the central registry:
+ *
+ * /data/tools.json
+ *
+ * The current category is detected
+ * from the URL.
+ */
 
-document.addEventListener(
-    "DOMContentLoaded",
-    async () => {
+document.addEventListener("DOMContentLoaded", () => {
+    loadCategoryTools();
+});
 
-        const authenticated =
-            await checkSession();
-
-        if (!authenticated) {
-            return;
-        }
-
-        await loadCategoryTools();
-
-    }
-);
-
-
-/* =========================================================
-   SESSION
-   ========================================================= */
-
-async function checkSession() {
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/me",
-                {
-                    method: "GET",
-                    credentials: "include",
-
-                    headers: {
-                        "Accept":
-                            "application/json"
-                    }
-                }
-            );
-
-
-        const data =
-            await response.json();
-
-
-        /*
-         * Sem sessão = sem serviços.
-         */
-
-        if (
-            !data.success ||
-            !data.authenticated ||
-            !data.user
-        ) {
-
-            window.location.href =
-                "/login";
-
-            return false;
-
-        }
-
-
-        document.body.classList.add(
-            "page-ready"
-        );
-
-
-        return true;
-
-
-    } catch (error) {
-
-        console.error(
-            "Category session error:",
-            error
-        );
-
-
-        window.location.href =
-            "/login";
-
-        return false;
-
-    }
-
-}
-
-
-/* =========================================================
-   DETECT CATEGORY
-   ========================================================= */
-
-function getCurrentCategory() {
-
-    const path =
-        window.location.pathname
-            .toLowerCase();
-
-
-    if (
-        path.includes("/categories/audio")
-    ) {
-        return "audio";
-    }
-
-
-    if (
-        path.includes("/categories/image")
-    ) {
-        return "image";
-    }
-
-
-    if (
-        path.includes("/categories/text")
-    ) {
-        return "text";
-    }
-
-
-    if (
-        path.includes("/categories/pdf")
-    ) {
-        return "pdf";
-    }
-
-
-    return null;
-
-}
-
-
-/* =========================================================
-   LOAD TOOLS
-   ========================================================= */
 
 async function loadCategoryTools() {
 
-    const grid =
-        document.getElementById(
-            "tools-grid"
-        );
-
+    const grid = document.getElementById("tools-grid");
 
     if (!grid) {
         return;
     }
 
-
-    const category =
-        getCurrentCategory();
-
-
-    if (!category) {
-
-        showMessage(
-            grid,
-            "Category not found",
-            "This Nexauren category does not exist."
-        );
-
-        return;
-
-    }
-
-
     try {
 
         /*
-         * IMPORTANT:
-         * tools.json fica em:
+         * Show loading state.
+         */
+
+        grid.innerHTML = `
+            <div class="card" style="text-align:center;">
+                <div class="icon">⚡</div>
+
+                <h3>
+                    Loading tools...
+                </h3>
+
+                <p>
+                    Nexauren is loading the available tools.
+                </p>
+            </div>
+        `;
+
+
+        /*
+         * Detect category from URL.
          *
-         * frontend/tools/tools.json
+         * Example:
+         *
+         * /categories/image/
+         *
+         * becomes:
+         *
+         * image
+         */
+
+        const category =
+            getCurrentCategory();
+
+
+        if (!category) {
+
+            showError(
+                grid,
+                "Category could not be detected."
+            );
+
+            return;
+        }
+
+
+        /*
+         * Load central registry.
          */
 
         const response =
             await fetch(
-                "/tools/tools.json",
+                "/data/tools.json",
                 {
                     method: "GET",
-                    cache: "no-cache",
-
+                    cache: "no-store",
                     headers: {
                         "Accept":
                             "application/json"
@@ -198,7 +93,7 @@ async function loadCategoryTools() {
         if (!response.ok) {
 
             throw new Error(
-                `Unable to load tools.json: HTTP ${response.status}`
+                `tools.json returned ${response.status}`
             );
 
         }
@@ -208,47 +103,168 @@ async function loadCategoryTools() {
             await response.json();
 
 
-        const tools =
-            Array.isArray(
-                registry.tools
-            )
-                ? registry.tools
-                : [];
+        if (
+            !registry ||
+            !Array.isArray(registry.tools)
+        ) {
+
+            throw new Error(
+                "Invalid tools.json format."
+            );
+
+        }
 
 
         /*
-         * Filtra somente:
-         *
-         * 1. categoria atual
-         * 2. ferramenta ativa
+         * Only show tools belonging
+         * to the current category.
          */
 
-        const categoryTools =
-            tools.filter(
+        const tools =
+            registry.tools.filter(
                 tool =>
                     tool.category === category &&
-                    tool.status === "active"
+                    tool.status !== "hidden"
             );
 
 
-        renderTools(
-            grid,
-            categoryTools
+        /*
+         * No tools.
+         */
+
+        if (!tools.length) {
+
+            grid.innerHTML = `
+                <div
+                    class="card"
+                    style="text-align:center;"
+                >
+
+                    <div class="icon">
+                        ${getCategoryIcon(category)}
+                    </div>
+
+                    <h3>
+                        No tools yet
+                    </h3>
+
+                    <p>
+                        New Nexauren tools
+                        will appear here automatically.
+                    </p>
+
+                </div>
+            `;
+
+            return;
+        }
+
+
+        /*
+         * Render tools.
+         */
+
+        grid.innerHTML = "";
+
+
+        tools.forEach(
+            (tool, index) => {
+
+                const card =
+                    document.createElement("a");
+
+                card.href =
+                    tool.path;
+
+                card.className =
+                    "card category-tool-card reveal";
+
+                card.style.animationDelay =
+                    `${index * 70}ms`;
+
+
+                const technology =
+                    Array.isArray(tool.technology)
+                        ? tool.technology.join(" · ")
+                        : "";
+
+
+                card.innerHTML = `
+
+                    <div class="icon">
+                        ${escapeHtml(
+                            tool.icon || "⚡"
+                        )}
+                    </div>
+
+                    <h3>
+                        ${escapeHtml(
+                            tool.name
+                        )}
+                    </h3>
+
+                    <p>
+                        ${escapeHtml(
+                            tool.description || ""
+                        )}
+                    </p>
+
+                    ${
+                        technology
+                            ? `
+                                <small>
+                                    ${escapeHtml(
+                                        technology
+                                    )}
+                                </small>
+                              `
+                            : ""
+                    }
+
+                    <span class="category-open">
+                        Open tool
+                        <span>→</span>
+                    </span>
+
+                `;
+
+
+                grid.appendChild(card);
+
+            }
         );
+
+
+        /*
+         * Activate reveal animation.
+         */
+
+        requestAnimationFrame(() => {
+
+            grid
+                .querySelectorAll(".reveal")
+                .forEach(element => {
+
+                    element.classList.add(
+                        "visible"
+                    );
+
+                });
+
+        });
 
 
     } catch (error) {
 
         console.error(
-            "Category tools error:",
+            "Nexauren category error:",
             error
         );
 
 
-        showMessage(
+        showError(
             grid,
-            "Unable to load tools",
-            "Nexauren could not load the tool registry."
+            "The Nexauren tool registry could not be loaded."
         );
 
     }
@@ -256,210 +272,60 @@ async function loadCategoryTools() {
 }
 
 
-/* =========================================================
-   RENDER TOOLS
-   ========================================================= */
+/*
+ * Get current category.
+ */
 
-function renderTools(
-    grid,
-    tools
-) {
+function getCurrentCategory() {
 
-    grid.innerHTML = "";
+    const path =
+        window.location.pathname;
 
 
-    /*
-     * Nenhuma ferramenta registrada.
-     */
-
-    if (!tools.length) {
-
-        showMessage(
-            grid,
-            "No tools yet",
-            "Nexauren tools will appear here automatically."
+    const match =
+        path.match(
+            /\/categories\/([^/]+)/
         );
 
-        return;
 
+    if (!match) {
+        return null;
     }
 
 
-    tools.forEach(
-        (tool, index) => {
-
-            const card =
-                document.createElement(
-                    "a"
-                );
-
-
-            card.href =
-                tool.path;
-
-
-            card.className =
-                "card tool-card reveal";
-
-
-            card.style.animationDelay =
-                `${index * 70}ms`;
-
-
-            card.innerHTML = `
-
-                <div class="icon">
-                    ${escapeHtml(
-                        tool.icon || "◈"
-                    )}
-                </div>
-
-                <h3>
-                    ${escapeHtml(
-                        tool.name
-                    )}
-                </h3>
-
-                <p>
-                    ${escapeHtml(
-                        tool.description ||
-                        "Nexauren tool."
-                    )}
-                </p>
-
-                <span class="category-open">
-
-                    Open tool
-
-                    <span>
-                        →
-                    </span>
-
-                </span>
-
-            `;
-
-
-            grid.appendChild(
-                card
-            );
-
-        }
-    );
-
-
-    /*
-     * Ativa animações.
-     */
-
-    requestAnimationFrame(
-        () => {
-
-            grid
-                .querySelectorAll(
-                    ".reveal"
-                )
-                .forEach(
-                    element => {
-
-                        element.classList.add(
-                            "visible"
-                        );
-
-                    }
-                );
-
-        }
-    );
-
-
-    setupToolNavigation();
+    return decodeURIComponent(
+        match[1]
+    ).toLowerCase();
 
 }
 
 
-/* =========================================================
-   TOOL NAVIGATION
-   ========================================================= */
+/*
+ * Category icons.
+ */
 
-function setupToolNavigation() {
+function getCategoryIcon(category) {
 
-    const links =
-        document.querySelectorAll(
-            "#tools-grid .tool-card"
-        );
+    const icons = {
 
+        audio: "♪",
+        image: "◈",
+        text: "T",
+        pdf: "PDF"
 
-    links.forEach(
-        link => {
-
-            link.addEventListener(
-                "click",
-                event => {
-
-                    if (
-                        event.ctrlKey ||
-                        event.metaKey ||
-                        event.shiftKey ||
-                        event.altKey ||
-                        event.button !== 0
-                    ) {
-                        return;
-                    }
+    };
 
 
-                    event.preventDefault();
-
-
-                    const transition =
-                        document.querySelector(
-                            ".page-transition"
-                        );
-
-
-                    if (!transition) {
-
-                        window.location.href =
-                            link.href;
-
-                        return;
-
-                    }
-
-
-                    transition.classList.add(
-                        "active"
-                    );
-
-
-                    setTimeout(
-                        () => {
-
-                            window.location.href =
-                                link.href;
-
-                        },
-                        350
-                    );
-
-                }
-            );
-
-        }
-    );
+    return icons[category] || "⚡";
 
 }
 
 
-/* =========================================================
-   MESSAGE
-   ========================================================= */
+/*
+ * Error state.
+ */
 
-function showMessage(
-    grid,
-    title,
-    description
-) {
+function showError(grid, message) {
 
     grid.innerHTML = `
 
@@ -468,12 +334,16 @@ function showMessage(
             style="text-align:center;"
         >
 
+            <div class="icon">
+                ⚠
+            </div>
+
             <h3>
-                ${escapeHtml(title)}
+                Unable to load tools
             </h3>
 
             <p>
-                ${escapeHtml(description)}
+                ${escapeHtml(message)}
             </p>
 
         </div>
@@ -483,37 +353,18 @@ function showMessage(
 }
 
 
-/* =========================================================
-   HTML ESCAPE
-   ========================================================= */
+/*
+ * Prevent HTML injection
+ * from registry data.
+ */
 
 function escapeHtml(value) {
 
     return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 
-        .replaceAll(
-            "&",
-            "&amp;"
-        )
-
-        .replaceAll(
-            "<",
-            "&lt;"
-        )
-
-        .replaceAll(
-            ">",
-            "&gt;"
-        )
-
-        .replaceAll(
-            '"',
-            "&quot;"
-        )
-
-        .replaceAll(
-            "'",
-            "&#039;"
-        );
-
-    }
+           }
