@@ -1,6 +1,6 @@
 /* =========================================================
-   NEXAUREN — FUTURISTIC NAVIGATION V1
-   Transições + Loading + Page Enter
+   NEXAUREN — FUTURISTIC NAVIGATION V2
+   Transitions + Session Check + Loading + Page Enter
    ========================================================= */
 
 "use strict";
@@ -34,7 +34,6 @@ function createTransitionElement() {
         return transition;
     }
 
-
     transition =
         document.createElement("div");
 
@@ -46,11 +45,9 @@ function createTransitionElement() {
         "true"
     );
 
-
     document.body.appendChild(
         transition
     );
-
 
     return transition;
 }
@@ -65,10 +62,6 @@ function setupPageTransition() {
     const transition =
         createTransitionElement();
 
-
-    /*
-     * Todos os links internos.
-     */
 
     document.addEventListener(
         "click",
@@ -97,25 +90,34 @@ function setupPageTransition() {
 
 
             /*
-             * Ignorar links sem destino.
+             * Ignorar target="_blank".
              */
+
+            if (
+                link.target === "_blank"
+            ) {
+                return;
+            }
+
 
             const href =
                 link.getAttribute("href");
+
 
             if (
                 !href ||
                 href === "#" ||
                 href.startsWith("#") ||
                 href.startsWith("mailto:") ||
-                href.startsWith("tel:")
+                href.startsWith("tel:") ||
+                href.startsWith("javascript:")
             ) {
                 return;
             }
 
 
             /*
-             * Links externos.
+             * Converter destino para URL.
              */
 
             let destination;
@@ -135,6 +137,10 @@ function setupPageTransition() {
             }
 
 
+            /*
+             * Ignorar links externos.
+             */
+
             if (
                 destination.origin !==
                 window.location.origin
@@ -144,7 +150,7 @@ function setupPageTransition() {
 
 
             /*
-             * Não interceptar download.
+             * Ignorar downloads.
              */
 
             if (
@@ -167,7 +173,7 @@ function setupPageTransition() {
 
 
             /*
-             * INTERCEPTAR
+             * Interceptar navegação.
              */
 
             event.preventDefault();
@@ -185,10 +191,10 @@ function setupPageTransition() {
 
 
 /* =========================================================
-   NAVIGATE WITH TRANSITION
+   NAVIGATION WITH TRANSITION
    ========================================================= */
 
-function navigateWithTransition(
+async function navigateWithTransition(
     url,
     transition
 ) {
@@ -203,7 +209,7 @@ function navigateWithTransition(
 
 
     /*
-     * Mostrar tela de processamento.
+     * Mostrar processamento.
      */
 
     transition.classList.add(
@@ -212,18 +218,35 @@ function navigateWithTransition(
 
 
     /*
-     * Pequeno atraso para o efeito
-     * ser realmente percebido.
+     * Pequeno atraso para a animação
+     * aparecer corretamente.
      */
 
-    setTimeout(
-        () => {
+    await wait(420);
 
-            window.location.href =
-                url;
 
-        },
-        420
+    /*
+     * Navegar.
+     */
+
+    window.location.href =
+        url;
+
+}
+
+
+/* =========================================================
+   WAIT
+   ========================================================= */
+
+function wait(ms) {
+
+    return new Promise(
+        resolve =>
+            setTimeout(
+                resolve,
+                ms
+            )
     );
 
 }
@@ -248,9 +271,6 @@ function setupRevealAnimations() {
 
     /*
      * IntersectionObserver
-     *
-     * Faz os elementos aparecerem
-     * quando entram na tela.
      */
 
     const observer =
@@ -266,7 +286,9 @@ function setupRevealAnimations() {
 
                             entry.target
                                 .classList
-                                .add("visible");
+                                .add(
+                                    "visible"
+                                );
 
 
                             observer.unobserve(
@@ -313,10 +335,6 @@ function setButtonLoading(
 
 
     if (loading) {
-
-        /*
-         * Guardar texto original.
-         */
 
         if (
             !button.dataset.originalText
@@ -365,7 +383,7 @@ function setButtonLoading(
 
 
 /* =========================================================
-   FORM PROCESSING EFFECT
+   FORM PROCESSING
    ========================================================= */
 
 document.addEventListener(
@@ -383,13 +401,6 @@ document.addEventListener(
         }
 
 
-        /*
-         * Não bloqueamos o formulário.
-         *
-         * O código existente de login/
-         * registro continua funcionando.
-         */
-
         const submitButton =
             form.querySelector(
                 'button[type="submit"], input[type="submit"]'
@@ -400,10 +411,6 @@ document.addEventListener(
             return;
         }
 
-
-        /*
-         * Pequeno efeito visual.
-         */
 
         submitButton.classList.add(
             "loading"
@@ -441,7 +448,7 @@ document.addEventListener(
 
 
 /* =========================================================
-   PAGE EXIT
+   PAGE SHOW
    ========================================================= */
 
 window.addEventListener(
@@ -472,7 +479,7 @@ window.addEventListener(
 
 
 /* =========================================================
-   EXPOSE FUNCTION
+   GLOBAL NEXAUREN UI
    ========================================================= */
 
 window.NexaurenUI = {
