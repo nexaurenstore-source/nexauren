@@ -1,88 +1,89 @@
-/*
- * =========================================================
- * NEXAUREN
- * DASHBOARD
- * =========================================================
- */
+/* =========================================================
+   NEXAUREN — DASHBOARD ENGINE V1
+   ========================================================= */
 
 "use strict";
 
 
-const title =
-    document.getElementById(
-        "dashboard-title"
-    );
+/* =========================================================
+   CATEGORY REGISTRY
+   ========================================================= */
 
-const email =
-    document.getElementById(
-        "dashboard-email"
-    );
+const categories = [
 
-const message =
-    document.getElementById(
-        "dashboard-message"
-    );
+    {
+        id: "audio",
+        name: "Audio",
+        description:
+            "Tools for working with sound and audio.",
+        icon: "♪",
+        path: "/categories/audio/"
+    },
 
-const logoutButton =
-    document.getElementById(
-        "logout-button"
-    );
+    {
+        id: "image",
+        name: "Images",
+        description:
+            "Tools for editing and working with images.",
+        icon: "◈",
+        path: "/categories/image/"
+    },
 
-const logoutButtonMain =
-    document.getElementById(
-        "logout-button-main"
-    );
+    {
+        id: "video",
+        name: "Video",
+        description:
+            "Tools for working with video content.",
+        icon: "▶",
+        path: "/categories/video/"
+    },
 
-
-function showMessage(
-    text,
-    type = "error"
-) {
-
-    if (!message) {
-        return;
+    {
+        id: "files",
+        name: "Files",
+        description:
+            "Tools for managing and processing files.",
+        icon: "↗",
+        path: "/categories/files/"
     }
 
-    message.textContent =
-        text;
-
-    message.className =
-        `auth-message ${type}`;
-
-}
-
-
-function setLogoutLoading(
-    loading
-) {
-
-    if (logoutButton) {
-
-        logoutButton.disabled =
-            loading;
-
-    }
-
-    if (logoutButtonMain) {
-
-        logoutButtonMain.disabled =
-            loading;
-
-        logoutButtonMain.textContent =
-            loading
-                ? "Signing out..."
-                : "Sign out";
-
-    }
-
-}
+];
 
 
 /* =========================================================
-   LOAD USER
+   START
    ========================================================= */
 
-async function loadCurrentUser() {
+document.addEventListener(
+    "DOMContentLoaded",
+    async () => {
+
+        await checkSession();
+
+        renderCategories();
+
+        setupLogout();
+
+    }
+);
+
+
+/* =========================================================
+   SESSION
+   ========================================================= */
+
+async function checkSession() {
+
+    const status =
+        document.getElementById(
+            "account-status"
+        );
+
+
+    if (!status) {
+        return false;
+    }
+
 
     try {
 
@@ -91,9 +92,7 @@ async function loadCurrentUser() {
                 "/api/me",
                 {
                     method: "GET",
-
-                    credentials:
-                        "include",
+                    credentials: "include",
 
                     headers: {
                         "Accept":
@@ -103,69 +102,148 @@ async function loadCurrentUser() {
             );
 
 
-        let result;
-
-        try {
-
-            result =
-                await response.json();
-
-        } catch {
-
-            result = {
-                success: false
-            };
-
-        }
+        const data =
+            await response.json();
 
 
         if (
-            !response.ok ||
-            !result.success ||
-            !result.authenticated
+            !data.success ||
+            !data.authenticated ||
+            !data.user
         ) {
 
+            /*
+             * Dashboard só deve ser
+             * acessível com sessão.
+             */
+
             window.location.href =
-                "pages/login.html";
+                "/login";
 
-            return;
-
-        }
-
-
-        const user =
-            result.user;
-
-
-        if (title) {
-
-            title.textContent =
-                `Welcome, ${user.name}`;
+            return false;
 
         }
 
 
-        if (email) {
+        status.textContent =
+            `Welcome back, ${data.user.name}.`;
 
-            email.textContent =
-                user.email;
-
-        }
+        return true;
 
 
     } catch (error) {
 
         console.error(
-            "Dashboard authentication error:",
+            "Dashboard session error:",
             error
         );
 
-        showMessage(
-            "Unable to verify your account.",
-            "error"
-        );
+
+        window.location.href =
+            "/login";
+
+        return false;
 
     }
+
+}
+
+
+/* =========================================================
+   RENDER CATEGORIES
+   ========================================================= */
+
+function renderCategories() {
+
+    const grid =
+        document.getElementById(
+            "categories-grid"
+        );
+
+
+    if (!grid) {
+        return;
+    }
+
+
+    grid.innerHTML = "";
+
+
+    categories.forEach(
+        (category, index) => {
+
+            const card =
+                document.createElement(
+                    "a"
+                );
+
+
+            card.href =
+                category.path;
+
+
+            card.className =
+                "category-card reveal";
+
+
+            card.style.animationDelay =
+                `${index * 70}ms`;
+
+
+            card.innerHTML = `
+
+                <div class="category-icon">
+                    ${escapeHtml(category.icon)}
+                </div>
+
+                <h3>
+                    ${escapeHtml(category.name)}
+                </h3>
+
+                <p>
+                    ${escapeHtml(category.description)}
+                </p>
+
+                <span class="category-open">
+                    Explore
+                    <span>→</span>
+                </span>
+
+            `;
+
+
+            grid.appendChild(
+                card
+            );
+
+        }
+    );
+
+
+    /*
+     * Ativar animações depois
+     * de criar os elementos.
+     */
+
+    requestAnimationFrame(
+        () => {
+
+            document
+                .querySelectorAll(
+                    ".category-card.reveal"
+                )
+                .forEach(
+                    element => {
+
+                        element.classList.add(
+                            "visible"
+                        );
+
+                    }
+                );
+
+        }
+    );
 
 }
 
@@ -174,113 +252,75 @@ async function loadCurrentUser() {
    LOGOUT
    ========================================================= */
 
-async function logout() {
+function setupLogout() {
 
-    setLogoutLoading(true);
-
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/logout",
-                {
-                    method: "POST",
-
-                    credentials:
-                        "include",
-
-                    headers: {
-                        "Accept":
-                            "application/json"
-                    }
-                }
-            );
-
-
-        let result;
-
-        try {
-
-            result =
-                await response.json();
-
-        } catch {
-
-            result = {
-                success: false
-            };
-
-        }
-
-
-        if (
-            !response.ok ||
-            !result.success
-        ) {
-
-            showMessage(
-                result.message ||
-                "Unable to sign out.",
-                "error"
-            );
-
-            return;
-
-        }
-
-
-        window.location.href =
-            "pages/login.html";
-
-
-    } catch (error) {
-
-        console.error(
-            "Logout error:",
-            error
+    const button =
+        document.getElementById(
+            "logout-button"
         );
 
-        showMessage(
-            "Unable to connect to Nexauren.",
-            "error"
-        );
 
-    } finally {
-
-        setLogoutLoading(false);
-
+    if (!button) {
+        return;
     }
 
-}
 
-
-/* =========================================================
-   EVENTS
-   ========================================================= */
-
-if (logoutButton) {
-
-    logoutButton.addEventListener(
+    button.addEventListener(
         "click",
-        logout
+        async () => {
+
+            button.disabled = true;
+
+            button.textContent =
+                "Signing out...";
+
+
+            try {
+
+                await fetch(
+                    "/api/logout",
+                    {
+                        method: "POST",
+                        credentials: "include",
+
+                        headers: {
+                            "Accept":
+                                "application/json"
+                        }
+                    }
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Logout error:",
+                    error
+                );
+
+            }
+
+
+            window.location.href =
+                "/";
+
+        }
     );
 
 }
 
 
-if (logoutButtonMain) {
-
-    logoutButtonMain.addEventListener(
-        "click",
-        logout
-    );
-
-}
-
-
 /* =========================================================
-   START
+   HTML ESCAPE
    ========================================================= */
 
-loadCurrentUser();
+function escapeHtml(value) {
+
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+        }
