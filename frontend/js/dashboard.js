@@ -30,22 +30,24 @@ const categories = [
     },
 
     {
-        id: "video",
-        name: "Video",
+        id: "text",
+        name: "Text",
         description:
-            "Tools for working with video content.",
-        icon: "▶",
-        path: "/categories/video/"
+            "Tools for writing, editing and processing text.",
+        icon: "T",
+        path: "/categories/text/"
     },
 
     {
-        id: "files",
-        name: "Files",
+        id: "pdf",
+        name: "PDF",
         description:
-            "Tools for managing and processing files.",
-        icon: "↗",
-        path: "/categories/files/"
+            "Tools for creating, editing and processing PDF files.",
+        icon: "PDF",
+        path: "/categories/pdf/"
     }
+
+];
 
 ];
 
