@@ -10,7 +10,17 @@
         content="width=device-width, initial-scale=1.0"
     >
 
+    <meta
+        name="description"
+        content="Nexauren Image Tools"
+    >
+
     <title>Nexauren — Images</title>
+
+
+    <!-- =====================================================
+         STYLES
+         ===================================================== -->
 
     <link
         rel="stylesheet"
@@ -27,6 +37,20 @@
 
 <body>
 
+    <!-- =====================================================
+         PAGE TRANSITION
+         ===================================================== -->
+
+    <div
+        class="page-transition"
+        aria-hidden="true"
+    ></div>
+
+
+    <!-- =====================================================
+         HEADER
+         ===================================================== -->
+
     <header>
 
         <nav>
@@ -37,6 +61,7 @@
             >
                 NEXAUREN
             </a>
+
 
             <div class="nav-links">
 
@@ -55,7 +80,16 @@
     </header>
 
 
+    <!-- =====================================================
+         MAIN
+         ===================================================== -->
+
     <main class="dashboard-page">
+
+
+        <!-- =================================================
+             CATEGORY HERO
+             ================================================= -->
 
         <section class="dashboard-hero">
 
@@ -65,9 +99,11 @@
                     Category
                 </div>
 
+
                 <h1>
                     Images
                 </h1>
+
 
                 <p>
                     Discover Nexauren tools
@@ -79,6 +115,10 @@
         </section>
 
 
+        <!-- =================================================
+             TOOLS
+             ================================================= -->
+
         <section class="dashboard-categories">
 
             <div class="section-title">
@@ -87,6 +127,7 @@
                     Image Tools
                 </h2>
 
+
                 <p>
                     Tools available in this category.
                 </p>
@@ -94,30 +135,25 @@
             </div>
 
 
-            <div class="categories-grid">
+            <!--
+                O category.js irá preencher
+                esta área automaticamente
+                através do tools.json.
+            -->
 
-                <div
-                    class="card"
-                    style="text-align:center;"
-                >
-
-                    <h3>
-                        No tools yet
-                    </h3>
-
-                    <p>
-                        Nexauren image tools
-                        will appear here.
-                    </p>
-
-                </div>
-
-            </div>
+            <div
+                id="tools-grid"
+                class="categories-grid"
+            ></div>
 
         </section>
 
     </main>
 
+
+    <!-- =====================================================
+         FOOTER
+         ===================================================== -->
 
     <footer>
 
@@ -129,8 +165,30 @@
     </footer>
 
 
+    <!-- =====================================================
+         JAVASCRIPT
+         ===================================================== -->
+
     <script
         src="/js/app.js"
+        defer
+    ></script>
+
+
+    <!--
+        CATEGORY ENGINE
+
+        Responsável por:
+
+        • verificar a sessão
+        • identificar a categoria Images
+        • carregar tools.json
+        • encontrar ferramentas de imagem
+        • criar os cards automaticamente
+    -->
+
+    <script
+        src="/js/category.js"
         defer
     ></script>
 
