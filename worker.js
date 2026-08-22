@@ -155,10 +155,6 @@ async function handleFrontendRequest(
     url
 ) {
 
-    /*
-     * Only route normal browser GET requests.
-     */
-
     if (
         request.method !== "GET" &&
         request.method !== "HEAD"
@@ -174,66 +170,103 @@ async function handleFrontendRequest(
     const pathname =
         url.pathname;
 
-   const isProtectedTool =
-    pathname === "/tools" ||
-    pathname.startsWith("/tools/");
 
-if (isProtectedTool) {
+    /* =====================================================
+       PROTECTED TOOLS
+       ===================================================== */
 
-    const token =
-        getSessionToken(request);
+    const isProtectedTool =
+        pathname === "/tools" ||
+        pathname.startsWith("/tools/");
 
-    let authenticatedUser =
-        null;
 
-    if (token) {
+    if (isProtectedTool) {
 
-        authenticatedUser =
-            await findSession(
-                env,
-                token
+        const token =
+            getSessionToken(request);
+
+        let authenticatedUser =
+            null;
+
+
+        if (token) {
+
+            authenticatedUser =
+                await findSession(
+                    env,
+                    token
+                );
+
+        }
+
+
+        if (!authenticatedUser) {
+
+            const loginUrl =
+                new URL(
+                    "/login",
+                    request.url
+                );
+
+
+            loginUrl.searchParams.set(
+                "next",
+                pathname + url.search
             );
+
+
+            const headers =
+                new Headers();
+
+
+            headers.set(
+                "Location",
+                loginUrl.toString()
+            );
+
+
+            headers.set(
+                "Cache-Control",
+                "no-store"
+            );
+
+
+            return new Response(
+                null,
+                {
+                    status: 302,
+                    headers
+                }
+            );
+
+        }
 
     }
 
-    if (!authenticatedUser) {
 
-        const loginUrl =
-            new URL(
-                "/login",
-                request.url
-            );
+    /* =====================================================
+       DAQUI PARA BAIXO CONTINUA O SEU CÓDIGO ORIGINAL
+       ===================================================== */
 
-        loginUrl.searchParams.set(
-            "next",
-            pathname + url.search
-        );
+    const routes = {
 
-        const headers =
-            new Headers();
+        "/login":
+            "/pages/login.html",
 
-        headers.set(
-            "Location",
-            loginUrl.toString()
-        );
+        "/register":
+            "/pages/register.html",
 
-        headers.set(
-            "Cache-Control",
-            "no-store"
-        );
+        "/forgot-password":
+            "/pages/forgot-password.html",
 
-        return new Response(
-            null,
-            {
-                status: 302,
-                headers
-            }
-        );
+        "/dashboard":
+            "/pages/dashboard.html"
 
-    }
+    };
 
-       }
 
+    // resto do seu FRONTEND ROUTER...
+}
 
     /*
      * =====================================================
