@@ -18,28 +18,27 @@
         "png",
         "webp"
       ]
+    },
+    {
+      "id": "image-resizer",
+      "name": "Image Resizer",
+      "slug": "image-resizer",
+      "category": "image",
+      "description": "Resize images to custom dimensions while keeping control of the aspect ratio.",
+      "icon": "image",
+      "path": "/tools/image/resizer/",
+      "status": "active",
+      "featured": false,
+      "new": true,
+      "tags": [
+        "image",
+        "resizer",
+        "resize",
+        "dimensions",
+        "jpg",
+        "png",
+        "webp"
+      ]
     }
-  ]
-}
-,
-{
-  "id": "image-resizer",
-  "name": "Image Resizer",
-  "slug": "image-resizer",
-  "category": "image",
-  "description": "Resize images to custom dimensions while keeping control of the aspect ratio.",
-  "icon": "image",
-  "path": "/tools/image/resizer/",
-  "status": "active",
-  "featured": false,
-  "new": true,
-  "tags": [
-    "image",
-    "resizer",
-    "resize",
-    "dimensions",
-    "jpg",
-    "png",
-    "webp"
   ]
 }
