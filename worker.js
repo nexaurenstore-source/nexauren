@@ -174,6 +174,66 @@ async function handleFrontendRequest(
     const pathname =
         url.pathname;
 
+   const isProtectedTool =
+    pathname === "/tools" ||
+    pathname.startsWith("/tools/");
+
+if (isProtectedTool) {
+
+    const token =
+        getSessionToken(request);
+
+    let authenticatedUser =
+        null;
+
+    if (token) {
+
+        authenticatedUser =
+            await findSession(
+                env,
+                token
+            );
+
+    }
+
+    if (!authenticatedUser) {
+
+        const loginUrl =
+            new URL(
+                "/login",
+                request.url
+            );
+
+        loginUrl.searchParams.set(
+            "next",
+            pathname + url.search
+        );
+
+        const headers =
+            new Headers();
+
+        headers.set(
+            "Location",
+            loginUrl.toString()
+        );
+
+        headers.set(
+            "Cache-Control",
+            "no-store"
+        );
+
+        return new Response(
+            null,
+            {
+                status: 302,
+                headers
+            }
+        );
+
+    }
+
+       }
+
 
     /*
      * =====================================================
