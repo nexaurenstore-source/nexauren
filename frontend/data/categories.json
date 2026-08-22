@@ -1,0 +1,37 @@
+[
+    {
+        "id": "image",
+        "name": "Image",
+        "description": "Tools for creating, editing and optimizing images.",
+        "icon": "IMAGE",
+        "url": "/categories/image/"
+    },
+    {
+        "id": "audio",
+        "name": "Audio",
+        "description": "Tools for working with audio files.",
+        "icon": "AUDIO",
+        "url": "/categories/audio/"
+    },
+    {
+        "id": "video",
+        "name": "Video",
+        "description": "Tools for editing and processing video.",
+        "icon": "VIDEO",
+        "url": "/categories/video/"
+    },
+    {
+        "id": "pdf",
+        "name": "PDF",
+        "description": "Tools for working with PDF documents.",
+        "icon": "PDF",
+        "url": "/categories/pdf/"
+    },
+    {
+        "id": "text",
+        "name": "Text",
+        "description": "Tools for writing, formatting and processing text.",
+        "icon": "TEXT",
+        "url": "/categories/text/"
+    }
+]
