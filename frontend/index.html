@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="en">
 
 <head>
 
@@ -12,7 +12,7 @@
 
     <meta
         name="description"
-        content="Nexauren — tecnologia, criatividade e ferramentas digitais."
+        content="Nexauren — a new digital experience."
     >
 
     <meta
@@ -20,12 +20,7 @@
         content="#ffffff"
     >
 
-    <title>Nexauren — Create the Future</title>
-
-
-    <!-- =====================================================
-         CSS
-         ===================================================== -->
+    <title>Nexauren</title>
 
     <link
         rel="stylesheet"
@@ -36,7 +31,6 @@
 
 
 <body>
-
 
     <!-- =====================================================
          NAVIGATION
@@ -56,16 +50,15 @@
 
             <div class="nav-links">
 
-                <a href="/">
-                    Home
-                </a>
-
                 <a href="/login">
                     Login
                 </a>
 
-                <a href="/register">
-                    Create account
+                <a
+                    href="/register"
+                    class="nav-button"
+                >
+                    Create Account
                 </a>
 
             </div>
@@ -75,56 +68,53 @@
     </header>
 
 
-
     <!-- =====================================================
          MAIN
          ===================================================== -->
 
     <main>
 
-
-        <!-- =================================================
-             HERO
-             ================================================= -->
-
         <section class="hero">
 
             <div class="hero-content">
 
+                <!-- Estado da sessão -->
 
                 <div
-                    class="status reveal"
-                    style="margin-bottom: 20px;"
+                    id="welcome-message"
+                    class="status reveal hidden"
                 >
-                    Nexauren is online
+                    Welcome back.
                 </div>
 
 
+                <!-- Apresentação -->
+
                 <h1>
 
-                    Create.
+                    Welcome to
                     <br>
 
-                    Explore.
-                    <br>
-
-                    <span>
-                        Build the future.
-                    </span>
+                    <span>Nexauren.</span>
 
                 </h1>
 
 
                 <p>
 
-                    A new digital space for
-                    creativity, technology and
-                    powerful tools.
+                    A new digital experience
+                    built for creativity,
+                    technology and the future.
 
                 </p>
 
 
+                <!-- =================================================
+                     VISITOR ACTIONS
+                     ================================================= -->
+
                 <div
+                    id="visitor-actions"
                     class="hero-actions reveal"
                     style="
                         display:flex;
@@ -138,21 +128,37 @@
                         href="/register"
                         class="btn"
                     >
-                        Get Started
+                        Create Account
                     </a>
 
 
                     <a
-                        href="#tools"
-                        class="btn"
-                        style="
-                            background:#ffffff;
-                            color:#635bff;
-                            border:1px solid rgba(99,91,255,.18);
-                            box-shadow:0 10px 30px rgba(44,52,100,.08);
-                        "
+                        href="/login"
+                        class="btn secondary-button"
                     >
-                        Explore
+                        Login
+                    </a>
+
+                </div>
+
+
+                <!-- =================================================
+                     LOGGED-IN ACTION
+                     ================================================= -->
+
+                <div
+                    id="user-actions"
+                    class="hero-actions reveal hidden"
+                    style="
+                        justify-content:center;
+                    "
+                >
+
+                    <a
+                        href="/dashboard"
+                        class="btn"
+                    >
+                        Go to Dashboard
                     </a>
 
                 </div>
@@ -163,335 +169,42 @@
         </section>
 
 
-
-        <!-- =================================================
-             TOOLS
-             ================================================= -->
-
-        <section
-            id="tools"
-            class="container"
-        >
-
-            <div class="section-title reveal">
-
-                <h2>
-                    Everything starts here.
-                </h2>
-
-                <p>
-                    Simple tools. Powerful possibilities.
-                </p>
-
-            </div>
-
-
-
-            <div class="tools-grid">
-
-
-                <!-- AUDIO -->
-
-                <article
-                    class="tool-card reveal"
-                >
-
-                    <div class="tool-icon">
-
-                        ♪
-
-                    </div>
-
-
-                    <h3>
-                        Audio
-                    </h3>
-
-
-                    <p>
-                        Create, explore and
-                        work with audio tools.
-                    </p>
-
-                </article>
-
-
-
-                <!-- CREATIVE -->
-
-                <article
-                    class="tool-card reveal"
-                >
-
-                    <div class="tool-icon">
-
-                        ◇
-
-                    </div>
-
-
-                    <h3>
-                        Creative
-                    </h3>
-
-
-                    <p>
-                        Tools designed for
-                        creators and ideas.
-                    </p>
-
-                </article>
-
-
-
-                <!-- FILES -->
-
-                <article
-                    class="tool-card reveal"
-                >
-
-                    <div class="tool-icon">
-
-                        ↗
-
-                    </div>
-
-
-                    <h3>
-                        Files
-                    </h3>
-
-
-                    <p>
-                        Manage your digital
-                        content in one place.
-                    </p>
-
-                </article>
-
-
-
-                <!-- FUTURE -->
-
-                <article
-                    class="tool-card reveal"
-                >
-
-                    <div class="tool-icon">
-
-                        ✦
-
-                    </div>
-
-
-                    <h3>
-                        More coming
-                    </h3>
-
-
-                    <p>
-                        New Nexauren tools
-                        will arrive soon.
-                    </p>
-
-                </article>
-
-
-            </div>
-
-        </section>
-
-
-
-        <!-- =================================================
-             TECHNOLOGY SECTION
-             ================================================= -->
-
-        <section>
-
-            <div
-                class="container"
-                style="
-                    display:grid;
-                    grid-template-columns:
-                        repeat(
-                            auto-fit,
-                            minmax(280px, 1fr)
-                        );
-                    gap:30px;
-                    align-items:center;
-                "
-            >
-
-
-                <div class="reveal">
-
-                    <div class="status">
-                        Built for creators
-                    </div>
-
-
-                    <h2
-                        style="
-                            margin-top:18px;
-                            font-size:
-                                clamp(
-                                    2.2rem,
-                                    5vw,
-                                    4rem
-                                );
-                            line-height:1;
-                            letter-spacing:-.06em;
-                        "
-                    >
-
-                        Technology
-                        <br>
-
-                        without
-                        <br>
-
-                        complexity.
-
-                    </h2>
-
-
-                    <p
-                        style="
-                            margin-top:20px;
-                            max-width:560px;
-                            color:var(--text-soft);
-                            line-height:1.8;
-                        "
-                    >
-
-                        Nexauren is being built
-                        step by step, starting
-                        simple and becoming more
-                        powerful over time.
-
-                    </p>
-
-                </div>
-
-
-
-                <div
-                    class="feature-card reveal"
-                    style="
-                        min-height:300px;
-                        display:flex;
-                        align-items:center;
-                        justify-content:center;
-                    "
-                >
-
-                    <div
-                        style="
-                            width:150px;
-                            height:150px;
-                            border-radius:50%;
-                            background:
-                                linear-gradient(
-                                    135deg,
-                                    var(--primary),
-                                    var(--blue),
-                                    var(--cyan)
-                                );
-                            box-shadow:
-                                0 0 70px
-                                rgba(99,91,255,.35);
-                            display:flex;
-                            align-items:center;
-                            justify-content:center;
-                            color:white;
-                            font-size:2.5rem;
-                            animation:
-                                heroGlow 4s
-                                ease-in-out
-                                infinite
-                                alternate;
-                        "
-                    >
-                        N
-                    </div>
-
-                </div>
-
-
-            </div>
-
-        </section>
-
-
-
-        <!-- =================================================
-             CTA
-             ================================================= -->
+        <!-- =====================================================
+             SIMPLE INTRO
+             ===================================================== -->
 
         <section
             class="container"
+            style="
+                padding-top:20px;
+                padding-bottom:110px;
+            "
         >
 
             <div
                 class="card reveal"
                 style="
+                    max-width:800px;
+                    margin:0 auto;
                     text-align:center;
-                    padding:60px 25px;
                 "
             >
 
-                <div class="status">
-                    Start your journey
-                </div>
-
-
-                <h2
-                    style="
-                        margin-top:18px;
-                        font-size:
-                            clamp(
-                                2rem,
-                                5vw,
-                                3.5rem
-                            );
-                        letter-spacing:-.06em;
-                    "
-                >
-
-                    Welcome to Nexauren.
-
+                <h2>
+                    Something new is coming.
                 </h2>
 
-
-                <p
-                    style="
-                        max-width:600px;
-                        margin:15px auto 28px;
-                    "
-                >
-
-                    Create your account and
-                    become part of the next
-                    generation of digital tools.
-
+                <p>
+                    Nexauren is being built
+                    step by step. Simple,
+                    modern and powerful.
                 </p>
-
-
-                <a
-                    href="/register"
-                    class="btn"
-                >
-                    Create account
-                </a>
 
             </div>
 
         </section>
 
-
     </main>
-
 
 
     <!-- =====================================================
@@ -508,7 +221,6 @@
     </footer>
 
 
-
     <!-- =====================================================
          JAVASCRIPT
          ===================================================== -->
@@ -519,6 +231,107 @@
     ></script>
 
 
+    <!-- =====================================================
+         SESSION DETECTION
+         ===================================================== -->
+
+    <script>
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            async () => {
+
+                const welcome =
+                    document.getElementById(
+                        "welcome-message"
+                    );
+
+                const visitorActions =
+                    document.getElementById(
+                        "visitor-actions"
+                    );
+
+                const userActions =
+                    document.getElementById(
+                        "user-actions"
+                    );
+
+
+                try {
+
+                    const response =
+                        await fetch(
+                            "/api/me",
+                            {
+                                method: "GET",
+                                credentials: "include",
+                                headers: {
+                                    "Accept":
+                                        "application/json"
+                                }
+                            }
+                        );
+
+
+                    if (!response.ok) {
+                        return;
+                    }
+
+
+                    const data =
+                        await response.json();
+
+
+                    /*
+                     * USER IS LOGGED IN
+                     */
+
+                    if (
+                        data.success &&
+                        data.authenticated &&
+                        data.user
+                    ) {
+
+                        const name =
+                            data.user.name ||
+                            "there";
+
+
+                        welcome.textContent =
+                            `Welcome back, ${name}.`;
+
+
+                        welcome.classList.remove(
+                            "hidden"
+                        );
+
+
+                        visitorActions.classList.add(
+                            "hidden"
+                        );
+
+
+                        userActions.classList.remove(
+                            "hidden"
+                        );
+
+                    }
+
+
+                } catch (error) {
+
+                    console.error(
+                        "Session check failed:",
+                        error
+                    );
+
+                }
+
+            }
+        );
+
+    </script>
+
 </body>
 
-                        </html>
+    </html>
