@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Nexauren Text Tools"
+    >
+
+    <title>Nexauren — Text</title>
+
+
+    <!-- MAIN STYLE -->
+
+    <link
+        rel="stylesheet"
+        href="/css/style.css"
+    >
+
+
+    <!-- DASHBOARD / CATEGORY STYLE -->
+
+    <link
+        rel="stylesheet"
+        href="/css/dashboard.css"
+    >
+
+</head>
+
+
+<body>
+
+    <!-- =====================================================
+         PAGE TRANSITION
+         ===================================================== -->
+
+    <div
+        class="page-transition"
+        aria-hidden="true"
+    ></div>
+
+
+    <!-- =====================================================
+         HEADER
+         ===================================================== -->
+
+    <header>
+
+        <nav>
+
+            <a
+                href="/"
+                class="logo"
+            >
+                NEXAUREN
+            </a>
+
+
+            <div class="nav-links">
+
+                <a href="/dashboard/">
+                    Dashboard
+                </a>
+
+                <a href="/">
+                    Home
+                </a>
+
+            </div>
+
+        </nav>
+
+    </header>
+
+
+    <!-- =====================================================
+         MAIN
+         ===================================================== -->
+
+    <main class="dashboard-page">
+
+
+        <!-- =================================================
+             HERO
+             ================================================= -->
+
+        <section class="dashboard-hero">
+
+            <div
+                class="dashboard-hero-content"
+            >
+
+                <div class="status">
+                    Category
+                </div>
+
+
+                <h1>
+                    Text
+                </h1>
+
+
+                <p>
+                    Discover Nexauren tools
+                    for writing, editing and
+                    processing text.
+                </p>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             TOOLS
+             ================================================= -->
+
+        <section
+            class="dashboard-categories"
+        >
+
+            <div class="section-title">
+
+                <h2>
+                    Text Tools
+                </h2>
+
+
+                <p>
+                    Tools available in this category.
+                </p>
+
+            </div>
+
+
+            <div
+                id="tools-grid"
+                class="categories-grid"
+            >
+
+                <!--
+
+                    Tools will be added here
+                    automatically later.
+
+                -->
+
+                <div
+                    class="card"
+                    style="text-align:center;"
+                >
+
+                    <div class="icon">
+                        T
+                    </div>
+
+
+                    <h3>
+                        Coming Soon
+                    </h3>
+
+
+                    <p>
+                        Nexauren text tools
+                        will appear here.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- =====================================================
+         FOOTER
+         ===================================================== -->
+
+    <footer>
+
+        <p>
+            © 2026 Nexauren.
+            All rights reserved.
+        </p>
+
+    </footer>
+
+
+    <!-- =====================================================
+         JAVASCRIPT
+         ===================================================== -->
+
+    <script
+        src="/js/app.js"
+        defer
+    ></script>
+
+
+    <script>
+
+        "use strict";
+
+
+        /*
+         * Verify session before
+         * showing the category.
+         */
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            async () => {
+
+                try {
+
+                    const response =
+                        await fetch(
+                            "/api/me",
+                            {
+                                method: "GET",
+                                credentials: "include",
+
+                                headers: {
+                                    "Accept":
+                                        "application/json"
+                                }
+                            }
+                        );
+
+
+                    const data =
+                        await response.json();
+
+
+                    if (
+                        !data.success ||
+                        !data.authenticated ||
+                        !data.user
+                    ) {
+
+                        window.location.href =
+                            "/login";
+
+                        return;
+
+                    }
+
+
+                    document.body.classList.add(
+                        "page-ready"
+                    );
+
+
+                } catch (error) {
+
+                    console.error(
+                        "Text category session error:",
+                        error
+                    );
+
+
+                    window.location.href =
+                        "/login";
+
+                }
+
+            }
+        );
+
+    </script>
+
+</body>
+
+</html>
