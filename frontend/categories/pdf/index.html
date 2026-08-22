@@ -18,15 +18,14 @@
     <title>Nexauren — PDF</title>
 
 
-    <!-- MAIN STYLE -->
+    <!-- =====================================================
+         STYLES
+         ===================================================== -->
 
     <link
         rel="stylesheet"
         href="/css/style.css"
     >
-
-
-    <!-- DASHBOARD / CATEGORY STYLE -->
 
     <link
         rel="stylesheet"
@@ -89,7 +88,7 @@
 
 
         <!-- =================================================
-             HERO
+             CATEGORY HERO
              ================================================= -->
 
         <section class="dashboard-hero">
@@ -141,41 +140,16 @@
             </div>
 
 
+            <!--
+                O category.js irá preencher
+                esta área automaticamente
+                através do tools.json.
+            -->
+
             <div
                 id="tools-grid"
                 class="categories-grid"
-            >
-
-                <!--
-
-                    Tools will be added here
-                    automatically later.
-
-                -->
-
-                <div
-                    class="card"
-                    style="text-align:center;"
-                >
-
-                    <div class="icon">
-                        PDF
-                    </div>
-
-
-                    <h3>
-                        Coming Soon
-                    </h3>
-
-
-                    <p>
-                        Nexauren PDF tools
-                        will appear here.
-                    </p>
-
-                </div>
-
-            </div>
+            ></div>
 
         </section>
 
@@ -206,78 +180,23 @@
     ></script>
 
 
-    <script>
+    <!--
+        CATEGORY ENGINE
 
-        "use strict";
+        Responsável por:
 
+        • verificar a sessão
+        • identificar a categoria PDF
+        • carregar tools.json
+        • encontrar ferramentas PDF
+        • criar os cards automaticamente
+    -->
 
-        /*
-         * Verify session before
-         * showing the category.
-         */
-
-        document.addEventListener(
-            "DOMContentLoaded",
-            async () => {
-
-                try {
-
-                    const response =
-                        await fetch(
-                            "/api/me",
-                            {
-                                method: "GET",
-                                credentials: "include",
-
-                                headers: {
-                                    "Accept":
-                                        "application/json"
-                                }
-                            }
-                        );
-
-
-                    const data =
-                        await response.json();
-
-
-                    if (
-                        !data.success ||
-                        !data.authenticated ||
-                        !data.user
-                    ) {
-
-                        window.location.href =
-                            "/login";
-
-                        return;
-
-                    }
-
-
-                    document.body.classList.add(
-                        "page-ready"
-                    );
-
-
-                } catch (error) {
-
-                    console.error(
-                        "PDF category session error:",
-                        error
-                    );
-
-
-                    window.location.href =
-                        "/login";
-
-                }
-
-            }
-        );
-
-    </script>
+    <script
+        src="/js/category.js"
+        defer
+    ></script>
 
 </body>
 
-</html>
+    </html>
