@@ -3,21 +3,16 @@
     {
       "id": "favicon-creator",
       "name": "Favicon Creator",
-      "description": "Create and customize favicon files and favicon packs directly in your browser.",
+      "description": "Create and customize favicon images directly in your browser.",
       "category": "image",
       "icon": "🧩",
-      "version": "1.0.0",
-      "status": "active",
       "path": "/tools/image/favicon-creator/",
-      "entry": "index.html",
-      "technologies": [
+      "technology": [
         "HTML",
         "CSS",
         "JavaScript"
       ],
-      "authentication": {
-        "required": true
-      }
+      "status": "available"
     }
   ]
 }
