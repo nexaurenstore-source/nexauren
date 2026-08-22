@@ -1,9 +1,10 @@
 /*
  * =========================================================
  * NEXAUREN
- * CLOUDFLARE WORKER — V1
+ * CLOUDFLARE WORKER
+ * =========================================================
  *
- * Simples:
+ * API:
  *
  * GET  /api
  * GET  /api/health
@@ -13,9 +14,18 @@
  * GET  /api/me
  * POST /api/logout
  *
+ * FRONTEND ROUTES:
+ *
+ * /
+ * /login
+ * /register
+ * /forgot-password
+ * /dashboard
+ *
  * D1:
  * - users
  * - sessions
+ *
  * =========================================================
  */
 
@@ -23,29 +33,31 @@
 
 
 /* =========================================================
-   CONFIGURAÇÃO
+   CONFIGURATION
    ========================================================= */
 
 const SESSION_DURATION_SECONDS =
-    60 * 60 * 24 * 7; // 7 dias
+    60 * 60 * 24 * 7;
 
 
-const MAX_NAME_LENGTH = 100;
-
-const MAX_EMAIL_LENGTH = 254;
-
-const MIN_PASSWORD_LENGTH = 8;
-
-const MAX_PASSWORD_LENGTH = 200;
+const MAX_NAME_LENGTH =
+    100;
 
 
-/*
- * PBKDF2
- *
- * A senha nunca é armazenada diretamente.
- */
+const MAX_EMAIL_LENGTH =
+    254;
 
-const PBKDF2_ITERATIONS = 100000;
+
+const MIN_PASSWORD_LENGTH =
+    8;
+
+
+const MAX_PASSWORD_LENGTH =
+    200;
+
+
+const PBKDF2_ITERATIONS =
+    100000;
 
 
 /* =========================================================
@@ -59,12 +71,14 @@ export default {
         try {
 
             const url =
-                new URL(request.url);
+                new URL(
+                    request.url
+                );
 
 
-            /*
-             * CORS
-             */
+            /* =================================================
+               CORS / PREFLIGHT
+               ================================================= */
 
             if (
                 request.method === "OPTIONS"
@@ -77,9 +91,9 @@ export default {
             }
 
 
-            /*
-             * API
-             */
+            /* =================================================
+               API
+               ================================================= */
 
             if (
                 url.pathname === "/api" ||
@@ -95,12 +109,14 @@ export default {
             }
 
 
-            /*
-             * FRONTEND
-             */
+            /* =================================================
+               FRONTEND ROUTES
+               ================================================= */
 
-            return env.ASSETS.fetch(
-                request
+            return await handleFrontendRequest(
+                request,
+                env,
+                url
             );
 
 
@@ -130,6 +146,162 @@ export default {
 
 
 /* =========================================================
+   FRONTEND ROUTER
+   ========================================================= */
+
+async function handleFrontendRequest(
+    request,
+    env,
+    url
+) {
+
+    /*
+     * Only route normal browser GET requests.
+     */
+
+    if (
+        request.method !== "GET" &&
+        request.method !== "HEAD"
+    ) {
+
+        return env.ASSETS.fetch(
+            request
+        );
+
+    }
+
+
+    const pathname =
+        url.pathname;
+
+
+    /*
+     * =====================================================
+     * BEAUTIFUL ROUTES
+     * =====================================================
+     *
+     * /login
+     *       -> /pages/login.html
+     *
+     * /register
+     *       -> /pages/register.html
+     *
+     * /forgot-password
+     *       -> /pages/forgot-password.html
+     *
+     * /dashboard
+     *       -> /pages/dashboard.html
+     *
+     */
+
+
+    const routes = {
+
+        "/login":
+            "/pages/login.html",
+
+        "/register":
+            "/pages/register.html",
+
+        "/forgot-password":
+            "/pages/forgot-password.html",
+
+        "/dashboard":
+            "/pages/dashboard.html"
+
+    };
+
+
+    const target =
+        routes[pathname];
+
+
+    if (target) {
+
+        const assetURL =
+            new URL(
+                target,
+                request.url
+            );
+
+
+        const assetRequest =
+            new Request(
+                assetURL.toString(),
+                request
+            );
+
+
+        return env.ASSETS.fetch(
+            assetRequest
+        );
+
+    }
+
+
+    /*
+     * =====================================================
+     * TRAILING SLASHES
+     * =====================================================
+     */
+
+    if (
+        pathname.length > 1 &&
+        pathname.endsWith("/")
+    ) {
+
+        const withoutSlash =
+            pathname.slice(
+                0,
+                -1
+            );
+
+
+        const slashTarget =
+            routes[withoutSlash];
+
+
+        if (slashTarget) {
+
+            const assetURL =
+                new URL(
+                    slashTarget,
+                    request.url
+                );
+
+
+            const assetRequest =
+                new Request(
+                    assetURL.toString(),
+                    request
+                );
+
+
+            return env.ASSETS.fetch(
+                assetRequest
+            );
+
+        }
+
+    }
+
+
+    /*
+     * =====================================================
+     * NORMAL ASSETS
+     * =====================================================
+     *
+     * CSS, JS, images, favicon, etc.
+     */
+
+    return env.ASSETS.fetch(
+        request
+    );
+
+}
+
+
+/* =========================================================
    API ROUTER
    ========================================================= */
 
@@ -143,9 +315,9 @@ async function handleApiRequest(
         url.pathname;
 
 
-    /*
-     * API STATUS
-     */
+    /* =====================================================
+       API STATUS
+       ===================================================== */
 
     if (
         path === "/api" &&
@@ -165,9 +337,9 @@ async function handleApiRequest(
     }
 
 
-    /*
-     * HEALTH
-     */
+    /* =====================================================
+       HEALTH
+       ===================================================== */
 
     if (
         path === "/api/health" &&
@@ -189,9 +361,9 @@ async function handleApiRequest(
     }
 
 
-    /*
-     * REGISTER
-     */
+    /* =====================================================
+       REGISTER
+       ===================================================== */
 
     if (
         path === "/api/register" &&
@@ -206,9 +378,9 @@ async function handleApiRequest(
     }
 
 
-    /*
-     * LOGIN
-     */
+    /* =====================================================
+       LOGIN
+       ===================================================== */
 
     if (
         path === "/api/login" &&
@@ -223,9 +395,9 @@ async function handleApiRequest(
     }
 
 
-    /*
-     * CURRENT USER
-     */
+    /* =====================================================
+       CURRENT USER
+       ===================================================== */
 
     if (
         path === "/api/me" &&
@@ -240,9 +412,9 @@ async function handleApiRequest(
     }
 
 
-    /*
-     * LOGOUT
-     */
+    /* =====================================================
+       LOGOUT
+       ===================================================== */
 
     if (
         path === "/api/logout" &&
@@ -257,9 +429,9 @@ async function handleApiRequest(
     }
 
 
-    /*
-     * NOT FOUND
-     */
+    /* =====================================================
+       API NOT FOUND
+       ===================================================== */
 
     return json(
         {
@@ -301,10 +473,6 @@ async function register(
     let data;
 
 
-    /*
-     * JSON
-     */
-
     try {
 
         data =
@@ -324,10 +492,6 @@ async function register(
 
     }
 
-
-    /*
-     * INPUT
-     */
 
     if (
         !data ||
@@ -368,9 +532,9 @@ async function register(
         );
 
 
-    /*
-     * NAME
-     */
+    /* =====================================================
+       NAME
+       ===================================================== */
 
     if (
         !name ||
@@ -390,9 +554,9 @@ async function register(
     }
 
 
-    /*
-     * EMAIL
-     */
+    /* =====================================================
+       EMAIL
+       ===================================================== */
 
     if (
         !email ||
@@ -413,9 +577,9 @@ async function register(
     }
 
 
-    /*
-     * PASSWORD
-     */
+    /* =====================================================
+       PASSWORD
+       ===================================================== */
 
     if (
         password.length < MIN_PASSWORD_LENGTH ||
@@ -435,9 +599,9 @@ async function register(
     }
 
 
-    /*
-     * CHECK EXISTING USER
-     */
+    /* =====================================================
+       CHECK EXISTING USER
+       ===================================================== */
 
     try {
 
@@ -449,7 +613,9 @@ async function register(
                     WHERE email = ?
                     LIMIT 1
                 `)
-                .bind(email)
+                .bind(
+                    email
+                )
                 .first();
 
 
@@ -474,6 +640,7 @@ async function register(
             error
         );
 
+
         return json(
             {
                 success: false,
@@ -487,9 +654,9 @@ async function register(
     }
 
 
-    /*
-     * HASH PASSWORD
-     */
+    /* =====================================================
+       HASH PASSWORD
+       ===================================================== */
 
     let passwordHash;
 
@@ -508,6 +675,7 @@ async function register(
             error
         );
 
+
         return json(
             {
                 success: false,
@@ -521,9 +689,9 @@ async function register(
     }
 
 
-    /*
-     * USER
-     */
+    /* =====================================================
+       USER
+       ===================================================== */
 
     const userId =
         crypto.randomUUID();
@@ -535,9 +703,9 @@ async function register(
         );
 
 
-    /*
-     * INSERT USER
-     */
+    /* =====================================================
+       INSERT USER
+       ===================================================== */
 
     try {
 
@@ -570,6 +738,7 @@ async function register(
             error
         );
 
+
         return json(
             {
                 success: false,
@@ -583,9 +752,9 @@ async function register(
     }
 
 
-    /*
-     * SUCCESS
-     */
+    /* =====================================================
+       SUCCESS
+       ===================================================== */
 
     return json(
         {
@@ -666,10 +835,6 @@ async function login(
         );
 
 
-    /*
-     * BASIC VALIDATION
-     */
-
     if (
         !email ||
         !isValidEmail(email) ||
@@ -689,10 +854,6 @@ async function login(
     }
 
 
-    /*
-     * FIND USER
-     */
-
     let user;
 
 
@@ -710,7 +871,9 @@ async function login(
                     WHERE email = ?
                     LIMIT 1
                 `)
-                .bind(email)
+                .bind(
+                    email
+                )
                 .first();
 
     } catch (error) {
@@ -719,6 +882,7 @@ async function login(
             "Login database error:",
             error
         );
+
 
         return json(
             {
@@ -732,10 +896,6 @@ async function login(
 
     }
 
-
-    /*
-     * USER NOT FOUND
-     */
 
     if (!user) {
 
@@ -751,10 +911,6 @@ async function login(
 
     }
 
-
-    /*
-     * VERIFY PASSWORD
-     */
 
     let validPassword;
 
@@ -773,6 +929,7 @@ async function login(
             "Password verification error:",
             error
         );
+
 
         return json(
             {
@@ -802,10 +959,6 @@ async function login(
     }
 
 
-    /*
-     * CREATE SESSION
-     */
-
     let session;
 
 
@@ -824,6 +977,7 @@ async function login(
             error
         );
 
+
         return json(
             {
                 success: false,
@@ -837,20 +991,12 @@ async function login(
     }
 
 
-    /*
-     * COOKIE
-     */
-
     const cookie =
         buildSessionCookie(
             session.token,
             request
         );
 
-
-    /*
-     * SUCCESS
-     */
 
     return json(
         {
@@ -938,16 +1084,21 @@ async function createSession(
 
 
     return {
-        id: sessionId,
-        token,
-        expiresAt
+        id:
+            sessionId,
+
+        token:
+            token,
+
+        expiresAt:
+            expiresAt
     };
 
 }
 
 
 /* =========================================================
-   GET CURRENT USER
+   CURRENT USER
    ========================================================= */
 
 async function getCurrentUser(
@@ -977,10 +1128,6 @@ async function getCurrentUser(
         );
 
 
-    /*
-     * NO SESSION
-     */
-
     if (!token) {
 
         return json(
@@ -995,80 +1142,16 @@ async function getCurrentUser(
     }
 
 
-    /*
-     * HASH TOKEN
-     */
-
-    let tokenHash;
+        let sessionData;
 
 
     try {
 
-        tokenHash =
-            await sha256(
+        sessionData =
+            await findSession(
+                env,
                 token
             );
-
-    } catch {
-
-        return json(
-            {
-                success: false,
-                authenticated: false,
-                message:
-                    "Unable to verify session."
-            },
-            500,
-            request
-        );
-
-    }
-
-
-    /*
-     * CURRENT TIME
-     */
-
-    const now =
-        Math.floor(
-            Date.now() / 1000
-        );
-
-
-    /*
-     * FIND SESSION + USER
-     *
-     * IMPORTANTE:
-     * LIMIT 1
-     */
-
-    let user;
-
-
-    try {
-
-        user =
-            await env.DB
-                .prepare(`
-                    SELECT
-                        users.id,
-                        users.name,
-                        users.email,
-                        sessions.id AS session_id,
-                        sessions.expires_at
-                    FROM sessions
-                    INNER JOIN users
-                        ON users.id = sessions.user_id
-                    WHERE
-                        sessions.token_hash = ?
-                        AND sessions.expires_at > ?
-                    LIMIT 1
-                `)
-                .bind(
-                    tokenHash,
-                    now
-                )
-                .first();
 
     } catch (error) {
 
@@ -1077,6 +1160,7 @@ async function getCurrentUser(
             error
         );
 
+
         return json(
             {
                 success: false,
@@ -1091,11 +1175,7 @@ async function getCurrentUser(
     }
 
 
-    /*
-     * SESSION INVALID / EXPIRED
-     */
-
-    if (!user) {
+    if (!sessionData) {
 
         return json(
             {
@@ -1115,23 +1195,107 @@ async function getCurrentUser(
     }
 
 
-    /*
-     * AUTHENTICATED
-     */
-
     return json(
         {
             success: true,
             authenticated: true,
             user: {
-                id: user.id,
-                name: user.name,
-                email: user.email
+                id:
+                    sessionData.id,
+
+                name:
+                    sessionData.name,
+
+                email:
+                    sessionData.email
             }
         },
         200,
         request
     );
+
+}
+
+
+/* =========================================================
+   FIND SESSION
+   ========================================================= */
+
+async function findSession(
+    env,
+    token
+) {
+
+    const tokenHash =
+        await sha256(
+            token
+        );
+
+
+    const now =
+        Math.floor(
+            Date.now() / 1000
+        );
+
+
+    const result =
+        await env.DB
+            .prepare(`
+                SELECT
+                    sessions.id AS session_id,
+                    sessions.user_id AS user_id,
+                    sessions.expires_at AS expires_at,
+                    users.id AS id,
+                    users.name AS name,
+                    users.email AS email
+                FROM sessions
+                INNER JOIN users
+                    ON users.id = sessions.user_id
+                WHERE sessions.token_hash = ?
+                  AND sessions.expires_at > ?
+                LIMIT 1
+            `)
+            .bind(
+                tokenHash,
+                now
+            )
+            .first();
+
+
+    if (!result) {
+
+        /*
+         * Remove expired session if one exists.
+         */
+
+        try {
+
+            await env.DB
+                .prepare(`
+                    DELETE FROM sessions
+                    WHERE token_hash = ?
+                `)
+                .bind(
+                    tokenHash
+                )
+                .run();
+
+        } catch (error) {
+
+            console.error(
+                "Expired session cleanup error:",
+                error
+            );
+
+        }
+
+
+        return null;
+
+    }
+
+
+    return result;
 
 }
 
@@ -1145,38 +1309,28 @@ async function logout(
     env
 ) {
 
+    if (!env.DB) {
+
+        return json(
+            {
+                success: false,
+                message:
+                    "Database is not configured."
+            },
+            500,
+            request
+        );
+
+    }
+
+
     const token =
         getSessionToken(
             request
         );
 
 
-    /*
-     * Já não existe sessão.
-     */
-
-    if (!token) {
-
-        return json(
-            {
-                success: true,
-                message:
-                    "Signed out."
-            },
-            200,
-            request,
-            {
-                "Set-Cookie":
-                    clearSessionCookie(
-                        request
-                    )
-            }
-        );
-
-    }
-
-
-    if (env.DB) {
+    if (token) {
 
         try {
 
@@ -1199,18 +1353,25 @@ async function logout(
         } catch (error) {
 
             console.error(
-                "Logout database error:",
+                "Logout error:",
                 error
+            );
+
+
+            return json(
+                {
+                    success: false,
+                    message:
+                        "Unable to sign out."
+                },
+                500,
+                request
             );
 
         }
 
     }
 
-
-    /*
-     * CLEAR COOKIE
-     */
 
     return json(
         {
@@ -1245,7 +1406,7 @@ async function hashPassword(
         );
 
 
-    const passwordKey =
+    const key =
         await crypto.subtle.importKey(
             "raw",
             new TextEncoder().encode(
@@ -1268,7 +1429,8 @@ async function hashPassword(
                 name:
                     "PBKDF2",
 
-                salt,
+                salt:
+                    salt,
 
                 iterations:
                     PBKDF2_ITERATIONS,
@@ -1276,9 +1438,7 @@ async function hashPassword(
                 hash:
                     "SHA-256"
             },
-
-            passwordKey,
-
+            key,
             256
         );
 
@@ -1289,8 +1449,14 @@ async function hashPassword(
         );
 
 
+    /*
+     * Format:
+     *
+     * pbkdf2_sha256$iterations$salt$hash
+     */
+
     return [
-        "pbkdf2",
+        "pbkdf2_sha256",
         PBKDF2_ITERATIONS,
         bytesToBase64Url(salt),
         bytesToBase64Url(hash)
@@ -1322,8 +1488,7 @@ async function verifyPassword(
 
 
     if (
-        parts.length !== 4 ||
-        parts[0] !== "pbkdf2"
+        parts.length !== 4
     ) {
 
         return false;
@@ -1331,8 +1496,14 @@ async function verifyPassword(
     }
 
 
+    const algorithm =
+        parts[0];
+
+
     const iterations =
-        Number(parts[1]);
+        Number(
+            parts[1]
+        );
 
 
     const salt =
@@ -1348,10 +1519,8 @@ async function verifyPassword(
 
 
     if (
-        !Number.isInteger(iterations) ||
-        iterations <= 0 ||
-        !salt ||
-        !expectedHash
+        algorithm !==
+        "pbkdf2_sha256"
     ) {
 
         return false;
@@ -1359,7 +1528,28 @@ async function verifyPassword(
     }
 
 
-    const passwordKey =
+    if (
+        !Number.isInteger(iterations) ||
+        iterations < 10000 ||
+        iterations > 1000000
+    ) {
+
+        return false;
+
+    }
+
+
+    if (
+        !salt.length ||
+        !expectedHash.length
+    ) {
+
+        return false;
+
+    }
+
+
+    const key =
         await crypto.subtle.importKey(
             "raw",
             new TextEncoder().encode(
@@ -1382,16 +1572,16 @@ async function verifyPassword(
                 name:
                     "PBKDF2",
 
-                salt,
+                salt:
+                    salt,
 
-                iterations,
+                iterations:
+                    iterations,
 
                 hash:
                     "SHA-256"
             },
-
-            passwordKey,
-
+            key,
             expectedHash.length * 8
         );
 
@@ -1402,10 +1592,191 @@ async function verifyPassword(
         );
 
 
-    return constantTimeEqual(
+    return timingSafeEqual(
         actualHash,
         expectedHash
     );
+
+}
+
+
+/* =========================================================
+   SHA-256
+   ========================================================= */
+
+async function sha256(
+    value
+) {
+
+    const data =
+        new TextEncoder().encode(
+            value
+        );
+
+
+    const digest =
+        await crypto.subtle.digest(
+            "SHA-256",
+            data
+        );
+
+
+    return bytesToBase64Url(
+        new Uint8Array(
+            digest
+        )
+    );
+
+}
+
+
+/* =========================================================
+   CONSTANT-TIME COMPARISON
+   ========================================================= */
+
+function timingSafeEqual(
+    a,
+    b
+) {
+
+    if (
+        !(a instanceof Uint8Array) ||
+        !(b instanceof Uint8Array)
+    ) {
+
+        return false;
+
+    }
+
+
+    if (
+        a.length !==
+        b.length
+    ) {
+
+        return false;
+
+    }
+
+
+    let difference =
+        0;
+
+
+    for (
+        let index = 0;
+        index < a.length;
+        index++
+    ) {
+
+        difference |=
+            a[index] ^
+            b[index];
+
+    }
+
+
+    return difference === 0;
+
+}
+
+
+/* =========================================================
+   BASE64URL
+   ========================================================= */
+
+function bytesToBase64Url(
+    bytes
+) {
+
+    let binary =
+        "";
+
+
+    for (
+        let index = 0;
+        index < bytes.length;
+        index++
+    ) {
+
+        binary +=
+            String.fromCharCode(
+                bytes[index]
+            );
+
+    }
+
+
+    return btoa(binary)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "");
+
+}
+
+
+/* =========================================================
+   BASE64URL TO BYTES
+   ========================================================= */
+
+function base64UrlToBytes(
+    value
+) {
+
+    try {
+
+        const normalized =
+            String(value)
+                .replace(/-/g, "+")
+                .replace(/_/g, "/");
+
+
+        const padding =
+            normalized.length % 4;
+
+
+        const padded =
+            padding
+                ? normalized +
+                  "=".repeat(
+                      4 - padding
+                  )
+                : normalized;
+
+
+        const binary =
+            atob(
+                padded
+            );
+
+
+        const bytes =
+            new Uint8Array(
+                binary.length
+            );
+
+
+        for (
+            let index = 0;
+            index < binary.length;
+            index++
+        ) {
+
+            bytes[index] =
+                binary.charCodeAt(
+                    index
+                );
+
+        }
+
+
+        return bytes;
+
+    } catch {
+
+        return new Uint8Array();
+
+    }
 
 }
 
@@ -1419,26 +1790,33 @@ function buildSessionCookie(
     request
 ) {
 
-    const url =
-        new URL(
-            request.url
+    const secure =
+        isSecureRequest(
+            request
         );
 
 
-    const secure =
-        url.protocol === "https:"
-            ? "; Secure"
-            : "";
-
-
-    return [
+    const parts = [
         `nexauren_session=${encodeURIComponent(token)}`,
         "Path=/",
         "HttpOnly",
         "SameSite=Lax",
-        `Max-Age=${SESSION_DURATION_SECONDS}`,
-        secure
-    ].join("; ");
+        `Max-Age=${SESSION_DURATION_SECONDS}`
+    ];
+
+
+    if (secure) {
+
+        parts.push(
+            "Secure"
+        );
+
+    }
+
+
+    return parts.join(
+        "; "
+    );
 
 }
 
@@ -1451,26 +1829,34 @@ function clearSessionCookie(
     request
 ) {
 
-    const url =
-        new URL(
-            request.url
+    const secure =
+        isSecureRequest(
+            request
         );
 
 
-    const secure =
-        url.protocol === "https:"
-            ? "; Secure"
-            : "";
-
-
-    return [
+    const parts = [
         "nexauren_session=",
         "Path=/",
         "HttpOnly",
         "SameSite=Lax",
         "Max-Age=0",
-        secure
-    ].join("; ");
+        "Expires=Thu, 01 Jan 1970 00:00:00 GMT"
+    ];
+
+
+    if (secure) {
+
+        parts.push(
+            "Secure"
+        );
+
+    }
+
+
+    return parts.join(
+        "; "
+    );
 
 }
 
@@ -1502,15 +1888,27 @@ function getSessionToken(
         );
 
 
-    return cookies[
-        "nexauren_session"
-    ] || null;
+    const token =
+        cookies.nexauren_session;
+
+
+    if (
+        !token ||
+        typeof token !== "string"
+    ) {
+
+        return null;
+
+    }
+
+
+    return token;
 
 }
 
 
 /* =========================================================
-   COOKIE PARSER
+   PARSE COOKIES
    ========================================================= */
 
 function parseCookies(
@@ -1520,55 +1918,64 @@ function parseCookies(
     const cookies = {};
 
 
-    for (
-        const part of header.split(";")
-    ) {
+    String(header)
+        .split(";")
+        .forEach(
+            part => {
 
-        const index =
-            part.indexOf("=");
-
-
-        if (index === -1) {
-
-            continue;
-
-        }
+                const index =
+                    part.indexOf("=");
 
 
-        const key =
-            part
-                .slice(0, index)
-                .trim();
+                if (
+                    index === -1
+                ) {
+
+                    return;
+
+                }
 
 
-        const value =
-            part
-                .slice(index + 1)
-                .trim();
+                const name =
+                    part
+                        .slice(
+                            0,
+                            index
+                        )
+                        .trim();
 
 
-        if (!key) {
+                const value =
+                    part
+                        .slice(
+                            index + 1
+                        )
+                        .trim();
 
-            continue;
 
-        }
+                if (!name) {
+
+                    return;
+
+                }
 
 
-        try {
+                try {
 
-            cookies[key] =
-                decodeURIComponent(
-                    value
-                );
+                    cookies[name] =
+                        decodeURIComponent(
+                            value
+                        );
 
-        } catch {
+                } catch {
 
-            cookies[key] =
-                value;
+                    cookies[name] =
+                        value;
 
-        }
+                }
 
-    }
+            }
+        );
 
 
     return cookies;
@@ -1577,31 +1984,27 @@ function parseCookies(
 
 
 /* =========================================================
-   SHA-256
+   SECURE REQUEST
    ========================================================= */
 
-async function sha256(
-    value
+function isSecureRequest(
+    request
 ) {
 
-    const data =
-        new TextEncoder().encode(
-            value
+    try {
+
+        return (
+            new URL(
+                request.url
+            ).protocol ===
+            "https:"
         );
 
+    } catch {
 
-    const hash =
-        await crypto.subtle.digest(
-            "SHA-256",
-            data
-        );
+        return true;
 
-
-    return bytesToBase64Url(
-        new Uint8Array(
-            hash
-        )
-    );
+    }
 
 }
 
@@ -1614,24 +2017,8 @@ function isValidEmail(
     email
 ) {
 
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-        .test(email);
-
-}
-
-
-/* =========================================================
-   CONSTANT-TIME COMPARE
-   ========================================================= */
-
-function constantTimeEqual(
-    a,
-    b
-) {
-
     if (
-        !(a instanceof Uint8Array) ||
-        !(b instanceof Uint8Array)
+        typeof email !== "string"
     ) {
 
         return false;
@@ -1640,7 +2027,8 @@ function constantTimeEqual(
 
 
     if (
-        a.length !== b.length
+        email.length < 3 ||
+        email.length > MAX_EMAIL_LENGTH
     ) {
 
         return false;
@@ -1648,135 +2036,18 @@ function constantTimeEqual(
     }
 
 
-    let difference = 0;
+    /*
+     * Deliberately simple validation.
+     * Full email validation is not practical
+     * with a regular expression.
+     */
+
+    const pattern =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 
-    for (
-        let i = 0;
-        i < a.length;
-        i++
-    ) {
-
-        difference |=
-            a[i] ^ b[i];
-
-    }
-
-
-    return difference === 0;
-
-}
-
-
-/* =========================================================
-   BYTES → BASE64URL
-   ========================================================= */
-
-function bytesToBase64Url(
-    bytes
-) {
-
-    let binary = "";
-
-
-    for (
-        const byte of bytes
-    ) {
-
-        binary +=
-            String.fromCharCode(
-                byte
-            );
-
-    }
-
-
-    return btoa(binary)
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-        .replace(/=+$/g, "");
-
-}
-
-
-/* =========================================================
-   BASE64URL → BYTES
-   ========================================================= */
-
-function base64UrlToBytes(
-    value
-) {
-
-    try {
-
-        let base64 =
-            value
-                .replace(/-/g, "+")
-                .replace(/_/g, "/");
-
-
-        while (
-            base64.length % 4
-        ) {
-
-            base64 += "=";
-
-        }
-
-
-        const binary =
-            atob(base64);
-
-
-        const bytes =
-            new Uint8Array(
-                binary.length
-            );
-
-
-        for (
-            let i = 0;
-            i < binary.length;
-            i++
-        ) {
-
-            bytes[i] =
-                binary.charCodeAt(i);
-
-        }
-
-
-        return bytes;
-
-    } catch {
-
-        return null;
-
-    }
-
-}
-
-
-/* =========================================================
-   OPTIONS / CORS
-   ========================================================= */
-
-function handleOptions(
-    request
-) {
-
-    const headers =
-        corsHeaders(
-            request
-        );
-
-
-    return new Response(
-        null,
-        {
-            status: 204,
-            headers
-        }
+    return pattern.test(
+        email
     );
 
 }
@@ -1799,7 +2070,7 @@ function json(
 
     headers.set(
         "Content-Type",
-        "application/json; charset=UTF-8"
+        "application/json; charset=utf-8"
     );
 
 
@@ -1816,51 +2087,49 @@ function json(
 
 
     headers.set(
-        "X-Frame-Options",
-        "DENY"
-    );
-
-
-    headers.set(
         "Referrer-Policy",
-        "strict-origin-when-cross-origin"
+        "same-origin"
     );
 
 
     const cors =
-        corsHeaders(
+        getCorsHeaders(
             request
         );
 
 
-    for (
-        const [key, value]
-        of Object.entries(cors)
-    ) {
+    Object.entries(
+        cors
+    ).forEach(
+        ([key, value]) => {
 
-        headers.set(
-            key,
-            value
-        );
+            headers.set(
+                key,
+                value
+            );
 
-    }
+        }
+    );
 
 
-    for (
-        const [key, value]
-        of Object.entries(extraHeaders)
-    ) {
+    Object.entries(
+        extraHeaders || {}
+    ).forEach(
+        ([key, value]) => {
 
-        headers.set(
-            key,
-            value
-        );
+            headers.set(
+                key,
+                value
+            );
 
-    }
+        }
+    );
 
 
     return new Response(
-        JSON.stringify(data),
+        JSON.stringify(
+            data
+        ),
         {
             status,
             headers
@@ -1871,10 +2140,10 @@ function json(
 
 
 /* =========================================================
-   CORS HEADERS
+   CORS
    ========================================================= */
 
-function corsHeaders(
+function getCorsHeaders(
     request
 ) {
 
@@ -1894,41 +2163,134 @@ function corsHeaders(
         );
 
 
-    const allowed =
-        origin === "https://nexaurenstory.com" ||
-        origin === "http://localhost:8787" ||
-        origin === "http://127.0.0.1:8787";
+    if (!origin) {
 
-
-    if (allowed) {
-
-        headers[
-            "Access-Control-Allow-Origin"
-        ] = origin;
-
-
-        headers[
-            "Access-Control-Allow-Credentials"
-        ] = "true";
-
-
-        headers[
-            "Access-Control-Allow-Methods"
-        ] = "GET, POST, OPTIONS";
-
-
-        headers[
-            "Access-Control-Allow-Headers"
-        ] = "Content-Type";
-
-
-        headers[
-            "Vary"
-        ] = "Origin";
+        return headers;
 
     }
+
+
+    let allowed = false;
+
+
+    try {
+
+        const requestURL =
+            new URL(
+                request.url
+            );
+
+
+        const originURL =
+            new URL(
+                origin
+            );
+
+
+        /*
+         * Only allow the same origin by default.
+         *
+         * This prevents random external websites
+         * from using the authentication API.
+         */
+
+        allowed =
+            originURL.origin ===
+            requestURL.origin;
+
+    } catch {
+
+        allowed = false;
+
+    }
+
+
+    if (!allowed) {
+
+        return headers;
+
+    }
+
+
+    headers[
+        "Access-Control-Allow-Origin"
+    ] =
+        origin;
+
+
+    headers[
+        "Access-Control-Allow-Credentials"
+    ] =
+        "true";
+
+
+    headers[
+        "Access-Control-Allow-Methods"
+    ] =
+        "GET, POST, OPTIONS";
+
+
+    headers[
+        "Access-Control-Allow-Headers"
+    ] =
+        "Content-Type";
+
+
+    headers[
+        "Vary"
+    ] =
+        "Origin";
 
 
     return headers;
 
 }
+
+
+/* =========================================================
+   OPTIONS
+   ========================================================= */
+
+function handleOptions(
+    request
+) {
+
+    const headers =
+        new Headers();
+
+
+    const cors =
+        getCorsHeaders(
+            request
+        );
+
+
+    Object.entries(
+        cors
+    ).forEach(
+        ([key, value]) => {
+
+            headers.set(
+                key,
+                value
+            );
+
+        }
+    );
+
+
+    headers.set(
+        "Access-Control-Max-Age",
+        "86400"
+    );
+
+
+    return new Response(
+        null,
+        {
+            status: 204,
+            headers
+        }
+    );
+
+               }
