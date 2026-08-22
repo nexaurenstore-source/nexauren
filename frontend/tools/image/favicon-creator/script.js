@@ -1,6 +1,5 @@
 "use strict";
 
-
 /* =========================================================
    NEXAUREN — FAVICON CREATOR V1
    ========================================================= */
@@ -8,69 +7,45 @@
 
 /* =========================================================
    ELEMENT HELPER
-========================================================= */
+   ========================================================= */
 
-const $ = (id) =>
-    document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 
 
 /* =========================================================
    ELEMENTS
-========================================================= */
+   ========================================================= */
 
-const app =
-    $("app");
+const app = $("app");
+const accessLoading = $("access-loading");
 
-const accessLoading =
-    $("access-loading");
+const fileInput = $("file-input");
+const chooseButton = $("choose-button");
+const dropZone = $("drop-zone");
 
-const fileInput =
-    $("file-input");
+const previewCanvas = $("preview-canvas");
+const emptyPreview = $("empty-preview");
 
-const chooseButton =
-    $("choose-button");
+const downloadPng = $("download-png");
+const downloadIco = $("download-ico");
+const downloadZip = $("download-zip");
 
-const dropZone =
-    $("drop-zone");
-
-const previewCanvas =
-    $("preview-canvas");
-
-const emptyPreview =
-    $("empty-preview");
-
-const downloadPng =
-    $("download-png");
-
-const downloadIco =
-    $("download-ico");
-
-const downloadZip =
-    $("download-zip");
-
-const resetButton =
-    $("reset-button");
-
-const copyCode =
-    $("copy-code");
-
-const htmlCode =
-    $("html-code");
+const resetButton = $("reset-button");
+const copyCode = $("copy-code");
+const htmlCode = $("html-code");
 
 
 /* =========================================================
    STATE
-========================================================= */
+   ========================================================= */
 
 let sourceImage = null;
-
-let sourceData =
-    null;
+let sourceData = null;
 
 
 /* =========================================================
    INITIALIZATION
-========================================================= */
+   ========================================================= */
 
 document.addEventListener(
     "DOMContentLoaded",
@@ -91,9 +66,19 @@ document.addEventListener(
 
 /* =========================================================
    SESSION
-========================================================= */
+   ========================================================= */
 
 async function checkSession() {
+
+    /*
+     * The user should not see technical
+     * session information.
+     *
+     * The loading message is handled
+     * by the HTML:
+     *
+     * Dream. Create. Build.
+     */
 
     try {
 
@@ -102,7 +87,6 @@ async function checkSession() {
                 "/api/me",
                 {
                     method: "GET",
-
                     credentials: "include",
 
                     headers: {
@@ -141,14 +125,16 @@ async function checkSession() {
 
         /*
          * Session exists.
-         * Now the actual tool becomes visible.
+         * Show the tool.
          */
 
-        accessLoading.hidden =
-            true;
+        if (accessLoading) {
+            accessLoading.hidden = true;
+        }
 
-        app.hidden =
-            false;
+        if (app) {
+            app.hidden = false;
+        }
 
         document.body.classList.add(
             "authenticated"
@@ -177,19 +163,18 @@ async function checkSession() {
 
 /* =========================================================
    LOGIN REDIRECT
-========================================================= */
+   ========================================================= */
 
 function redirectToLogin() {
 
-    window.location.href =
-        "/login";
+    window.location.href = "/login";
 
 }
 
 
 /* =========================================================
    TOOL INITIALIZATION
-========================================================= */
+   ========================================================= */
 
 function initializeTool() {
 
@@ -210,20 +195,29 @@ function initializeTool() {
 
 /* =========================================================
    UPLOAD
-========================================================= */
+   ========================================================= */
 
 function setupUpload() {
 
-    chooseButton.addEventListener(
-        "click",
-        (event) => {
+    if (!fileInput || !dropZone) {
+        return;
+    }
 
-            event.stopPropagation();
 
-            fileInput.click();
+    if (chooseButton) {
 
-        }
-    );
+        chooseButton.addEventListener(
+            "click",
+            (event) => {
+
+                event.stopPropagation();
+
+                fileInput.click();
+
+            }
+        );
+
+    }
 
 
     dropZone.addEventListener(
@@ -244,9 +238,7 @@ function setupUpload() {
                 fileInput.files[0];
 
             if (file) {
-
                 loadImage(file);
-
             }
 
         }
@@ -295,9 +287,7 @@ function setupUpload() {
 
 
             if (file) {
-
                 loadImage(file);
-
             }
 
         }
@@ -308,7 +298,7 @@ function setupUpload() {
 
 /* =========================================================
    LOAD IMAGE
-========================================================= */
+   ========================================================= */
 
 function loadImage(file) {
 
@@ -334,52 +324,49 @@ function loadImage(file) {
         new FileReader();
 
 
-    reader.onload =
-        () => {
+    reader.onload = () => {
 
-            const image =
-                new Image();
-
-
-            image.onload =
-                () => {
-
-                    sourceImage =
-                        image;
-
-                    sourceData =
-                        reader.result;
+        const image =
+            new Image();
 
 
-                    emptyPreview.hidden =
-                        true;
+        image.onload = () => {
 
-                    previewCanvas.hidden =
-                        false;
+            sourceImage = image;
 
-
-                    enableTool();
-
-
-                    render();
-
-                };
-
-
-            image.onerror =
-                () => {
-
-                    alert(
-                        "Unable to read this image."
-                    );
-
-                };
-
-
-            image.src =
+            sourceData =
                 reader.result;
 
+
+            if (emptyPreview) {
+                emptyPreview.hidden = true;
+            }
+
+            if (previewCanvas) {
+                previewCanvas.hidden = false;
+            }
+
+
+            enableTool();
+
+            render();
+
         };
+
+
+        image.onerror = () => {
+
+            alert(
+                "Unable to read this image."
+            );
+
+        };
+
+
+        image.src =
+            reader.result;
+
+    };
 
 
     reader.readAsDataURL(file);
@@ -389,28 +376,32 @@ function loadImage(file) {
 
 /* =========================================================
    ENABLE TOOL
-========================================================= */
+   ========================================================= */
 
 function enableTool() {
 
-    downloadPng.disabled =
-        false;
+    if (downloadPng) {
+        downloadPng.disabled = false;
+    }
 
-    downloadIco.disabled =
-        false;
+    if (downloadIco) {
+        downloadIco.disabled = false;
+    }
 
-    downloadZip.disabled =
-        false;
+    if (downloadZip) {
+        downloadZip.disabled = false;
+    }
 
-    copyCode.disabled =
-        false;
+    if (copyCode) {
+        copyCode.disabled = false;
+    }
 
 }
 
 
 /* =========================================================
    CONTROLS
-========================================================= */
+   ========================================================= */
 
 function setupControls() {
 
@@ -425,7 +416,13 @@ function setupControls() {
     controls.forEach(
         (id) => {
 
-            $(id).addEventListener(
+            const element = $(id);
+
+            if (!element) {
+                return;
+            }
+
+            element.addEventListener(
                 "change",
                 render
             );
@@ -445,12 +442,26 @@ function setupControls() {
     sliders.forEach(
         ([inputId, valueId]) => {
 
-            $(inputId).addEventListener(
+            const input =
+                $(inputId);
+
+            const output =
+                $(valueId);
+
+
+            if (!input) {
+                return;
+            }
+
+
+            input.addEventListener(
                 "input",
                 () => {
 
-                    $(valueId).textContent =
-                        $(inputId).value;
+                    if (output) {
+                        output.textContent =
+                            input.value;
+                    }
 
                     render();
 
@@ -479,7 +490,7 @@ function setupControls() {
 
 /* =========================================================
    DRAW
-========================================================= */
+   ========================================================= */
 
 function draw(size) {
 
@@ -489,23 +500,16 @@ function draw(size) {
         );
 
 
-    canvas.width =
-        size;
-
-    canvas.height =
-        size;
+    canvas.width = size;
+    canvas.height = size;
 
 
     const ctx =
-        canvas.getContext(
-            "2d"
-        );
+        canvas.getContext("2d");
 
 
     if (!sourceImage) {
-
         return canvas;
-
     }
 
 
@@ -513,13 +517,22 @@ function draw(size) {
      * Background
      */
 
+    const backgroundMode =
+        $("background-mode");
+
+
+    const background =
+        $("background");
+
+
     if (
-        $("background-mode").value ===
-        "color"
+        backgroundMode &&
+        backgroundMode.value === "color" &&
+        background
     ) {
 
         ctx.fillStyle =
-            $("background").value;
+            background.value;
 
         ctx.fillRect(
             0,
@@ -535,13 +548,18 @@ function draw(size) {
      * Rounded corners
      */
 
+    const radiusInput =
+        $("radius");
+
+
     const radius =
-        size *
-        (
-            Number(
-                $("radius").value
-            ) / 100
-        );
+        radiusInput
+            ? size *
+              (
+                  Number(radiusInput.value) /
+                  100
+              )
+            : 0;
 
 
     if (radius > 0) {
@@ -566,14 +584,24 @@ function draw(size) {
      * Fit
      */
 
+    const fitElement =
+        $("fit");
+
+
     const fit =
-        $("fit").value;
+        fitElement
+            ? fitElement.value
+            : "contain";
+
+
+    const zoomElement =
+        $("zoom");
 
 
     const scale =
-        Number(
-            $("zoom").value
-        ) / 100;
+        zoomElement
+            ? Number(zoomElement.value) / 100
+            : 1;
 
 
     let ratio;
@@ -610,16 +638,24 @@ function draw(size) {
         scale;
 
 
+    const positionXElement =
+        $("position-x");
+
+
+    const positionYElement =
+        $("position-y");
+
+
     const positionX =
-        Number(
-            $("position-x").value
-        ) / 100;
+        positionXElement
+            ? Number(positionXElement.value) / 100
+            : 0.5;
 
 
     const positionY =
-        Number(
-            $("position-y").value
-        ) / 100;
+        positionYElement
+            ? Number(positionYElement.value) / 100
+            : 0.5;
 
 
     const x =
@@ -642,9 +678,7 @@ function draw(size) {
 
 
     if (radius > 0) {
-
         ctx.restore();
-
     }
 
 
@@ -655,7 +689,7 @@ function draw(size) {
 
 /* =========================================================
    ROUNDED RECTANGLE
-========================================================= */
+   ========================================================= */
 
 function roundRect(
     ctx,
@@ -719,22 +753,24 @@ function roundRect(
 
 
 /* =========================================================
-   RENDER PREVIEW
-========================================================= */
+   RENDER
+   ========================================================= */
 
 function render() {
 
-    if (!sourceImage) {
-
+    if (!sourceImage || !previewCanvas) {
         return;
-
     }
 
 
+    const sizeElement =
+        $("main-size");
+
+
     const size =
-        Number(
-            $("main-size").value
-        );
+        sizeElement
+            ? Number(sizeElement.value)
+            : 256;
 
 
     const canvas =
@@ -776,7 +812,7 @@ function render() {
 
 /* =========================================================
    SELECTED SIZES
-========================================================= */
+   ========================================================= */
 
 function selectedSizes() {
 
@@ -784,25 +820,29 @@ function selectedSizes() {
         ...document.querySelectorAll(
             ".size-option:checked"
         )
-    ]
-        .map(
-            checkbox =>
-                Number(
-                    checkbox.value
-                )
-        );
+    ].map(
+        checkbox =>
+            Number(
+                checkbox.value
+            )
+    );
 
 }
 
 
 /* =========================================================
    DOWNLOAD BLOB
-========================================================= */
+   ========================================================= */
 
 function downloadBlob(
     blob,
     filename
 ) {
+
+    if (!blob) {
+        return;
+    }
+
 
     const url =
         URL.createObjectURL(
@@ -816,11 +856,8 @@ function downloadBlob(
         );
 
 
-    anchor.href =
-        url;
-
-    anchor.download =
-        filename;
+    anchor.href = url;
+    anchor.download = filename;
 
 
     document.body.appendChild(
@@ -829,7 +866,6 @@ function downloadBlob(
 
 
     anchor.click();
-
 
     anchor.remove();
 
@@ -849,108 +885,104 @@ function downloadBlob(
 
 
 /* =========================================================
-   PNG DOWNLOAD
-========================================================= */
+   DOWNLOADS
+   ========================================================= */
 
 function setupDownloads() {
 
-    downloadPng.addEventListener(
-        "click",
-        () => {
+    if (downloadPng) {
 
-            if (!sourceImage) {
-                return;
-            }
+        downloadPng.addEventListener(
+            "click",
+            () => {
 
-
-            const size =
-                Number(
-                    $("main-size").value
-                );
+                if (!sourceImage) {
+                    return;
+                }
 
 
-            const canvas =
-                draw(size);
-
-
-            canvas.toBlob(
-                (blob) => {
-
-                    if (!blob) {
-                        return;
-                    }
-
-
-                    downloadBlob(
-                        blob,
-                        `favicon-${size}x${size}.png`
+                const size =
+                    Number(
+                        $("main-size").value
                     );
 
-                },
-                "image/png"
-            );
 
-        }
-    );
+                const canvas =
+                    draw(size);
+
+
+                canvas.toBlob(
+                    (blob) => {
+
+                        downloadBlob(
+                            blob,
+                            `favicon-${size}x${size}.png`
+                        );
+
+                    },
+                    "image/png"
+                );
+
+            }
+        );
+
+    }
 
 
     /*
-     * ICO button.
-     *
-     * A browser cannot simply rename
-     * a PNG into a valid ICO file.
-     *
-     * Therefore V1 generates a
-     * browser-compatible PNG fallback
-     * with the .png extension instead
-     * of creating a fake ICO.
+     * V1:
+     * Download a valid PNG instead of
+     * pretending a PNG is an ICO.
      */
 
-    downloadIco.addEventListener(
-        "click",
-        () => {
+    if (downloadIco) {
 
-            if (!sourceImage) {
-                return;
+        downloadIco.addEventListener(
+            "click",
+            () => {
+
+                if (!sourceImage) {
+                    return;
+                }
+
+
+                const canvas =
+                    draw(32);
+
+
+                canvas.toBlob(
+                    (blob) => {
+
+                        downloadBlob(
+                            blob,
+                            "favicon-32x32.png"
+                        );
+
+                    },
+                    "image/png"
+                );
+
             }
+        );
+
+    }
 
 
-            const canvas =
-                draw(32);
+    if (downloadZip) {
 
+        downloadZip.addEventListener(
+            "click",
+            createZip
+        );
 
-            canvas.toBlob(
-                (blob) => {
-
-                    if (!blob) {
-                        return;
-                    }
-
-
-                    downloadBlob(
-                        blob,
-                        "favicon-32x32.png"
-                    );
-
-                },
-                "image/png"
-            );
-
-        }
-    );
-
-
-    downloadZip.addEventListener(
-        "click",
-        createZip
-    );
+    }
 
 }
 
 
 /* =========================================================
    ZIP
-========================================================= */
+   ========================================================= */
 
 async function createZip() {
 
@@ -974,8 +1006,7 @@ async function createZip() {
     }
 
 
-    downloadZip.disabled =
-        true;
+    downloadZip.disabled = true;
 
     downloadZip.textContent =
         "Creating pack...";
@@ -1024,26 +1055,18 @@ async function createZip() {
         }
 
 
-        /*
-         * Create HTML file
-         */
-
         folder.file(
             "favicon-code.html",
             htmlCode.value
         );
 
 
-        /*
-         * Simple README
-         */
-
         folder.file(
             "README.txt",
             [
                 "NEXAUREN FAVICON PACK",
                 "",
-                "Generated with Nexauren Favicon Creator.",
+                "Generated with Nexauren Favicon Creator V1.",
                 "",
                 "PNG favicon files are included.",
                 "",
@@ -1082,8 +1105,7 @@ async function createZip() {
 
     } finally {
 
-        downloadZip.disabled =
-            false;
+        downloadZip.disabled = false;
 
         downloadZip.textContent =
             "Download Favicon Pack";
@@ -1095,7 +1117,7 @@ async function createZip() {
 
 /* =========================================================
    CANVAS TO BLOB
-========================================================= */
+   ========================================================= */
 
 function canvasToBlob(canvas) {
 
@@ -1115,7 +1137,7 @@ function canvasToBlob(canvas) {
 
 /* =========================================================
    LOAD EXTERNAL SCRIPT
-========================================================= */
+   ========================================================= */
 
 function loadScript(src) {
 
@@ -1128,8 +1150,7 @@ function loadScript(src) {
                 );
 
 
-            script.src =
-                src;
+            script.src = src;
 
 
             script.onload =
@@ -1137,12 +1158,15 @@ function loadScript(src) {
 
 
             script.onerror =
-                () =>
+                () => {
+
                     reject(
                         new Error(
                             "Failed to load external library."
                         )
                     );
+
+                };
 
 
             document.head.appendChild(
@@ -1157,9 +1181,14 @@ function loadScript(src) {
 
 /* =========================================================
    HTML CODE
-========================================================= */
+   ========================================================= */
 
 function updateHtmlCode() {
+
+    if (!htmlCode) {
+        return;
+    }
+
 
     htmlCode.value =
 `<!-- Nexauren Favicon -->
@@ -1178,15 +1207,19 @@ function updateHtmlCode() {
     href="/favicon-16x16.png"
 >`;
 
-
 }
 
 
 /* =========================================================
    COPY
-========================================================= */
+   ========================================================= */
 
 function setupCopy() {
+
+    if (!copyCode) {
+        return;
+    }
+
 
     copyCode.addEventListener(
         "click",
@@ -1220,75 +1253,8 @@ function setupCopy() {
 
             } catch (error) {
 
-                /*
-                 * Fallback for browsers
-                 * where Clipboard API is blocked.
-                 */
-
                 htmlCode.select();
 
                 document.execCommand(
                     "copy"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   RESET
-========================================================= */
-
-function setupReset() {
-
-    resetButton.addEventListener(
-        "click",
-        () => {
-
-            sourceImage =
-                null;
-
-            sourceData =
-                null;
-
-
-            fileInput.value =
-                "";
-
-
-            previewCanvas.hidden =
-                true;
-
-
-            emptyPreview.hidden =
-                false;
-
-
-            downloadPng.disabled =
-                true;
-
-            downloadIco.disabled =
-                true;
-
-            downloadZip.disabled =
-                true;
-
-            copyCode.disabled =
-                true;
-
-
-            $("radius").value =
-                0;
-
-            $("zoom").value =
-                100;
-
-            $("position-x").value =
-                50;
-
-            $("position-y").value =
-      
+  
