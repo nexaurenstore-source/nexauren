@@ -150,7 +150,6 @@ async function handleFrontendRequest(
     env,
     url
 ) {
-
     /*
      * Only handle normal browser requests.
      */
@@ -159,16 +158,168 @@ async function handleFrontendRequest(
         request.method !== "GET" &&
         request.method !== "HEAD"
     ) {
-
-        return env.ASSETS.fetch(
-            request
-        );
-
+        return env.ASSETS.fetch(request);
     }
 
+    const pathname = url.pathname;
 
-    const pathname =
-        url.pathname;
+    /*
+     * Public routes
+     * These routes can be accessed without authentication.
+     */
+    const publicRoutes = [
+        "/",
+        "/login",
+        "/register",
+        "/signup",
+        "/forgot-password",
+        "/reset-password"
+    ];
+
+    const isPublicRoute =
+        publicRoutes.includes(pathname);
+
+    /*
+     * Static files should also remain accessible.
+     */
+    const isStaticFile =
+        pathname.startsWith("/assets/") ||
+        pathname.startsWith("/static/") ||
+        pathname.startsWith("/favicon") ||
+        pathname.includes(".");
+
+    /*
+     * Allow public pages and static resources.
+     */
+    if (isPublicRoute || isStaticFile) {
+        return env.ASSETS.fetch(request);
+    }
+
+    /*
+     * Get authentication cookie.
+     */
+    const cookieHeader =
+        request.headers.get("Cookie") || "";
+
+    /*
+     * Example:
+     * session=<token>
+     */
+    const sessionMatch =
+        cookieHeader.match(
+            /(?:^|;\s*)session=([^;]+)/
+        );
+
+    const sessionToken =
+        sessionMatch?.[1];
+
+    /*
+     * No session -> send user to login.
+     */
+    if (!sessionToken) {
+        const loginURL = new URL(
+            "/login",
+            request.url
+        );
+
+        loginURL.searchParams.set(
+            "redirect",
+            pathname
+        );
+
+        return Response.redirect(
+            loginURL.toString(),
+            302
+        );
+    }
+
+    /*
+     * IMPORTANT:
+     * Here we must validate the session
+     * against your authentication system.
+     *
+     * Do NOT trust only the existence of
+     * the cookie.
+     */
+
+    const user = await validateSession(
+        sessionToken,
+        env
+    );
+
+    /*
+     * Invalid/expired session.
+     */
+    if (!user) {
+        const loginURL = new URL(
+            "/login",
+            request.url
+        );
+
+        loginURL.searchParams.set(
+            "redirect",
+            pathname
+        );
+
+        return Response.redirect(
+            loginURL.toString(),
+            302
+        );
+    }
+
+    /*
+     * Authenticated user.
+     */
+    return env.ASSETS.fetch(request);
+}
+
+
+/*
+ * Validate the session.
+ *
+ * This function must be connected to
+ * your real authentication/database system.
+ */
+async function validateSession(
+    token,
+    env
+) {
+    if (!token) {
+        return null;
+    }
+
+    /*
+     * Example using Cloudflare KV.
+     *
+     * If your project uses another system
+     * such as D1, we should replace this.
+     */
+    const sessionData =
+        await env.SESSIONS.get(
+            `session:${token}`,
+            "json"
+        );
+
+    if (!sessionData) {
+        return null;
+    }
+
+    /*
+     * Optional expiration check.
+     */
+    if (
+        sessionData.expiresAt &&
+        Date.now() >= sessionData.expiresAt
+    ) {
+        await env.SESSIONS.delete(
+            `session:${token}`
+        );
+
+        return null;
+    }
+
+    return sessionData;
+       }
 
 
     /* =====================================================
