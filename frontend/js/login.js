@@ -2,21 +2,19 @@
  * =========================================================
  * NEXAUREN
  * LOGIN
+ * =========================================================
  *
  * Responsabilidade:
  * - Validar formulário
  * - Enviar email/password para /api/login
- * - Guardar a sessão através do cookie HttpOnly
+ * - Usar a sessão criada pelo Worker
  * - Mostrar mensagens ao utilizador
  *
- * NÃO contém:
- * - SQL
- * - Password hashing
- * - Criação de sessão
- *
- * Tudo isso fica no Worker.
  * =========================================================
  */
+
+
+"use strict";
 
 
 /* =========================================================
@@ -234,12 +232,8 @@ async function login() {
        VALIDATE
        ------------------------------------------------------- */
 
-    if (
-        !validateForm()
-    ) {
-
+    if (!validateForm()) {
         return;
-
     }
 
 
@@ -264,6 +258,7 @@ async function login() {
 
 
     try {
+
 
         /* ---------------------------------------------------
            API REQUEST
@@ -291,7 +286,7 @@ async function login() {
 
 
         /* ---------------------------------------------------
-           READ RESPONSE
+           RESPONSE
            --------------------------------------------------- */
 
         let result;
@@ -353,18 +348,20 @@ async function login() {
            REDIRECT
            ---------------------------------------------------
 
-           The Worker creates the session cookie.
+           IMPORTANT:
 
-           After successful authentication,
-           the user can enter the dashboard.
+           Do not use ../dashboard.html.
 
-        */
+           The login page is inside /pages/,
+           therefore we use an absolute URL.
+
+        --------------------------------------------------- */
 
         setTimeout(
             function () {
 
                 window.location.href =
-                    "../dashboard.html";
+                    "/";
 
             },
             500
