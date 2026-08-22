@@ -140,112 +140,7 @@ export default {
 
         }
 
-    }
-
-};
-
-
-/* =========================================================
-   FRONTEND ROUTER
-   ========================================================= */
-
-async function handleFrontendRequest(
-    request,
-    env,
-    url
-) {
-
-    if (
-        request.method !== "GET" &&
-        request.method !== "HEAD"
-    ) {
-
-        return env.ASSETS.fetch(
-            request
-        );
-
-    }
-
-
-    const pathname =
-        url.pathname;
-
-
-    /* =====================================================
-       PROTECTED TOOLS
-       ===================================================== */
-
-    const isProtectedTool =
-        pathname === "/tools" ||
-        pathname.startsWith("/tools/");
-
-
-    if (isProtectedTool) {
-
-        const token =
-            getSessionToken(request);
-
-        let authenticatedUser =
-            null;
-
-
-        if (token) {
-
-            authenticatedUser =
-                await findSession(
-                    env,
-                    token
-                );
-
-        }
-
-
-        if (!authenticatedUser) {
-
-            const loginUrl =
-                new URL(
-                    "/login",
-                    request.url
-                );
-
-
-            loginUrl.searchParams.set(
-                "next",
-                pathname + url.search
-            );
-
-
-            const headers =
-                new Headers();
-
-
-            headers.set(
-                "Location",
-                loginUrl.toString()
-            );
-
-
-            headers.set(
-                "Cache-Control",
-                "no-store"
-            );
-
-
-            return new Response(
-                null,
-                {
-                    status: 302,
-                    headers
-                }
-            );
-
-        }
-
-    }
-
-
-    /* =====================================================
-       DAQUI PARA BAIXO CONTINUA O SEU CÓDIGO ORIGINAL
+    }        
 /* =========================================================
    FRONTEND ROUTER
    ========================================================= */
@@ -257,7 +152,7 @@ async function handleFrontendRequest(
 ) {
 
     /*
-     * Only route normal browser GET requests.
+     * Only handle normal browser requests.
      */
 
     if (
@@ -280,8 +175,8 @@ async function handleFrontendRequest(
        PROTECTED TOOLS
        =====================================================
 
-       All tools inside /tools/ require
-       an authenticated session.
+       Every route under /tools/ requires
+       a valid authenticated session.
 
        Examples:
 
@@ -289,6 +184,7 @@ async function handleFrontendRequest(
        /tools/image/
        /tools/image/compressor/
        /tools/image/resizer/
+       /tools/pdf/
        /tools/pdf/compressor/
 
     ===================================================== */
@@ -311,7 +207,7 @@ async function handleFrontendRequest(
 
 
         /*
-         * Validate the session.
+         * Validate session.
          */
 
         if (token) {
@@ -337,7 +233,9 @@ async function handleFrontendRequest(
 
 
         /*
-         * User is not authenticated.
+         * No valid session.
+         *
+         * Redirect to login.
          */
 
         if (!authenticatedUser) {
@@ -350,10 +248,8 @@ async function handleFrontendRequest(
 
 
             /*
-             * Remember the tool URL.
-             *
-             * After login, the frontend
-             * can return the user here.
+             * Remember the original
+             * destination.
              */
 
             loginUrl.searchParams.set(
@@ -373,8 +269,8 @@ async function handleFrontendRequest(
 
 
             /*
-             * Prevent caching of
-             * authentication redirects.
+             * Do not cache authentication
+             * redirects.
              */
 
             headers.set(
@@ -384,7 +280,8 @@ async function handleFrontendRequest(
 
 
             /*
-             * Remove invalid session cookie.
+             * If the user had an invalid
+             * session cookie, remove it.
              */
 
             if (token) {
@@ -414,21 +311,7 @@ async function handleFrontendRequest(
 
     /* =====================================================
        BEAUTIFUL ROUTES
-       =====================================================
-
-       /login
-           -> /pages/login.html
-
-       /register
-           -> /pages/register.html
-
-       /forgot-password
-           -> /pages/forgot-password.html
-
-       /dashboard
-           -> /pages/dashboard.html
-
-    ===================================================== */
+       ===================================================== */
 
     const routes = {
 
@@ -475,7 +358,7 @@ async function handleFrontendRequest(
 
 
     /* =====================================================
-       TRAILING SLASHES
+       TRAILING SLASH ROUTES
        ===================================================== */
 
     if (
@@ -523,142 +406,19 @@ async function handleFrontendRequest(
        NORMAL ASSETS
        =====================================================
 
-       CSS, JavaScript, images,
-       favicon and other public assets.
+       CSS
+       JavaScript
+       Images
+       Favicon
+       HTML
+       Other static assets
     ===================================================== */
 
     return env.ASSETS.fetch(
         request
     );
 
-}
-
-    /*
-     * =====================================================
-     * BEAUTIFUL ROUTES
-     * =====================================================
-     *
-     * /login
-     *       -> /pages/login.html
-     *
-     * /register
-     *       -> /pages/register.html
-     *
-     * /forgot-password
-     *       -> /pages/forgot-password.html
-     *
-     * /dashboard
-     *       -> /pages/dashboard.html
-     *
-     */
-
-
-    const routes = {
-
-        "/login":
-            "/pages/login.html",
-
-        "/register":
-            "/pages/register.html",
-
-        "/forgot-password":
-            "/pages/forgot-password.html",
-
-        "/dashboard":
-            "/pages/dashboard.html"
-
-    };
-
-
-    const target =
-        routes[pathname];
-
-
-    if (target) {
-
-        const assetURL =
-            new URL(
-                target,
-                request.url
-            );
-
-
-        const assetRequest =
-            new Request(
-                assetURL.toString(),
-                request
-            );
-
-
-        return env.ASSETS.fetch(
-            assetRequest
-        );
-
-    }
-
-
-    /*
-     * =====================================================
-     * TRAILING SLASHES
-     * =====================================================
-     */
-
-    if (
-        pathname.length > 1 &&
-        pathname.endsWith("/")
-    ) {
-
-        const withoutSlash =
-            pathname.slice(
-                0,
-                -1
-            );
-
-
-        const slashTarget =
-            routes[withoutSlash];
-
-
-        if (slashTarget) {
-
-            const assetURL =
-                new URL(
-                    slashTarget,
-                    request.url
-                );
-
-
-            const assetRequest =
-                new Request(
-                    assetURL.toString(),
-                    request
-                );
-
-
-            return env.ASSETS.fetch(
-                assetRequest
-            );
-
-        }
-
-    }
-
-
-    /*
-     * =====================================================
-     * NORMAL ASSETS
-     * =====================================================
-     *
-     * CSS, JS, images, favicon, etc.
-     */
-
-    return env.ASSETS.fetch(
-        request
-    );
-
-}
-
-
+                   }
 /* =========================================================
    API ROUTER
    ========================================================= */
