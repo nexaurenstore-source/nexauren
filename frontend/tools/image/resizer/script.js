@@ -1,301 +1,343 @@
 "use strict";
 
 /*
- * NEXAUREN
- * Image Resizer
+ * NEXAUREN — IMAGE RESIZER
  *
- * Flow:
  * 1. Upload
  * 2. Resize + Preview
  * 3. Download
  *
- * Processing happens locally
- * inside the user's browser.
+ * All image processing happens locally
+ * in the user's browser.
  */
 
 
-/* =========================
-   ELEMENTS
-========================= */
+/* =========================================
+   DOM
+========================================= */
 
-const imageInput =
-    document.getElementById("image-input");
+const $ = (selector) =>
+    document.querySelector(selector);
 
-const chooseImageButton =
-    document.getElementById("choose-image");
+const imageInput = $("#image-input");
+const chooseImageButton = $("#choose-image");
+const changeImageButton = $("#change-image");
+const uploadArea = $("#upload-area");
 
-const changeImageButton =
-    document.getElementById("change-image");
+const previewImage = $("#preview-image");
+const resultImage = $("#result-image");
 
-const uploadArea =
-    document.getElementById("upload-area");
+const originalDimensions = $("#original-dimensions");
 
-const previewImage =
-    document.getElementById("preview-image");
+const widthInput = $("#width");
+const heightInput = $("#height");
 
-const resultImage =
-    document.getElementById("result-image");
+const lockRatio = $("#lock-ratio");
+const preset = $("#preset");
 
-const originalDimensions =
-    document.getElementById(
-        "original-dimensions"
-    );
+const outputFormat = $("#output-format");
 
-const widthInput =
-    document.getElementById("width");
+const qualityInput = $("#quality");
+const qualityValue = $("#quality-value");
 
-const heightInput =
-    document.getElementById("height");
-
-const lockRatio =
-    document.getElementById("lock-ratio");
-
-const preset =
-    document.getElementById("preset");
-
-const outputFormat =
-    document.getElementById(
-        "output-format"
-    );
-
-const qualityInput =
-    document.getElementById("quality");
-
-const qualityValue =
-    document.getElementById(
-        "quality-value"
-    );
-
-const resizeButton =
-    document.getElementById(
-        "resize-image"
-    );
-
-const downloadButton =
-    document.getElementById(
-        "download-image"
-    );
-
-const resizeAnotherButton =
-    document.getElementById(
-        "resize-another"
-    );
+const resizeButton = $("#resize-image");
+const downloadButton = $("#download-image");
+const resizeAnotherButton = $("#resize-another");
 
 const resultOriginalDimensions =
-    document.getElementById(
-        "result-original-dimensions"
-    );
+    $("#result-original-dimensions");
 
 const resultNewDimensions =
-    document.getElementById(
-        "result-new-dimensions"
-    );
+    $("#result-new-dimensions");
 
 const resultFileSize =
-    document.getElementById(
-        "result-file-size"
-    );
+    $("#result-file-size");
 
-const toolStatus =
-    document.getElementById(
-        "tool-status"
-    );
+const toolStatus = $("#tool-status");
 
 const steps =
-    document.querySelectorAll(
-        ".step"
-    );
+    document.querySelectorAll(".step");
 
 const stepContents =
-    document.querySelectorAll(
-        "[data-step-content]"
-    );
+    document.querySelectorAll("[data-step-content]");
 
 
-/* =========================
+/* =========================================
    STATE
-========================= */
+========================================= */
 
 let selectedFile = null;
-
 let originalImage = null;
 
 let originalWidth = 0;
-
 let originalHeight = 0;
 
 let aspectRatio = 1;
 
 let originalPreviewUrl = null;
-
+let resultUrl = null;
 let resultBlob = null;
 
-let resultUrl = null;
 
-
-/* =========================
-   CONSTANTS
-========================= */
+/* =========================================
+   SETTINGS
+========================================= */
 
 const supportedTypes = [
     "image/jpeg",
     "image/png",
-    "image/webp",
-    "image/gif"
+    "image/webp"
 ];
 
-const maxFileSize =
+const MAX_FILE_SIZE =
     50 * 1024 * 1024;
 
-const maxDimension =
-    12000;
+const MAX_DIMENSION = 12000;
 
 
-/* =========================
-   INITIALIZE
-========================= */
+/* =========================================
+   INITIALIZATION
+========================================= */
 
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
+function init() {
 
-        updateQualityLabel();
-
-        setStep(1);
-
+    if (!imageInput) {
+        console.error(
+            "Nexauren Resizer: image input not found."
+        );
+        return;
     }
-);
+
+    bindEvents();
+
+    updateQualityLabel();
+
+    setStep(1);
+
+}
 
 
-/* =========================
-   OPEN FILE PICKER
-========================= */
+if (
+    document.readyState === "loading"
+) {
 
-chooseImageButton.addEventListener(
-    "click",
-    () => {
+    document.addEventListener(
+        "DOMContentLoaded",
+        init,
+        { once: true }
+    );
 
-        imageInput.click();
+} else {
 
+    init();
+
+}
+
+
+/* =========================================
+   EVENTS
+========================================= */
+
+function bindEvents() {
+
+    chooseImageButton?.addEventListener(
+        "click",
+        openFilePicker
+    );
+
+
+    changeImageButton?.addEventListener(
+        "click",
+        openFilePicker
+    );
+
+
+    imageInput.addEventListener(
+        "change",
+        handleInputChange
+    );
+
+
+    uploadArea?.addEventListener(
+        "dragenter",
+        handleDragEnter
+    );
+
+
+    uploadArea?.addEventListener(
+        "dragover",
+        handleDragOver
+    );
+
+
+    uploadArea?.addEventListener(
+        "dragleave",
+        handleDragLeave
+    );
+
+
+    uploadArea?.addEventListener(
+        "drop",
+        handleDrop
+    );
+
+
+    widthInput?.addEventListener(
+        "input",
+        handleWidthChange
+    );
+
+
+    heightInput?.addEventListener(
+        "input",
+        handleHeightChange
+    );
+
+
+    lockRatio?.addEventListener(
+        "change",
+        handleRatioChange
+    );
+
+
+    preset?.addEventListener(
+        "change",
+        handlePresetChange
+    );
+
+
+    qualityInput?.addEventListener(
+        "input",
+        updateQualityLabel
+    );
+
+
+    resizeButton?.addEventListener(
+        "click",
+        resizeImage
+    );
+
+
+    downloadButton?.addEventListener(
+        "click",
+        downloadImage
+    );
+
+
+    resizeAnotherButton?.addEventListener(
+        "click",
+        resetTool
+    );
+
+
+    window.addEventListener(
+        "beforeunload",
+        cleanupUrls
+    );
+
+}
+
+
+/* =========================================
+   FILE PICKER
+========================================= */
+
+function openFilePicker() {
+
+    if (!imageInput) {
+        return;
     }
-);
+
+    imageInput.value = "";
+
+    imageInput.click();
+
+}
 
 
-changeImageButton.addEventListener(
-    "click",
-    () => {
+/* =========================================
+   INPUT CHANGE
+========================================= */
 
-        imageInput.click();
+function handleInputChange(event) {
 
+    const file =
+        event.target.files?.[0];
+
+    if (!file) {
+        return;
     }
-);
+
+    handleFile(file);
+
+}
 
 
-imageInput.addEventListener(
-    "change",
-    () => {
-
-        const file =
-            imageInput.files &&
-            imageInput.files[0];
-
-        if (!file) {
-            return;
-        }
-
-        handleFile(file);
-
-    }
-);
-
-
-/* =========================
+/* =========================================
    DRAG & DROP
-========================= */
+========================================= */
 
-[
-    "dragenter",
-    "dragover"
-].forEach(
-    eventName => {
+function handleDragEnter(event) {
 
-        uploadArea.addEventListener(
-            eventName,
-            event => {
+    event.preventDefault();
+    event.stopPropagation();
 
-                event.preventDefault();
+    uploadArea?.classList.add(
+        "drag-over"
+    );
 
-                event.stopPropagation();
+}
 
-                uploadArea.classList.add(
-                    "drag-over"
-                );
 
-            }
-        );
+function handleDragOver(event) {
 
+    event.preventDefault();
+    event.stopPropagation();
+
+    uploadArea?.classList.add(
+        "drag-over"
+    );
+
+}
+
+
+function handleDragLeave(event) {
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    uploadArea?.classList.remove(
+        "drag-over"
+    );
+
+}
+
+
+function handleDrop(event) {
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    uploadArea?.classList.remove(
+        "drag-over"
+    );
+
+
+    const file =
+        event.dataTransfer?.files?.[0];
+
+    if (!file) {
+        return;
     }
-);
+
+    handleFile(file);
+
+}
 
 
-[
-    "dragleave",
-    "dragend"
-].forEach(
-    eventName => {
-
-        uploadArea.addEventListener(
-            eventName,
-            event => {
-
-                event.preventDefault();
-
-                event.stopPropagation();
-
-                uploadArea.classList.remove(
-                    "drag-over"
-                );
-
-            }
-        );
-
-    }
-);
-
-
-uploadArea.addEventListener(
-    "drop",
-    event => {
-
-        event.preventDefault();
-
-        event.stopPropagation();
-
-        uploadArea.classList.remove(
-            "drag-over"
-        );
-
-
-        const files =
-            event.dataTransfer.files;
-
-        if (
-            !files ||
-            !files.length
-        ) {
-            return;
-        }
-
-
-        handleFile(files[0]);
-
-    }
-);
-
-
-/* =========================
+/* =========================================
    HANDLE FILE
-========================= */
+========================================= */
 
 async function handleFile(file) {
 
@@ -304,14 +346,10 @@ async function handleFile(file) {
     resetResult();
 
 
-    if (
-        !supportedTypes.includes(
-            file.type
-        )
-    ) {
+    if (!supportedTypes.includes(file.type)) {
 
         showStatus(
-            "Please select a JPG, PNG or WebP image.",
+            "Unsupported image. Please choose JPG, PNG or WebP.",
             "error"
         );
 
@@ -320,13 +358,22 @@ async function handleFile(file) {
     }
 
 
-    if (
-        file.size >
-        maxFileSize
-    ) {
+    if (file.size <= 0) {
 
         showStatus(
-            "The image is too large. Maximum size is 50 MB.",
+            "The selected file is empty.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    if (file.size > MAX_FILE_SIZE) {
+
+        showStatus(
+            "The image is too large. Maximum file size is 50 MB.",
             "error"
         );
 
@@ -343,32 +390,37 @@ async function handleFile(file) {
 
 
         const image =
-            await loadImage(file);
+            await createImageFromFile(file);
 
 
-        selectedFile =
-            file;
+        const width =
+            image.naturalWidth ||
+            image.width;
 
-        originalImage =
-            image;
-
-
-        originalWidth =
-            image.naturalWidth;
-
-        originalHeight =
-            image.naturalHeight;
+        const height =
+            image.naturalHeight ||
+            image.height;
 
 
         if (
-            originalWidth >
-            maxDimension ||
-            originalHeight >
-            maxDimension
+            !width ||
+            !height
+        ) {
+
+            throw new Error(
+                "Image dimensions could not be detected."
+            );
+
+        }
+
+
+        if (
+            width > MAX_DIMENSION ||
+            height > MAX_DIMENSION
         ) {
 
             showStatus(
-                "This image exceeds the maximum supported dimension of 12000 × 12000 pixels.",
+                `Maximum supported dimension is ${MAX_DIMENSION} × ${MAX_DIMENSION} pixels.`,
                 "error"
             );
 
@@ -377,39 +429,34 @@ async function handleFile(file) {
         }
 
 
+        selectedFile =
+            file;
+
+        originalImage =
+            image;
+
+        originalWidth =
+            width;
+
+        originalHeight =
+            height;
+
         aspectRatio =
-            originalWidth /
-            originalHeight;
+            width / height;
 
 
-        if (originalPreviewUrl) {
-
-            URL.revokeObjectURL(
-                originalPreviewUrl
-            );
-
-        }
-
-
-        originalPreviewUrl =
-            URL.createObjectURL(
-                file
-            );
-
-
-        previewImage.src =
-            originalPreviewUrl;
-
-
-        originalDimensions.textContent =
-            `${originalWidth} × ${originalHeight} px`;
+        replaceOriginalPreview(file);
 
 
         widthInput.value =
-            originalWidth;
+            width;
 
         heightInput.value =
-            originalHeight;
+            height;
+
+
+        originalDimensions.textContent =
+            `${width} × ${height} px`;
 
 
         preset.value =
@@ -427,13 +474,13 @@ async function handleFile(file) {
     } catch (error) {
 
         console.error(
-            "Nexauren image loading error:",
+            "Nexauren Resizer upload error:",
             error
         );
 
 
         showStatus(
-            "Unable to read this image.",
+            "We couldn't load this image. Please try another JPG, PNG or WebP file.",
             "error"
         );
 
@@ -442,22 +489,24 @@ async function handleFile(file) {
 }
 
 
-/* =========================
-   LOAD IMAGE
-========================= */
+/* =========================================
+   CREATE IMAGE FROM FILE
+========================================= */
 
-function loadImage(file) {
+function createImageFromFile(file) {
 
     return new Promise(
         (resolve, reject) => {
 
             const url =
-                URL.createObjectURL(
-                    file
-                );
+                URL.createObjectURL(file);
 
             const image =
                 new Image();
+
+
+            image.decoding =
+                "async";
 
 
             image.onload =
@@ -481,7 +530,7 @@ function loadImage(file) {
 
                     reject(
                         new Error(
-                            "Invalid image."
+                            "Browser could not decode image."
                         )
                     );
 
@@ -497,235 +546,222 @@ function loadImage(file) {
 }
 
 
-/* =========================
-   WIDTH CHANGE
-========================= */
+/* =========================================
+   PREVIEW
+========================================= */
 
-widthInput.addEventListener(
-    "input",
-    () => {
+function replaceOriginalPreview(file) {
 
-        preset.value =
-            "custom";
+    if (originalPreviewUrl) {
 
-
-        if (
-            !lockRatio.checked ||
-            !originalImage
-        ) {
-
-            return;
-
-        }
-
-
-        const width =
-            Number(
-                widthInput.value
-            );
-
-
-        if (
-            !Number.isFinite(width) ||
-            width <= 0
-        ) {
-
-            return;
-
-        }
-
-
-        const height =
-            Math.round(
-                width /
-                aspectRatio
-            );
-
-
-        heightInput.value =
-            height;
+        URL.revokeObjectURL(
+            originalPreviewUrl
+        );
 
     }
-);
 
 
-/* =========================
-   HEIGHT CHANGE
-========================= */
-
-heightInput.addEventListener(
-    "input",
-    () => {
-
-        preset.value =
-            "custom";
+    originalPreviewUrl =
+        URL.createObjectURL(file);
 
 
-        if (
-            !lockRatio.checked ||
-            !originalImage
-        ) {
-
-            return;
-
-        }
+    previewImage.src =
+        originalPreviewUrl;
 
 
-        const height =
-            Number(
-                heightInput.value
-            );
+    previewImage.onload =
+        () => {
+
+            previewImage.style.display =
+                "block";
+
+        };
 
 
-        if (
-            !Number.isFinite(height) ||
-            height <= 0
-        ) {
-
-            return;
-
-        }
-
-
-        const width =
-            Math.round(
-                height *
-                aspectRatio
-            );
-
-
-        widthInput.value =
-            width;
-
-    }
-);
-
-
-/* =========================
-   LOCK RATIO
-========================= */
-
-lockRatio.addEventListener(
-    "change",
-    () => {
-
-        if (
-            !lockRatio.checked ||
-            !originalImage
-        ) {
-
-            return;
-
-        }
-
-
-        const width =
-            Number(
-                widthInput.value
-            );
-
-
-        if (
-            width > 0
-        ) {
-
-            heightInput.value =
-                Math.round(
-                    width /
-                    aspectRatio
-                );
-
-        }
-
-    }
-);
-
-
-/* =========================
-   PRESETS
-========================= */
-
-preset.addEventListener(
-    "change",
-    () => {
-
-        const value =
-            preset.value;
-
-
-        if (
-            value ===
-            "custom"
-        ) {
-
-            return;
-
-        }
-
-
-        const targetWidth =
-            Number(value);
-
-
-        if (
-            !originalImage ||
-            !Number.isFinite(
-                targetWidth
-            )
-        ) {
-
-            return;
-
-        }
-
-
-        let targetHeight =
-            Math.round(
-                targetWidth /
-                aspectRatio
-            );
-
-
-        /*
-         * If the original image is
-         * smaller than the selected
-         * preset, don't enlarge it
-         * automatically.
-         */
-
-        if (
-            targetWidth >
-            originalWidth
-        ) {
+    previewImage.onerror =
+        () => {
 
             showStatus(
-                "The selected preset is larger than the original image. You can still use it if you want to enlarge the image."
+                "Preview could not be displayed.",
+                "error"
             );
 
-        }
+        };
+
+}
 
 
-        widthInput.value =
-            targetWidth;
+/* =========================================
+   WIDTH
+========================================= */
+
+function handleWidthChange() {
+
+    preset.value =
+        "custom";
+
+
+    if (
+        !lockRatio.checked ||
+        !originalImage
+    ) {
+        return;
+    }
+
+
+    const width =
+        Number(widthInput.value);
+
+
+    if (
+        !Number.isFinite(width) ||
+        width <= 0
+    ) {
+        return;
+    }
+
+
+    const height =
+        Math.round(
+            width / aspectRatio
+        );
+
+
+    heightInput.value =
+        height;
+
+}
+
+
+/* =========================================
+   HEIGHT
+========================================= */
+
+function handleHeightChange() {
+
+    preset.value =
+        "custom";
+
+
+    if (
+        !lockRatio.checked ||
+        !originalImage
+    ) {
+        return;
+    }
+
+
+    const height =
+        Number(heightInput.value);
+
+
+    if (
+        !Number.isFinite(height) ||
+        height <= 0
+    ) {
+        return;
+    }
+
+
+    const width =
+        Math.round(
+            height * aspectRatio
+        );
+
+
+    widthInput.value =
+        width;
+
+}
+
+
+/* =========================================
+   RATIO
+========================================= */
+
+function handleRatioChange() {
+
+    if (
+        !lockRatio.checked ||
+        !originalImage
+    ) {
+        return;
+    }
+
+
+    const width =
+        Number(widthInput.value);
+
+
+    if (
+        Number.isFinite(width) &&
+        width > 0
+    ) {
 
         heightInput.value =
-            targetHeight;
+            Math.round(
+                width / aspectRatio
+            );
 
     }
-);
+
+}
 
 
-/* =========================
+/* =========================================
+   PRESETS
+========================================= */
+
+function handlePresetChange() {
+
+    const value =
+        preset.value;
+
+
+    if (
+        value === "custom"
+    ) {
+        return;
+    }
+
+
+    const targetWidth =
+        Number(value);
+
+
+    if (
+        !originalImage ||
+        !Number.isFinite(targetWidth)
+    ) {
+        return;
+    }
+
+
+    const targetHeight =
+        Math.round(
+            targetWidth / aspectRatio
+        );
+
+
+    widthInput.value =
+        targetWidth;
+
+    heightInput.value =
+        targetHeight;
+
+}
+
+
+/* =========================================
    QUALITY
-========================= */
-
-qualityInput.addEventListener(
-    "input",
-    updateQualityLabel
-);
-
+========================================= */
 
 function updateQualityLabel() {
+
+    if (!qualityInput || !qualityValue) {
+        return;
+    }
+
 
     qualityValue.textContent =
         `${qualityInput.value}%`;
@@ -733,15 +769,9 @@ function updateQualityLabel() {
 }
 
 
-/* =========================
+/* =========================================
    RESIZE
-========================= */
-
-resizeButton.addEventListener(
-    "click",
-    resizeImage
-);
-
+========================================= */
 
 async function resizeImage() {
 
@@ -751,7 +781,7 @@ async function resizeImage() {
     ) {
 
         showStatus(
-            "Please select an image first.",
+            "Please upload an image first.",
             "error"
         );
 
@@ -761,29 +791,21 @@ async function resizeImage() {
 
 
     const targetWidth =
-        Number(
-            widthInput.value
-        );
+        Number(widthInput.value);
 
     const targetHeight =
-        Number(
-            heightInput.value
-        );
+        Number(heightInput.value);
 
 
     if (
-        !Number.isInteger(
-            targetWidth
-        ) ||
-        !Number.isInteger(
-            targetHeight
-        ) ||
+        !Number.isInteger(targetWidth) ||
+        !Number.isInteger(targetHeight) ||
         targetWidth < 1 ||
         targetHeight < 1
     ) {
 
         showStatus(
-            "Please enter valid width and height values.",
+            "Enter a valid width and height.",
             "error"
         );
 
@@ -793,23 +815,18 @@ async function resizeImage() {
 
 
     if (
-        targetWidth >
-        maxDimension ||
-        targetHeight >
-        maxDimension
+        targetWidth > MAX_DIMENSION ||
+        targetHeight > MAX_DIMENSION
     ) {
 
         showStatus(
-            "Maximum supported dimension is 12000 × 12000 pixels.",
+            `Maximum supported dimension is ${MAX_DIMENSION} × ${MAX_DIMENSION} pixels.`,
             "error"
         );
 
         return;
 
     }
-
-
-    clearStatus();
 
 
     resizeButton.disabled =
@@ -843,16 +860,11 @@ async function resizeImage() {
         if (!context) {
 
             throw new Error(
-                "Canvas is not supported."
+                "Canvas is unavailable."
             );
 
         }
 
-
-        /*
-         * High-quality image
-         * interpolation.
-         */
 
         context.imageSmoothingEnabled =
             true;
@@ -862,8 +874,8 @@ async function resizeImage() {
 
 
         /*
-         * JPEG doesn't support
-         * transparency.
+         * JPG does not support
+         * transparent backgrounds.
          */
 
         if (
@@ -893,20 +905,24 @@ async function resizeImage() {
         );
 
 
+        const quality =
+            Number(
+                qualityInput.value
+            ) / 100;
+
+
         const blob =
             await canvasToBlob(
                 canvas,
                 outputFormat.value,
-                Number(
-                    qualityInput.value
-                ) / 100
+                quality
             );
 
 
         if (!blob) {
 
             throw new Error(
-                "Image conversion failed."
+                "Could not create output image."
             );
 
         }
@@ -927,7 +943,7 @@ async function resizeImage() {
 
         resultUrl =
             URL.createObjectURL(
-                resultBlob
+                blob
             );
 
 
@@ -944,13 +960,10 @@ async function resizeImage() {
 
 
         resultFileSize.textContent =
-            formatBytes(
-                resultBlob.size
-            );
+            formatBytes(blob.size);
 
 
         setStep(3);
-
 
         showStatus(
             "Image resized successfully.",
@@ -960,13 +973,13 @@ async function resizeImage() {
     } catch (error) {
 
         console.error(
-            "Nexauren resize error:",
+            "Nexauren Resizer processing error:",
             error
         );
 
 
         showStatus(
-            "Something went wrong while resizing the image.",
+            "The image could not be resized. Please try again.",
             "error"
         );
 
@@ -983,26 +996,38 @@ async function resizeImage() {
 }
 
 
-/* =========================
-   CANVAS TO BLOB
-========================= */
+/* =========================================
+   CANVAS → BLOB
+========================================= */
 
 function canvasToBlob(
     canvas,
-    mimeType,
+    type,
     quality
 ) {
 
     return new Promise(
-        resolve => {
+        (resolve, reject) => {
 
             canvas.toBlob(
                 blob => {
 
+                    if (!blob) {
+
+                        reject(
+                            new Error(
+                                "Canvas conversion failed."
+                            )
+                        );
+
+                        return;
+
+                    }
+
                     resolve(blob);
 
                 },
-                mimeType,
+                type,
                 quality
             );
 
@@ -1012,15 +1037,9 @@ function canvasToBlob(
 }
 
 
-/* =========================
+/* =========================================
    DOWNLOAD
-========================= */
-
-downloadButton.addEventListener(
-    "click",
-    downloadImage
-);
-
+========================================= */
 
 function downloadImage() {
 
@@ -1030,7 +1049,7 @@ function downloadImage() {
     ) {
 
         showStatus(
-            "There is no resized image to download.",
+            "There is no resized image available.",
             "error"
         );
 
@@ -1045,6 +1064,16 @@ function downloadImage() {
         );
 
 
+    const baseName =
+        getBaseName(
+            selectedFile?.name
+        );
+
+
+    const fileName =
+        `${baseName}-nexauren-resized.${extension}`;
+
+
     const link =
         document.createElement(
             "a"
@@ -1054,12 +1083,8 @@ function downloadImage() {
     link.href =
         resultUrl;
 
-
     link.download =
-        createFileName(
-            selectedFile,
-            extension
-        );
+        fileName;
 
 
     document.body.appendChild(
@@ -1069,21 +1094,14 @@ function downloadImage() {
 
     link.click();
 
-
     link.remove();
 
 }
 
 
-/* =========================
-   RESIZE ANOTHER
-========================= */
-
-resizeAnotherButton.addEventListener(
-    "click",
-    resetTool
-);
-
+/* =========================================
+   RESET
+========================================= */
 
 function resetTool() {
 
@@ -1106,42 +1124,20 @@ function resetTool() {
         null;
 
 
-    if (originalPreviewUrl) {
-
-        URL.revokeObjectURL(
-            originalPreviewUrl
-        );
-
-        originalPreviewUrl =
-            null;
-
-    }
+    cleanupUrls();
 
 
-    if (resultUrl) {
-
-        URL.revokeObjectURL(
-            resultUrl
-        );
-
-        resultUrl =
-            null;
-
-    }
+    imageInput.value =
+        "";
 
 
     previewImage.removeAttribute(
         "src"
     );
 
-
     resultImage.removeAttribute(
         "src"
     );
-
-
-    imageInput.value =
-        "";
 
 
     originalDimensions.textContent =
@@ -1151,10 +1147,8 @@ function resetTool() {
     resultOriginalDimensions.textContent =
         "—";
 
-
     resultNewDimensions.textContent =
         "—";
-
 
     resultFileSize.textContent =
         "—";
@@ -1162,7 +1156,6 @@ function resetTool() {
 
     widthInput.value =
         "";
-
 
     heightInput.value =
         "";
@@ -1174,15 +1167,14 @@ function resetTool() {
 
     clearStatus();
 
-
     setStep(1);
 
 }
 
 
-/* =========================
-   RESET RESULT
-========================= */
+/* =========================================
+   RESULT RESET
+========================================= */
 
 function resetResult() {
 
@@ -1209,18 +1201,16 @@ function resetResult() {
 }
 
 
-/* =========================
+/* =========================================
    STEP SYSTEM
-========================= */
+========================================= */
 
-function setStep(
-    currentStep
-) {
+function setStep(currentStep) {
 
     steps.forEach(
         step => {
 
-            const stepNumber =
+            const number =
                 Number(
                     step.dataset.step
                 );
@@ -1233,8 +1223,7 @@ function setStep(
 
 
             if (
-                stepNumber <
-                currentStep
+                number < currentStep
             ) {
 
                 step.classList.add(
@@ -1245,8 +1234,7 @@ function setStep(
 
 
             if (
-                stepNumber ===
-                currentStep
+                number === currentStep
             ) {
 
                 step.classList.add(
@@ -1262,15 +1250,14 @@ function setStep(
     stepContents.forEach(
         content => {
 
-            const contentStep =
+            const number =
                 Number(
                     content.dataset.stepContent
                 );
 
 
             content.hidden =
-                contentStep !==
-                currentStep;
+                number !== currentStep;
 
         }
     );
@@ -1284,14 +1271,19 @@ function setStep(
 }
 
 
-/* =========================
+/* =========================================
    STATUS
-========================= */
+========================================= */
 
 function showStatus(
     message,
     type = ""
 ) {
+
+    if (!toolStatus) {
+        return;
+    }
+
 
     toolStatus.textContent =
         message;
@@ -1314,6 +1306,11 @@ function showStatus(
 
 function clearStatus() {
 
+    if (!toolStatus) {
+        return;
+    }
+
+
     toolStatus.textContent =
         "";
 
@@ -1323,20 +1320,18 @@ function clearStatus() {
 }
 
 
-/* =========================
-   FORMAT BYTES
-========================= */
+/* =========================================
+   FILE SIZE
+========================================= */
 
-function formatBytes(
-    bytes
-) {
+function formatBytes(bytes) {
 
     if (
         !Number.isFinite(bytes) ||
         bytes <= 0
     ) {
 
-        return "0 B";
+                return "0 B";
 
     }
 
@@ -1367,14 +1362,22 @@ function formatBytes(
         );
 
 
-    const decimals =
-        index === 0
-            ? 0
-            : value >= 100
-                ? 0
-                : value >= 10
-                    ? 1
-                    : 2;
+    let decimals = 2;
+
+
+    if (index === 0) {
+
+        decimals = 0;
+
+    } else if (value >= 100) {
+
+        decimals = 0;
+
+    } else if (value >= 10) {
+
+        decimals = 1;
+
+    }
 
 
     return `${value.toFixed(decimals)} ${units[index]}`;
@@ -1382,20 +1385,90 @@ function formatBytes(
 }
 
 
-/* =========================
-   FILE EXTENSION
-========================= */
+/* =========================================
+   EXTENSION
+========================================= */
 
-function getExtension(
-    mimeType
-) {
+function getExtension(type) {
 
     const extensions = {
 
-        "image/jpeg":
-            "jpg",
+        "image/jpeg": "jpg",
 
-        "image/png":
-            "png",
+        "image/png": "png",
 
-        "image
+        "image/webp": "webp"
+
+    };
+
+
+    return (
+        extensions[type] ||
+        "png"
+    );
+
+}
+
+
+/* =========================================
+   BASE NAME
+========================================= */
+
+function getBaseName(fileName) {
+
+    if (!fileName) {
+
+        return "image";
+
+    }
+
+
+    const lastDot =
+        fileName.lastIndexOf(".");
+
+
+    if (lastDot <= 0) {
+
+        return fileName;
+
+    }
+
+
+    return fileName.substring(
+        0,
+        lastDot
+    );
+
+}
+
+
+/* =========================================
+   URL CLEANUP
+========================================= */
+
+function cleanupUrls() {
+
+    if (originalPreviewUrl) {
+
+        URL.revokeObjectURL(
+            originalPreviewUrl
+        );
+
+        originalPreviewUrl =
+            null;
+
+    }
+
+
+    if (resultUrl) {
+
+        URL.revokeObjectURL(
+            resultUrl
+        );
+
+        resultUrl =
+            null;
+
+    }
+
+}
