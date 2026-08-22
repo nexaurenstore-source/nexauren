@@ -246,7 +246,189 @@ async function handleFrontendRequest(
 
     /* =====================================================
        DAQUI PARA BAIXO CONTINUA O SEU CÓDIGO ORIGINAL
-       ===================================================== */
+/* =========================================================
+   FRONTEND ROUTER
+   ========================================================= */
+
+async function handleFrontendRequest(
+    request,
+    env,
+    url
+) {
+
+    /*
+     * Only route normal browser GET requests.
+     */
+
+    if (
+        request.method !== "GET" &&
+        request.method !== "HEAD"
+    ) {
+
+        return env.ASSETS.fetch(
+            request
+        );
+
+    }
+
+
+    const pathname =
+        url.pathname;
+
+
+    /* =====================================================
+       PROTECTED TOOLS
+       =====================================================
+
+       All tools inside /tools/ require
+       an authenticated session.
+
+       Examples:
+
+       /tools/
+       /tools/image/
+       /tools/image/compressor/
+       /tools/image/resizer/
+       /tools/pdf/compressor/
+
+    ===================================================== */
+
+    const isProtectedTool =
+        pathname === "/tools" ||
+        pathname.startsWith("/tools/");
+
+
+    if (isProtectedTool) {
+
+        const token =
+            getSessionToken(
+                request
+            );
+
+
+        let authenticatedUser =
+            null;
+
+
+        /*
+         * Validate the session.
+         */
+
+        if (token) {
+
+            try {
+
+                authenticatedUser =
+                    await findSession(
+                        env,
+                        token
+                    );
+
+            } catch (error) {
+
+                console.error(
+                    "Tool session validation error:",
+                    error
+                );
+
+            }
+
+        }
+
+
+        /*
+         * User is not authenticated.
+         */
+
+        if (!authenticatedUser) {
+
+            const loginUrl =
+                new URL(
+                    "/login",
+                    request.url
+                );
+
+
+            /*
+             * Remember the tool URL.
+             *
+             * After login, the frontend
+             * can return the user here.
+             */
+
+            loginUrl.searchParams.set(
+                "next",
+                pathname + url.search
+            );
+
+
+            const headers =
+                new Headers();
+
+
+            headers.set(
+                "Location",
+                loginUrl.toString()
+            );
+
+
+            /*
+             * Prevent caching of
+             * authentication redirects.
+             */
+
+            headers.set(
+                "Cache-Control",
+                "no-store"
+            );
+
+
+            /*
+             * Remove invalid session cookie.
+             */
+
+            if (token) {
+
+                headers.set(
+                    "Set-Cookie",
+                    clearSessionCookie(
+                        request
+                    )
+                );
+
+            }
+
+
+            return new Response(
+                null,
+                {
+                    status: 302,
+                    headers
+                }
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       BEAUTIFUL ROUTES
+       =====================================================
+
+       /login
+           -> /pages/login.html
+
+       /register
+           -> /pages/register.html
+
+       /forgot-password
+           -> /pages/forgot-password.html
+
+       /dashboard
+           -> /pages/dashboard.html
+
+    ===================================================== */
 
     const routes = {
 
@@ -265,7 +447,90 @@ async function handleFrontendRequest(
     };
 
 
-    // resto do seu FRONTEND ROUTER...
+    const target =
+        routes[pathname];
+
+
+    if (target) {
+
+        const assetURL =
+            new URL(
+                target,
+                request.url
+            );
+
+
+        const assetRequest =
+            new Request(
+                assetURL.toString(),
+                request
+            );
+
+
+        return env.ASSETS.fetch(
+            assetRequest
+        );
+
+    }
+
+
+    /* =====================================================
+       TRAILING SLASHES
+       ===================================================== */
+
+    if (
+        pathname.length > 1 &&
+        pathname.endsWith("/")
+    ) {
+
+        const withoutSlash =
+            pathname.slice(
+                0,
+                -1
+            );
+
+
+        const slashTarget =
+            routes[withoutSlash];
+
+
+        if (slashTarget) {
+
+            const assetURL =
+                new URL(
+                    slashTarget,
+                    request.url
+                );
+
+
+            const assetRequest =
+                new Request(
+                    assetURL.toString(),
+                    request
+                );
+
+
+            return env.ASSETS.fetch(
+                assetRequest
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       NORMAL ASSETS
+       =====================================================
+
+       CSS, JavaScript, images,
+       favicon and other public assets.
+    ===================================================== */
+
+    return env.ASSETS.fetch(
+        request
+    );
+
 }
 
     /*
