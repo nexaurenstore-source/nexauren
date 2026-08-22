@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Nexauren Favicon Creator — Create favicon packs directly in your browser."
+    >
+
+    <title>Nexauren — Favicon Creator</title>
+
+    <link
+        rel="stylesheet"
+        href="/tools/image/favicon-creator/style.css"
+    >
+</head>
+
+<body>
+
+    <!-- Page transition -->
+    <div
+        id="page-transition"
+        class="page-transition"
+        aria-hidden="true"
+    >
+        <div class="loader">
+            <span></span>
+        </div>
+    </div>
+
+
+    <!-- Access loading -->
+    <div
+        id="access-loading"
+        class="access-screen"
+    >
+        <div class="loader"></div>
+
+        <p>
+            Checking session...
+        </p>
+    </div>
+
+
+    <!-- Application -->
+    <div
+        id="app"
+        class="app"
+        hidden
+    >
+
+        <header class="topbar">
+
+            <a
+                href="/dashboard/"
+                class="brand"
+            >
+                NEXAUREN
+            </a>
+
+            <div class="topbar-actions">
+
+                <a href="/dashboard/">
+                    Dashboard
+                </a>
+
+                <a href="/categories/image/">
+                    Images
+                </a>
+
+            </div>
+
+        </header>
+
+
+        <main class="container">
+
+            <!-- Hero -->
+
+            <section class="hero">
+
+                <div class="hero-badge">
+                    IMAGE TOOL
+                </div>
+
+                <h1>
+                    Favicon Creator
+                </h1>
+
+                <p>
+                    Create professional favicon files
+                    and a complete favicon pack directly
+                    in your browser.
+                </p>
+
+            </section>
+
+
+            <!-- Tool -->
+
+            <section class="tool-layout">
+
+                <!-- Upload -->
+
+                <div class="panel">
+
+                    <div
+                        id="drop-zone"
+                        class="drop-zone"
+                    >
+
+                        <div class="upload-icon">
+                            ↑
+                        </div>
+
+                        <h2>
+                            Upload your image
+                        </h2>
+
+                        <p>
+                            PNG, JPG, JPEG or WebP
+                        </p>
+
+                        <button
+                            id="choose-button"
+                            class="button primary"
+                            type="button"
+                        >
+                            Choose Image
+                        </button>
+
+                        <input
+                            id="file-input"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            hidden
+                        >
+
+                    </div>
+
+
+                    <div class="preview-wrapper">
+
+                        <div
+                            id="empty-preview"
+                            class="empty-preview"
+                        >
+                            Your favicon preview
+                            will appear here.
+                        </div>
+
+                        <canvas
+                            id="preview-canvas"
+                            hidden
+                        ></canvas>
+
+                    </div>
+
+
+                    <div class="actions">
+
+                        <button
+                            id="reset-button"
+                            class="button secondary"
+                            type="button"
+                        >
+                            Reset
+                        </button>
+
+                        <button
+                            id="download-png"
+                            class="button"
+                            type="button"
+                            disabled
+                        >
+                            Download PNG
+                        </button>
+
+                        <button
+                            id="download-ico"
+                            class="button"
+                            type="button"
+                            disabled
+                        >
+                            Download ICO
+                        </button>
+
+                        <button
+                            id="download-zip"
+                            class="button primary"
+                            type="button"
+                            disabled
+                        >
+                            Download Favicon Pack
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Customize -->
+
+                <div class="panel">
+
+                    <h2>
+                        Customize
+                    </h2>
+
+                    <div class="controls">
+
+                        <div class="control">
+
+                            <label for="main-size">
+                                Output size
+                            </label>
+
+                            <select id="main-size">
+
+                                <option value="16">
+                                    16 × 16
+                                </option>
+
+                                <option value="32">
+                                    32 × 32
+                                </option>
+
+                                <option value="48">
+                                    48 × 48
+                                </option>
+
+                                <option value="64">
+                                    64 × 64
+                                </option>
+
+                                <option value="128">
+                                    128 × 128
+                                </option>
+
+                                <option value="256" selected>
+                                    256 × 256
+                                </option>
+
+                                <option value="512">
+                                    512 × 512
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <div class="control">
+
+                            <label for="fit">
+                                Image fit
+                            </label>
+
+                            <select id="fit">
+
+                                <option value="contain">
+                                    Contain
+                                </option>
+
+                                <option value="cover">
+                                    Cover
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <div class="control">
+
+                            <label for="background-mode">
+                                Background
+                            </label>
+
+                            <select id="background-mode">
+
+                                <option value="transparent">
+                                    Transparent
+                                </option>
+
+                                <option value="color">
+                                    Custom color
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <div class="control">
+
+                            <label for="background">
+                                Background color
+                            </label>
+
+                            <input
+                                id="background"
+                                type="color"
+                                value="#ffffff"
+                            >
+
+                        </div>
+
+
+                        <div class="control">
+
+                            <label>
+                                Corner radius:
+                                <span id="radius-value">
+                                    0
+                                </span>%
+                            </label>
+
+                            <input
+                                id="radius"
+                                type="range"
+                                min="0"
+                                max="50"
+                                value="0"
+                            >
+
+                        </div>
+
+
+                        <div class="control">
+
+                            <label>
+                                Zoom:
+                                <span id="zoom-value">
+                                    100
+                                </span>%
+                            </label>
+
+                            <input
+                                id="zoom"
+                                type="range"
+                                min="50"
+                                max="200"
+                                value="100"
+                            >
+
+                        </div>
+
+
+                        <div class="control">
+
+                            <label>
+                                Position X:
+                                <span id="x-value">
+                                    50
+                                </span>%
+                            </label>
+
+                            <input
+                                id="position-x"
+                                type="range"
+                                min="0"
+                                max="100"
+                                value="50"
+                            >
+
+                        </div>
+
+
+                        <div class="control">
+
+                            <label>
+                                Position Y:
+                                <span id="y-value">
+                                    50
+                                </span>%
+                            </label>
+
+                            <input
+                                id="position-y"
+                                type="range"
+                                min="0"
+                                max="100"
+                                value="50"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <h3>
+                        Favicon sizes
+                    </h3>
+
+                    <div class="sizes">
+
+                        <label>
+                            <input
+                                class="size-option"
+                                type="checkbox"
+                                value="16"
+                                checked
+                            >
+                            16 × 16
+                        </label>
+
+                        <label>
+                            <input
+                                class="size-option"
+                                type="checkbox"
+                                value="32"
+                                checked
+                            >
+                            32 × 32
+                        </label>
+
+                        <label>
+                            <input
+                                class="size-option"
+                                type="checkbox"
+                                value="48"
+                                checked
+                            >
+                            48 × 48
+                        </label>
+
+                        <label>
+                            <input
+                                class="size-option"
+                                type="checkbox"
+                                value="64"
+                                checked
+                            >
+                            64 × 64
+                        </label>
+
+                        <label>
+                            <input
+                                class="size-option"
+                                type="checkbox"
+                                value="128"
+                                checked
+                            >
+                            128 × 128
+                        </label>
+
+                        <label>
+                            <input
+                                class="size-option"
+                                type="checkbox"
+                                value="256"
+                                checked
+                            >
+                            256 × 256
+                        </label>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- HTML code -->
+
+            <section class="panel code-panel">
+
+                <h2>
+                    HTML code
+                </h2>
+
+                <p>
+                    Add this code to the
+                    <code>&lt;head&gt;</code>
+                    of your website.
+                </p>
+
+                <textarea
+                    id="html-code"
+                    readonly
+                ></textarea>
+
+                <button
+                    id="copy-code"
+                    class="button"
+                    type="button"
+                    disabled
+                >
+                    Copy HTML
+                </button>
+
+            </section>
+
+        </main>
+
+
+        <footer>
+
+            <p>
+                © 2026 Nexauren.
+                All rights reserved.
+            </p>
+
+        </footer>
+
+    </div>
+
+
+    <script
+        src="/tools/image/favicon-creator/script.js"
+        defer
+    ></script>
+
+</body>
+
+  </html>
