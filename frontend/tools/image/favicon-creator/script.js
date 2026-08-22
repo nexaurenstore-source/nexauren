@@ -16,23 +16,23 @@ const $ = (id) => document.getElementById(id);
    ELEMENTS
    ========================================================= */
 
-const app = $("app");
-const accessLoading = $("access-loading");
+let app;
+let accessLoading;
 
-const fileInput = $("file-input");
-const chooseButton = $("choose-button");
-const dropZone = $("drop-zone");
+let fileInput;
+let chooseButton;
+let dropZone;
 
-const previewCanvas = $("preview-canvas");
-const emptyPreview = $("empty-preview");
+let previewCanvas;
+let emptyPreview;
 
-const downloadPng = $("download-png");
-const downloadIco = $("download-ico");
-const downloadZip = $("download-zip");
+let downloadPng;
+let downloadIco;
+let downloadZip;
 
-const resetButton = $("reset-button");
-const copyCode = $("copy-code");
-const htmlCode = $("html-code");
+let resetButton;
+let copyCode;
+let htmlCode;
 
 
 /* =========================================================
@@ -41,44 +41,72 @@ const htmlCode = $("html-code");
 
 let sourceImage = null;
 let sourceData = null;
+let initialized = false;
 
 
 /* =========================================================
    INITIALIZATION
    ========================================================= */
 
-document.addEventListener(
-    "DOMContentLoaded",
-    async () => {
+document.addEventListener("DOMContentLoaded", () => {
 
-        const authenticated =
-            await checkSession();
+    /*
+     * Get elements only after the DOM exists.
+     */
 
-        if (!authenticated) {
-            return;
-        }
+    app = $("app");
+    accessLoading = $("access-loading");
 
-        initializeTool();
+    fileInput = $("file-input");
+    chooseButton = $("choose-button");
+    dropZone = $("drop-zone");
 
-    }
-);
+    previewCanvas = $("preview-canvas");
+    emptyPreview = $("empty-preview");
+
+    downloadPng = $("download-png");
+    downloadIco = $("download-ico");
+    downloadZip = $("download-zip");
+
+    resetButton = $("reset-button");
+    copyCode = $("copy-code");
+    htmlCode = $("html-code");
+
+
+    /*
+     * Start access verification.
+     */
+
+    checkSession();
+
+});
 
 
 /* =========================================================
-   SESSION
+   SESSION CHECK
    ========================================================= */
 
 async function checkSession() {
 
+    showAccessScreen(
+        "Dream. Create. Build."
+    );
+
+
     /*
-     * The user should not see technical
-     * session information.
-     *
-     * The loading message is handled
-     * by the HTML:
-     *
-     * Dream. Create. Build.
+     * Timeout prevents infinite loading.
      */
+
+    const controller =
+        new AbortController();
+
+
+    const timeout =
+        setTimeout(
+            () => controller.abort(),
+            8000
+        );
+
 
     try {
 
@@ -88,20 +116,27 @@ async function checkSession() {
                 {
                     method: "GET",
                     credentials: "include",
+                    cache: "no-store",
 
                     headers: {
                         "Accept":
                             "application/json"
-                    }
+                    },
+
+                    signal:
+                        controller.signal
                 }
             );
+
+
+        clearTimeout(timeout);
 
 
         if (!response.ok) {
 
             redirectToLogin();
 
-            return false;
+            return;
 
         }
 
@@ -111,50 +146,132 @@ async function checkSession() {
 
 
         if (
-            !data.success ||
-            !data.authenticated ||
+            !data ||
+            data.success !== true ||
+            data.authenticated !== true ||
             !data.user
         ) {
 
             redirectToLogin();
 
-            return false;
+            return;
 
         }
 
 
         /*
-         * Session exists.
-         * Show the tool.
+         * Authentication succeeded.
          */
 
-        if (accessLoading) {
-            accessLoading.hidden = true;
-        }
-
-        if (app) {
-            app.hidden = false;
-        }
-
-        document.body.classList.add(
-            "authenticated"
-        );
-
-
-        return true;
+        openTool();
 
 
     } catch (error) {
 
+        clearTimeout(timeout);
+
+
         console.error(
-            "Favicon Creator session error:",
+            "Nexauren Favicon Creator access error:",
             error
         );
 
 
+        /*
+         * Never leave the user stuck
+         * on an infinite spinner.
+         */
+
         redirectToLogin();
 
-        return false;
+    }
+
+}
+
+
+/* =========================================================
+   ACCESS SCREEN
+   ========================================================= */
+
+function showAccessScreen(message) {
+
+    if (accessLoading) {
+
+        accessLoading.hidden = false;
+
+        const messageElement =
+            accessLoading.querySelector(
+                "[data-access-message]"
+            );
+
+        if (messageElement) {
+
+            messageElement.textContent =
+                message;
+
+        } else {
+
+            /*
+             * Fallback for older HTML.
+             */
+
+            const text =
+                accessLoading.querySelector(
+                    ".loading-text"
+                );
+
+            if (text) {
+                text.textContent = message;
+            }
+
+        }
+
+    }
+
+
+    if (app) {
+
+        app.hidden = true;
+
+    }
+
+}
+
+
+/* =========================================================
+   OPEN TOOL
+   ========================================================= */
+
+function openTool() {
+
+    if (accessLoading) {
+
+        accessLoading.hidden = true;
+
+    }
+
+
+    if (app) {
+
+        app.hidden = false;
+
+    }
+
+
+    document.body.classList.add(
+        "authenticated"
+    );
+
+
+    /*
+     * Prevent duplicate event listeners.
+     */
+
+    if (!initialized) {
+
+        initializeTool();
+
+        initialized = true;
 
     }
 
@@ -167,7 +284,8 @@ async function checkSession() {
 
 function redirectToLogin() {
 
-    window.location.href = "/login";
+    window.location.href =
+        "/login";
 
 }
 
@@ -200,7 +318,13 @@ function initializeTool() {
 function setupUpload() {
 
     if (!fileInput || !dropZone) {
+
+        console.error(
+            "Favicon Creator: upload elements missing."
+        );
+
         return;
+
     }
 
 
@@ -234,11 +358,17 @@ function setupUpload() {
         "change",
         () => {
 
-            const file =
+            const selectedFile =
+                fileInput.files &&
                 fileInput.files[0];
 
-            if (file) {
-                loadImage(file);
+
+            if (selectedFile) {
+
+                loadImage(
+                    selectedFile
+                );
+
             }
 
         }
@@ -282,12 +412,17 @@ function setupUpload() {
             );
 
 
-            const file =
+            const selectedFile =
+                event.dataTransfer.files &&
                 event.dataTransfer.files[0];
 
 
-            if (file) {
-                loadImage(file);
+            if (selectedFile) {
+
+                loadImage(
+                    selectedFile
+                );
+
             }
 
         }
@@ -309,7 +444,11 @@ function loadImage(file) {
     ];
 
 
-    if (!allowedTypes.includes(file.type)) {
+    if (
+        !allowedTypes.includes(
+            file.type
+        )
+    ) {
 
         alert(
             "Please select a PNG, JPG, JPEG or WebP image."
@@ -332,18 +471,26 @@ function loadImage(file) {
 
         image.onload = () => {
 
-            sourceImage = image;
+            sourceImage =
+                image;
 
             sourceData =
                 reader.result;
 
 
             if (emptyPreview) {
-                emptyPreview.hidden = true;
+
+                emptyPreview.hidden =
+                    true;
+
             }
 
+
             if (previewCanvas) {
-                previewCanvas.hidden = false;
+
+                previewCanvas.hidden =
+                    false;
+
             }
 
 
@@ -369,6 +516,15 @@ function loadImage(file) {
     };
 
 
+    reader.onerror = () => {
+
+        alert(
+            "Unable to load this file."
+        );
+
+    };
+
+
     reader.readAsDataURL(file);
 
 }
@@ -381,19 +537,34 @@ function loadImage(file) {
 function enableTool() {
 
     if (downloadPng) {
-        downloadPng.disabled = false;
+
+        downloadPng.disabled =
+            false;
+
     }
+
 
     if (downloadIco) {
-        downloadIco.disabled = false;
+
+        downloadIco.disabled =
+            false;
+
     }
+
 
     if (downloadZip) {
-        downloadZip.disabled = false;
+
+        downloadZip.disabled =
+            false;
+
     }
 
+
     if (copyCode) {
-        copyCode.disabled = false;
+
+        copyCode.disabled =
+            false;
+
     }
 
 }
@@ -416,11 +587,14 @@ function setupControls() {
     controls.forEach(
         (id) => {
 
-            const element = $(id);
+            const element =
+                $(id);
+
 
             if (!element) {
                 return;
             }
+
 
             element.addEventListener(
                 "change",
@@ -459,9 +633,12 @@ function setupControls() {
                 () => {
 
                     if (output) {
+
                         output.textContent =
                             input.value;
+
                     }
+
 
                     render();
 
@@ -473,7 +650,9 @@ function setupControls() {
 
 
     document
-        .querySelectorAll(".size-option")
+        .querySelectorAll(
+            ".size-option"
+        )
         .forEach(
             (checkbox) => {
 
@@ -500,16 +679,23 @@ function draw(size) {
         );
 
 
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width =
+        size;
+
+    canvas.height =
+        size;
 
 
     const ctx =
-        canvas.getContext("2d");
+        canvas.getContext(
+            "2d"
+        );
 
 
     if (!sourceImage) {
+
         return canvas;
+
     }
 
 
@@ -519,7 +705,6 @@ function draw(size) {
 
     const backgroundMode =
         $("background-mode");
-
 
     const background =
         $("background");
@@ -556,8 +741,9 @@ function draw(size) {
         radiusInput
             ? size *
               (
-                  Number(radiusInput.value) /
-                  100
+                  Number(
+                      radiusInput.value
+                  ) / 100
               )
             : 0;
 
@@ -600,7 +786,9 @@ function draw(size) {
 
     const scale =
         zoomElement
-            ? Number(zoomElement.value) / 100
+            ? Number(
+                zoomElement.value
+              ) / 100
             : 1;
 
 
@@ -611,16 +799,22 @@ function draw(size) {
 
         ratio =
             Math.max(
-                size / sourceImage.width,
-                size / sourceImage.height
+                size /
+                    sourceImage.width,
+
+                size /
+                    sourceImage.height
             );
 
     } else {
 
         ratio =
             Math.min(
-                size / sourceImage.width,
-                size / sourceImage.height
+                size /
+                    sourceImage.width,
+
+                size /
+                    sourceImage.height
             );
 
     }
@@ -648,13 +842,17 @@ function draw(size) {
 
     const positionX =
         positionXElement
-            ? Number(positionXElement.value) / 100
+            ? Number(
+                positionXElement.value
+              ) / 100
             : 0.5;
 
 
     const positionY =
         positionYElement
-            ? Number(positionYElement.value) / 100
+            ? Number(
+                positionYElement.value
+              ) / 100
             : 0.5;
 
 
@@ -678,7 +876,9 @@ function draw(size) {
 
 
     if (radius > 0) {
+
         ctx.restore();
+
     }
 
 
@@ -758,8 +958,13 @@ function roundRect(
 
 function render() {
 
-    if (!sourceImage || !previewCanvas) {
+    if (
+        !sourceImage ||
+        !previewCanvas
+    ) {
+
         return;
+
     }
 
 
@@ -769,7 +974,9 @@ function render() {
 
     const size =
         sizeElement
-            ? Number(sizeElement.value)
+            ? Number(
+                sizeElement.value
+              )
             : 256;
 
 
@@ -856,8 +1063,11 @@ function downloadBlob(
         );
 
 
-    anchor.href = url;
-    anchor.download = filename;
+    anchor.href =
+        url;
+
+    anchor.download =
+        filename;
 
 
     document.body.appendChild(
@@ -930,9 +1140,9 @@ function setupDownloads() {
 
 
     /*
-     * V1:
-     * Download a valid PNG instead of
-     * pretending a PNG is an ICO.
+     * V1 ICO fallback.
+     *
+     * We do not rename PNG to ICO.
      */
 
     if (downloadIco) {
@@ -1006,7 +1216,8 @@ async function createZip() {
     }
 
 
-    downloadZip.disabled = true;
+    downloadZip.disabled =
+        true;
 
     downloadZip.textContent =
         "Creating pack...";
@@ -1047,17 +1258,23 @@ async function createZip() {
                 );
 
 
-            folder.file(
-                `favicon-${size}x${size}.png`,
-                blob
-            );
+            if (blob) {
+
+                folder.file(
+                    `favicon-${size}x${size}.png`,
+                    blob
+                );
+
+            }
 
         }
 
 
         folder.file(
             "favicon-code.html",
-            htmlCode.value
+            htmlCode
+                ? htmlCode.value
+                : ""
         );
 
 
@@ -1077,11 +1294,9 @@ async function createZip() {
 
 
         const output =
-            await zip.generateAsync(
-                {
-                    type: "blob"
-                }
-            );
+            await zip.generateAsync({
+                type: "blob"
+            });
 
 
         downloadBlob(
@@ -1098,14 +1313,15 @@ async function createZip() {
         );
 
 
-        alert(
+                alert(
             "Unable to create the favicon pack."
         );
 
 
     } finally {
 
-        downloadZip.disabled = false;
+        downloadZip.disabled =
+            false;
 
         downloadZip.textContent =
             "Download Favicon Pack";
@@ -1150,23 +1366,23 @@ function loadScript(src) {
                 );
 
 
-            script.src = src;
+            script.src =
+                src;
+
+            script.async =
+                true;
 
 
             script.onload =
-                resolve;
+                () => resolve();
 
 
             script.onerror =
-                () => {
-
-                    reject(
-                        new Error(
-                            "Failed to load external library."
-                        )
-                    );
-
-                };
+                () => reject(
+                    new Error(
+                        "Failed to load external library."
+                    )
+                );
 
 
             document.head.appendChild(
@@ -1207,11 +1423,12 @@ function updateHtmlCode() {
     href="/favicon-16x16.png"
 >`;
 
+
 }
 
 
 /* =========================================================
-   COPY
+   COPY HTML
    ========================================================= */
 
 function setupCopy() {
@@ -1225,6 +1442,11 @@ function setupCopy() {
         "click",
         async () => {
 
+            if (!htmlCode) {
+                return;
+            }
+
+
             try {
 
                 await navigator.clipboard.writeText(
@@ -1232,7 +1454,7 @@ function setupCopy() {
                 );
 
 
-                const original =
+                const originalText =
                     copyCode.textContent;
 
 
@@ -1244,7 +1466,7 @@ function setupCopy() {
                     () => {
 
                         copyCode.textContent =
-                            original;
+                            originalText;
 
                     },
                     1200
@@ -1253,8 +1475,297 @@ function setupCopy() {
 
             } catch (error) {
 
-                htmlCode.select();
+                /*
+                 * Clipboard fallback
+                 */
 
-                document.execCommand(
-                    "copy"
-  
+                try {
+
+                    htmlCode.focus();
+
+                    htmlCode.select();
+
+                    document.execCommand(
+                        "copy"
+                    );
+
+
+                    copyCode.textContent =
+                        "Copied ✓";
+
+
+                    setTimeout(
+                        () => {
+
+                            copyCode.textContent =
+                                "Copy HTML";
+
+                        },
+                        1200
+                    );
+
+
+                } catch (fallbackError) {
+
+                    console.error(
+                        "Copy error:",
+                        fallbackError
+                    );
+
+
+                    alert(
+                        "Unable to copy the HTML code."
+                    );
+
+                }
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   RESET
+   ========================================================= */
+
+function setupReset() {
+
+    if (!resetButton) {
+        return;
+    }
+
+
+    resetButton.addEventListener(
+        "click",
+        () => {
+
+            sourceImage =
+                null;
+
+            sourceData =
+                null;
+
+
+            if (fileInput) {
+
+                fileInput.value =
+                    "";
+
+            }
+
+
+            if (previewCanvas) {
+
+                previewCanvas.hidden =
+                    true;
+
+                const ctx =
+                    previewCanvas.getContext(
+                        "2d"
+                    );
+
+
+                if (ctx) {
+
+                    ctx.clearRect(
+                        0,
+                        0,
+                        previewCanvas.width,
+                        previewCanvas.height
+                    );
+
+                }
+
+            }
+
+
+            if (emptyPreview) {
+
+                emptyPreview.hidden =
+                    false;
+
+            }
+
+
+            if (downloadPng) {
+
+                downloadPng.disabled =
+                    true;
+
+            }
+
+
+            if (downloadIco) {
+
+                downloadIco.disabled =
+                    true;
+
+            }
+
+
+            if (downloadZip) {
+
+                downloadZip.disabled =
+                    true;
+
+            }
+
+
+            if (copyCode) {
+
+                copyCode.disabled =
+                    true;
+
+            }
+
+
+            /*
+             * Restore controls
+             */
+
+            const defaults = {
+                "main-size": "256",
+                "fit": "contain",
+                "background-mode": "transparent",
+                "background": "#ffffff",
+                "radius": "0",
+                "zoom": "100",
+                "position-x": "50",
+                "position-y": "50"
+            };
+
+
+            Object.entries(
+                defaults
+            ).forEach(
+                ([id, value]) => {
+
+                    const element =
+                        $(id);
+
+
+                    if (element) {
+
+                        element.value =
+                            value;
+
+                    }
+
+                }
+            );
+
+
+            /*
+             * Restore slider labels
+             */
+
+            const values = {
+                "radius-value": "0",
+                "zoom-value": "100",
+                "x-value": "50",
+                "y-value": "50"
+            };
+
+
+            Object.entries(
+                values
+            ).forEach(
+                ([id, value]) => {
+
+                    const element =
+                        $(id);
+
+
+                    if (element) {
+
+                        element.textContent =
+                            value;
+
+                    }
+
+                }
+            );
+
+
+            updateHtmlCode();
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   INITIAL UI STATE
+   ========================================================= */
+
+function initializeUiState() {
+
+    /*
+     * Make sure the tool remains hidden
+     * until authentication succeeds.
+     */
+
+    if (app) {
+
+        app.hidden =
+            true;
+
+    }
+
+
+    if (accessLoading) {
+
+        accessLoading.hidden =
+            false;
+
+    }
+
+
+    /*
+     * Disable actions before
+     * an image is selected.
+     */
+
+    if (downloadPng) {
+
+        downloadPng.disabled =
+            true;
+
+    }
+
+
+    if (downloadIco) {
+
+        downloadIco.disabled =
+            true;
+
+    }
+
+
+    if (downloadZip) {
+
+        downloadZip.disabled =
+            true;
+
+    }
+
+
+    if (copyCode) {
+
+        copyCode.disabled =
+            true;
+
+    }
+
+}
+
+
+/* =========================================================
+   RUN INITIAL UI STATE
+   ========================================================= */
+
+initializeUiState();
