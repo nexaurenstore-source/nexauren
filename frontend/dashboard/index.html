@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Nexauren Dashboard"
+    >
+
+    <title>Nexauren — Dashboard</title>
+
+    <link
+        rel="stylesheet"
+        href="/css/style.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/css/dashboard.css"
+    >
+
+</head>
+
+
+<body>
+
+    <!-- =====================================================
+         PAGE TRANSITION
+         ===================================================== -->
+
+    <div
+        class="page-transition"
+        aria-hidden="true"
+    ></div>
+
+
+    <!-- =====================================================
+         NAVIGATION
+         ===================================================== -->
+
+    <header>
+
+        <nav>
+
+            <a
+                href="/"
+                class="logo"
+            >
+                NEXAUREN
+            </a>
+
+
+            <div class="nav-links">
+
+                <a href="/">
+                    Home
+                </a>
+
+                <button
+                    id="logout-button"
+                    type="button"
+                    class="nav-logout"
+                >
+                    Sign Out
+                </button>
+
+            </div>
+
+        </nav>
+
+    </header>
+
+
+    <!-- =====================================================
+         DASHBOARD
+         ===================================================== -->
+
+    <main class="dashboard-page">
+
+        <section class="dashboard-hero">
+
+            <div class="dashboard-hero-content">
+
+                <div
+                    id="account-status"
+                    class="status"
+                >
+                    Checking session...
+                </div>
+
+
+                <h1>
+                    Your Dashboard
+                </h1>
+
+
+                <p>
+                    Explore Nexauren through
+                    categories built for creativity
+                    and digital work.
+                </p>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             CATEGORIES
+             ================================================= -->
+
+        <section class="dashboard-categories">
+
+            <div class="section-title">
+
+                <h2>
+                    Categories
+                </h2>
+
+                <p>
+                    Choose a category to explore.
+                </p>
+
+            </div>
+
+
+            <div
+                id="categories-grid"
+                class="categories-grid"
+            >
+
+                <!-- Categories inserted by JavaScript -->
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- =====================================================
+         FOOTER
+         ===================================================== -->
+
+    <footer>
+
+        <p>
+            © 2026 Nexauren.
+            All rights reserved.
+        </p>
+
+    </footer>
+
+
+    <!-- =====================================================
+         JAVASCRIPT
+         ===================================================== -->
+
+    <script
+        src="/js/app.js"
+        defer
+    ></script>
+
+    <script
+        src="/js/dashboard.js"
+        defer
+    ></script>
+
+</body>
+
+  </html>
