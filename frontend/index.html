@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt">
+
 <head>
+
     <meta charset="UTF-8">
 
     <meta
@@ -10,75 +12,68 @@
 
     <meta
         name="description"
-        content="Nexauren — simple and powerful tools for audio, images, video and business."
+        content="Nexauren — tecnologia, criatividade e ferramentas digitais."
     >
 
     <meta
         name="theme-color"
-        content="#08080d"
+        content="#ffffff"
     >
 
-    <title>Nexauren — Powerful Tools, Simply</title>
+    <title>Nexauren — Create the Future</title>
 
-    <link rel="stylesheet" href="css/style.css">
+
+    <!-- =====================================================
+         CSS
+         ===================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="/css/style.css"
+    >
+
 </head>
+
 
 <body>
 
+
     <!-- =====================================================
-         HEADER
+         NAVIGATION
          ===================================================== -->
 
-    <header class="site-header">
+    <header>
 
-        <nav class="navigation">
+        <nav>
 
             <a
                 href="/"
-                class="brand"
-                aria-label="Nexauren Home"
+                class="logo"
             >
-                <span class="brand-mark">N</span>
-                <span class="brand-name">Nexauren</span>
+                NEXAUREN
             </a>
+
 
             <div class="nav-links">
 
-                <a href="#tools">
-                    Tools
+                <a href="/">
+                    Home
                 </a>
 
-                <a href="#categories">
-                    Categories
-                </a>
-
-                <a href="#about">
-                    About
-                </a>
-
-                <a
-                    href="/pages/login.html"
-                    class="nav-login"
-                >
+                <a href="/login">
                     Login
+                </a>
+
+                <a href="/register">
+                    Create account
                 </a>
 
             </div>
 
-            <button
-                class="mobile-menu-button"
-                type="button"
-                aria-label="Open menu"
-                aria-expanded="false"
-            >
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-
         </nav>
 
     </header>
+
 
 
     <!-- =====================================================
@@ -87,432 +82,443 @@
 
     <main>
 
-        <!-- HERO -->
+
+        <!-- =================================================
+             HERO
+             ================================================= -->
 
         <section class="hero">
 
-            <div class="hero-glow hero-glow-one"></div>
-            <div class="hero-glow hero-glow-two"></div>
-
             <div class="hero-content">
 
-                <div class="hero-badge">
-                    <span class="status-dot"></span>
-                    Simple tools. Powerful possibilities.
+
+                <div
+                    class="status reveal"
+                    style="margin-bottom: 20px;"
+                >
+                    Nexauren is online
                 </div>
 
+
                 <h1>
-                    Everything you need,
-                    <span>in one place.</span>
+
+                    Create.
+                    <br>
+
+                    Explore.
+                    <br>
+
+                    <span>
+                        Build the future.
+                    </span>
+
                 </h1>
 
-                <p class="hero-description">
-                    Nexauren brings useful tools for audio,
-                    images, video and everyday work into one
-                    simple experience.
+
+                <p>
+
+                    A new digital space for
+                    creativity, technology and
+                    powerful tools.
+
                 </p>
 
-                <div class="hero-actions">
+
+                <div
+                    class="hero-actions reveal"
+                    style="
+                        display:flex;
+                        justify-content:center;
+                        gap:14px;
+                        flex-wrap:wrap;
+                    "
+                >
+
+                    <a
+                        href="/register"
+                        class="btn"
+                    >
+                        Get Started
+                    </a>
+
 
                     <a
                         href="#tools"
-                        class="button button-primary"
+                        class="btn"
+                        style="
+                            background:#ffffff;
+                            color:#635bff;
+                            border:1px solid rgba(99,91,255,.18);
+                            box-shadow:0 10px 30px rgba(44,52,100,.08);
+                        "
                     >
-                        Explore Tools
-                        <span aria-hidden="true">→</span>
-                    </a>
-
-                    <a
-                        href="#categories"
-                        class="button button-secondary"
-                    >
-                        Discover Nexauren
+                        Explore
                     </a>
 
                 </div>
 
-            </div>
 
-            <div class="hero-scroll">
-                <span></span>
-                <p>Scroll to explore</p>
             </div>
 
         </section>
 
 
-        <!-- TOOLS -->
+
+        <!-- =================================================
+             TOOLS
+             ================================================= -->
 
         <section
             id="tools"
-            class="section tools-section"
+            class="container"
         >
 
-            <div class="section-heading">
+            <div class="section-title reveal">
 
-                <div>
-                    <span class="section-label">
-                        NEXAUREN TOOLS
-                    </span>
-
-                    <h2>
-                        Tools that make things easier.
-                    </h2>
-                </div>
+                <h2>
+                    Everything starts here.
+                </h2>
 
                 <p>
-                    A growing collection of simple,
-                    practical tools designed to get the
-                    job done.
+                    Simple tools. Powerful possibilities.
                 </p>
 
             </div>
 
-            <div class="tool-preview-grid">
-
-                <article class="tool-card">
-
-                    <div class="tool-icon image-icon">
-                        ◇
-                    </div>
-
-                    <div class="tool-card-content">
-
-                        <span class="tool-category">
-                            IMAGE
-                        </span>
-
-                        <h3>
-                            Image Tools
-                        </h3>
-
-                        <p>
-                            Resize, compress and transform
-                            your images with ease.
-                        </p>
-
-                    </div>
-
-                    <span class="card-arrow">
-                        →
-                    </span>
-
-                </article>
 
 
-                <article class="tool-card">
+            <div class="tools-grid">
 
-                    <div class="tool-icon audio-icon">
+
+                <!-- AUDIO -->
+
+                <article
+                    class="tool-card reveal"
+                >
+
+                    <div class="tool-icon">
+
                         ♪
-                    </div>
-
-                    <div class="tool-card-content">
-
-                        <span class="tool-category">
-                            AUDIO
-                        </span>
-
-                        <h3>
-                            Audio Tools
-                        </h3>
-
-                        <p>
-                            Work with audio files using
-                            simple and practical tools.
-                        </p>
 
                     </div>
 
-                    <span class="card-arrow">
-                        →
-                    </span>
+
+                    <h3>
+                        Audio
+                    </h3>
+
+
+                    <p>
+                        Create, explore and
+                        work with audio tools.
+                    </p>
 
                 </article>
 
 
-                <article class="tool-card">
 
-                    <div class="tool-icon video-icon">
-                        ▶
-                    </div>
+                <!-- CREATIVE -->
 
-                    <div class="tool-card-content">
+                <article
+                    class="tool-card reveal"
+                >
 
-                        <span class="tool-category">
-                            VIDEO
-                        </span>
+                    <div class="tool-icon">
 
-                        <h3>
-                            Video Tools
-                        </h3>
-
-                        <p>
-                            Useful tools for everyday
-                            video tasks.
-                        </p>
+                        ◇
 
                     </div>
 
-                    <span class="card-arrow">
-                        →
-                    </span>
+
+                    <h3>
+                        Creative
+                    </h3>
+
+
+                    <p>
+                        Tools designed for
+                        creators and ideas.
+                    </p>
 
                 </article>
 
 
-                <article class="tool-card">
 
-                    <div class="tool-icon business-icon">
-                        ◫
-                    </div>
+                <!-- FILES -->
 
-                    <div class="tool-card-content">
+                <article
+                    class="tool-card reveal"
+                >
 
-                        <span class="tool-category">
-                            BUSINESS
-                        </span>
+                    <div class="tool-icon">
 
-                        <h3>
-                            Business Tools
-                        </h3>
-
-                        <p>
-                            Practical tools for work,
-                            projects and everyday needs.
-                        </p>
+                        ↗
 
                     </div>
 
-                    <span class="card-arrow">
-                        →
-                    </span>
+
+                    <h3>
+                        Files
+                    </h3>
+
+
+                    <p>
+                        Manage your digital
+                        content in one place.
+                    </p>
 
                 </article>
+
+
+
+                <!-- FUTURE -->
+
+                <article
+                    class="tool-card reveal"
+                >
+
+                    <div class="tool-icon">
+
+                        ✦
+
+                    </div>
+
+
+                    <h3>
+                        More coming
+                    </h3>
+
+
+                    <p>
+                        New Nexauren tools
+                        will arrive soon.
+                    </p>
+
+                </article>
+
 
             </div>
 
         </section>
 
 
-        <!-- CATEGORIES -->
 
-        <section
-            id="categories"
-            class="section categories-section"
-        >
+        <!-- =================================================
+             TECHNOLOGY SECTION
+             ================================================= -->
 
-            <div class="section-heading centered">
+        <section>
 
-                <span class="section-label">
-                    EXPLORE
-                </span>
+            <div
+                class="container"
+                style="
+                    display:grid;
+                    grid-template-columns:
+                        repeat(
+                            auto-fit,
+                            minmax(280px, 1fr)
+                        );
+                    gap:30px;
+                    align-items:center;
+                "
+            >
 
-                <h2>
-                    Built for different kinds of work.
-                </h2>
 
-                <p>
-                    Choose a category and discover the
-                    tools available inside Nexauren.
-                </p>
+                <div class="reveal">
 
-            </div>
-
-            <div class="category-grid">
-
-                <a
-                    href="#"
-                    class="category-card"
-                >
-                    <span class="category-number">01</span>
-
-                    <div>
-                        <span class="category-symbol">◈</span>
-
-                        <h3>Image</h3>
-
-                        <p>
-                            Tools for images and visual files.
-                        </p>
+                    <div class="status">
+                        Built for creators
                     </div>
 
-                    <span class="category-arrow">↗</span>
-                </a>
 
+                    <h2
+                        style="
+                            margin-top:18px;
+                            font-size:
+                                clamp(
+                                    2.2rem,
+                                    5vw,
+                                    4rem
+                                );
+                            line-height:1;
+                            letter-spacing:-.06em;
+                        "
+                    >
 
-                <a
-                    href="#"
-                    class="category-card"
-                >
-                    <span class="category-number">02</span>
+                        Technology
+                        <br>
 
-                    <div>
-                        <span class="category-symbol">♫</span>
+                        without
+                        <br>
 
-                        <h3>Audio</h3>
+                        complexity.
 
-                        <p>
-                            Simple tools for your audio files.
-                        </p>
-                    </div>
-
-                    <span class="category-arrow">↗</span>
-                </a>
-
-
-                <a
-                    href="#"
-                    class="category-card"
-                >
-                    <span class="category-number">03</span>
-
-                    <div>
-                        <span class="category-symbol">▶</span>
-
-                        <h3>Video</h3>
-
-                        <p>
-                            Tools for everyday video tasks.
-                        </p>
-                    </div>
-
-                    <span class="category-arrow">↗</span>
-                </a>
-
-
-                <a
-                    href="#"
-                    class="category-card"
-                >
-                    <span class="category-number">04</span>
-
-                    <div>
-                        <span class="category-symbol">▦</span>
-
-                        <h3>Business</h3>
-
-                        <p>
-                            Useful tools for work and business.
-                        </p>
-                    </div>
-
-                    <span class="category-arrow">↗</span>
-                </a>
-
-            </div>
-
-        </section>
-
-
-        <!-- ABOUT -->
-
-        <section
-            id="about"
-            class="section about-section"
-        >
-
-            <div class="about-panel">
-
-                <div class="about-content">
-
-                    <span class="section-label">
-                        ABOUT NEXAUREN
-                    </span>
-
-                    <h2>
-                        One place for useful digital tools.
                     </h2>
 
-                    <p>
-                        Nexauren is being built to make
-                        everyday digital tasks simpler,
-                        faster and more accessible.
-                    </p>
 
-                    <p>
-                        Start with a tool, get your work
-                        done and move on.
+                    <p
+                        style="
+                            margin-top:20px;
+                            max-width:560px;
+                            color:var(--text-soft);
+                            line-height:1.8;
+                        "
+                    >
+
+                        Nexauren is being built
+                        step by step, starting
+                        simple and becoming more
+                        powerful over time.
+
                     </p>
 
                 </div>
 
-                <div class="about-decoration">
 
-                    <div class="orb orb-one"></div>
-                    <div class="orb orb-two"></div>
 
-                    <span>
+                <div
+                    class="feature-card reveal"
+                    style="
+                        min-height:300px;
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                    "
+                >
+
+                    <div
+                        style="
+                            width:150px;
+                            height:150px;
+                            border-radius:50%;
+                            background:
+                                linear-gradient(
+                                    135deg,
+                                    var(--primary),
+                                    var(--blue),
+                                    var(--cyan)
+                                );
+                            box-shadow:
+                                0 0 70px
+                                rgba(99,91,255,.35);
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            color:white;
+                            font-size:2.5rem;
+                            animation:
+                                heroGlow 4s
+                                ease-in-out
+                                infinite
+                                alternate;
+                        "
+                    >
                         N
-                    </span>
+                    </div>
 
                 </div>
+
 
             </div>
 
         </section>
 
 
-        <!-- CTA -->
 
-        <section class="cta-section">
+        <!-- =================================================
+             CTA
+             ================================================= -->
 
-            <div class="cta-content">
+        <section
+            class="container"
+        >
 
-                <span class="section-label">
-                    START EXPLORING
-                </span>
+            <div
+                class="card reveal"
+                style="
+                    text-align:center;
+                    padding:60px 25px;
+                "
+            >
 
-                <h2>
-                    Your tools.
-                    <span>Your way.</span>
+                <div class="status">
+                    Start your journey
+                </div>
+
+
+                <h2
+                    style="
+                        margin-top:18px;
+                        font-size:
+                            clamp(
+                                2rem,
+                                5vw,
+                                3.5rem
+                            );
+                        letter-spacing:-.06em;
+                    "
+                >
+
+                    Welcome to Nexauren.
+
                 </h2>
 
-                <p>
-                    Nexauren is just getting started.
+
+                <p
+                    style="
+                        max-width:600px;
+                        margin:15px auto 28px;
+                    "
+                >
+
+                    Create your account and
+                    become part of the next
+                    generation of digital tools.
+
                 </p>
 
+
                 <a
-                    href="#tools"
-                    class="button button-primary"
+                    href="/register"
+                    class="btn"
                 >
-                    Explore Tools
-                    <span aria-hidden="true">→</span>
+                    Create account
                 </a>
 
             </div>
 
         </section>
+
 
     </main>
+
 
 
     <!-- =====================================================
          FOOTER
          ===================================================== -->
 
-    <footer class="site-footer">
+    <footer>
 
-        <div class="footer-content">
-
-            <a
-                href="/"
-                class="brand footer-brand"
-            >
-                <span class="brand-mark">N</span>
-                <span class="brand-name">Nexauren</span>
-            </a>
-
-            <p>
-                Simple tools. Powerful possibilities.
-            </p>
-
-            <span class="footer-copy">
-                © 2026 Nexauren. All rights reserved.
-            </span>
-
-        </div>
+        <p>
+            © 2026 Nexauren.
+            All rights reserved.
+        </p>
 
     </footer>
 
+
+
+    <!-- =====================================================
+         JAVASCRIPT
+         ===================================================== -->
+
+    <script
+        src="/js/app.js"
+        defer
+    ></script>
+
+
 </body>
-            </html>
+
+                        </html>
