@@ -1,12 +1,8 @@
-/* =========================================================
-   NEXAUREN — CATEGORY ENGINE V1
-   ========================================================= */
-
 "use strict";
 
-
 /* =========================================================
-   START
+   NEXAUREN — CATEGORY ENGINE V1
+   Sistema automático de categorias e ferramentas
    ========================================================= */
 
 document.addEventListener(
@@ -14,7 +10,7 @@ document.addEventListener(
     async () => {
 
         const authenticated =
-            await checkCategorySession();
+            await checkSession();
 
         if (!authenticated) {
             return;
@@ -30,7 +26,7 @@ document.addEventListener(
    SESSION
    ========================================================= */
 
-async function checkCategorySession() {
+async function checkSession() {
 
     try {
 
@@ -52,6 +48,10 @@ async function checkCategorySession() {
         const data =
             await response.json();
 
+
+        /*
+         * Sem sessão = sem serviços.
+         */
 
         if (
             !data.success ||
@@ -94,42 +94,45 @@ async function checkCategorySession() {
 
 
 /* =========================================================
-   GET CURRENT CATEGORY
+   DETECT CATEGORY
    ========================================================= */
 
 function getCurrentCategory() {
 
     const path =
-        window.location.pathname;
+        window.location.pathname
+            .toLowerCase();
 
-
-    const parts =
-        path
-            .split("/")
-            .filter(Boolean);
-
-
-    /*
-     * Esperamos:
-     *
-     * /categories/audio/
-     *
-     * parts:
-     *
-     * ["categories", "audio"]
-     */
 
     if (
-        parts.length < 2 ||
-        parts[0] !== "categories"
+        path.includes("/categories/audio")
     ) {
-
-        return null;
-
+        return "audio";
     }
 
 
-    return parts[1].toLowerCase();
+    if (
+        path.includes("/categories/image")
+    ) {
+        return "image";
+    }
+
+
+    if (
+        path.includes("/categories/text")
+    ) {
+        return "text";
+    }
+
+
+    if (
+        path.includes("/categories/pdf")
+    ) {
+        return "pdf";
+    }
+
+
+    return null;
 
 }
 
@@ -157,9 +160,10 @@ async function loadCategoryTools() {
 
     if (!category) {
 
-        showEmptyState(
+        showMessage(
             grid,
-            "Invalid category."
+            "Category not found",
+            "This Nexauren category does not exist."
         );
 
         return;
@@ -169,12 +173,24 @@ async function loadCategoryTools() {
 
     try {
 
+        /*
+         * IMPORTANT:
+         * tools.json fica em:
+         *
+         * frontend/tools/tools.json
+         */
+
         const response =
             await fetch(
-                "/data/tools.json",
+                "/tools/tools.json",
                 {
                     method: "GET",
-                    cache: "no-cache"
+                    cache: "no-cache",
+
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    }
                 }
             );
 
@@ -182,28 +198,36 @@ async function loadCategoryTools() {
         if (!response.ok) {
 
             throw new Error(
-                `HTTP ${response.status}`
+                `Unable to load tools.json: HTTP ${response.status}`
             );
 
         }
 
 
-        const data =
+        const registry =
             await response.json();
 
 
         const tools =
-            Array.isArray(data.tools)
-                ? data.tools
+            Array.isArray(
+                registry.tools
+            )
+                ? registry.tools
                 : [];
 
+
+        /*
+         * Filtra somente:
+         *
+         * 1. categoria atual
+         * 2. ferramenta ativa
+         */
 
         const categoryTools =
             tools.filter(
                 tool =>
-                    tool &&
                     tool.category === category &&
-                    tool.status === "published"
+                    tool.status === "active"
             );
 
 
@@ -216,14 +240,15 @@ async function loadCategoryTools() {
     } catch (error) {
 
         console.error(
-            "Tool registry error:",
+            "Category tools error:",
             error
         );
 
 
-        showEmptyState(
+        showMessage(
             grid,
-            "Unable to load tools."
+            "Unable to load tools",
+            "Nexauren could not load the tool registry."
         );
 
     }
@@ -243,11 +268,16 @@ function renderTools(
     grid.innerHTML = "";
 
 
-    if (tools.length === 0) {
+    /*
+     * Nenhuma ferramenta registrada.
+     */
 
-        showEmptyState(
+    if (!tools.length) {
+
+        showMessage(
             grid,
-            "No tools available yet."
+            "No tools yet",
+            "Nexauren tools will appear here automatically."
         );
 
         return;
@@ -269,7 +299,7 @@ function renderTools(
 
 
             card.className =
-                "category-card reveal";
+                "card tool-card reveal";
 
 
             card.style.animationDelay =
@@ -278,9 +308,9 @@ function renderTools(
 
             card.innerHTML = `
 
-                <div class="category-icon">
+                <div class="icon">
                     ${escapeHtml(
-                        getToolIcon(tool)
+                        tool.icon || "◈"
                     )}
                 </div>
 
@@ -292,13 +322,19 @@ function renderTools(
 
                 <p>
                     ${escapeHtml(
-                        tool.description
+                        tool.description ||
+                        "Nexauren tool."
                     )}
                 </p>
 
                 <span class="category-open">
-                    Open
-                    <span>→</span>
+
+                    Open tool
+
+                    <span>
+                        →
+                    </span>
+
                 </span>
 
             `;
@@ -311,6 +347,10 @@ function renderTools(
         }
     );
 
+
+    /*
+     * Ativa animações.
+     */
 
     requestAnimationFrame(
         () => {
@@ -332,16 +372,93 @@ function renderTools(
         }
     );
 
+
+    setupToolNavigation();
+
 }
 
 
 /* =========================================================
-   EMPTY STATE
+   TOOL NAVIGATION
    ========================================================= */
 
-function showEmptyState(
+function setupToolNavigation() {
+
+    const links =
+        document.querySelectorAll(
+            "#tools-grid .tool-card"
+        );
+
+
+    links.forEach(
+        link => {
+
+            link.addEventListener(
+                "click",
+                event => {
+
+                    if (
+                        event.ctrlKey ||
+                        event.metaKey ||
+                        event.shiftKey ||
+                        event.altKey ||
+                        event.button !== 0
+                    ) {
+                        return;
+                    }
+
+
+                    event.preventDefault();
+
+
+                    const transition =
+                        document.querySelector(
+                            ".page-transition"
+                        );
+
+
+                    if (!transition) {
+
+                        window.location.href =
+                            link.href;
+
+                        return;
+
+                    }
+
+
+                    transition.classList.add(
+                        "active"
+                    );
+
+
+                    setTimeout(
+                        () => {
+
+                            window.location.href =
+                                link.href;
+
+                        },
+                        350
+                    );
+
+                }
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   MESSAGE
+   ========================================================= */
+
+function showMessage(
     grid,
-    message
+    title,
+    description
 ) {
 
     grid.innerHTML = `
@@ -351,16 +468,12 @@ function showEmptyState(
             style="text-align:center;"
         >
 
-            <div class="icon">
-                ✦
-            </div>
-
             <h3>
-                Coming Soon
+                ${escapeHtml(title)}
             </h3>
 
             <p>
-                ${escapeHtml(message)}
+                ${escapeHtml(description)}
             </p>
 
         </div>
@@ -371,49 +484,36 @@ function showEmptyState(
 
 
 /* =========================================================
-   TOOL ICON
-   ========================================================= */
-
-function getToolIcon(tool) {
-
-    if (tool.icon) {
-        return tool.icon;
-    }
-
-
-    switch (tool.category) {
-
-        case "audio":
-            return "♪";
-
-        case "image":
-            return "◈";
-
-        case "text":
-            return "T";
-
-        case "pdf":
-            return "PDF";
-
-        default:
-            return "✦";
-
-    }
-
-}
-
-
-/* =========================================================
    HTML ESCAPE
    ========================================================= */
 
 function escapeHtml(value) {
 
-    return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+    return String(value)
+
+        .replaceAll(
+            "&",
+            "&amp;"
+        )
+
+        .replaceAll(
+            "<",
+            "&lt;"
+        )
+
+        .replaceAll(
+            ">",
+            "&gt;"
+        )
+
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
 
     }
