@@ -1,400 +1,164 @@
-"use strict";
-
 /* =========================================================
-   NEXAUREN — FAVICON CREATOR V1
-   LOCAL TOOL
-   No session
-   No backend
-   No API
+   NEXAUREN — FAVICON CREATOR
+   SCRIPT.JS
    ========================================================= */
 
-const $ = (id) =>
-    document.getElementById(id);
+"use strict";
+
+
+/* =========================================================
+   DOM
+   ========================================================= */
+
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 
 /* =========================================================
    ELEMENTS
    ========================================================= */
 
-let app;
+const app = $("#app");
+const pageTransition = $("#page-transition");
 
-let fileInput;
-let chooseButton;
-let dropZone;
+const dropZone = $("#drop-zone");
+const chooseButton = $("#choose-button");
+const fileInput = $("#file-input");
 
-let previewCanvas;
-let emptyPreview;
+const emptyPreview = $("#empty-preview");
+const previewCanvas = $("#preview-canvas");
 
-let downloadPng;
-let downloadIco;
-let downloadZip;
+const mainSize = $("#main-size");
+const fitSelect = $("#fit");
+const backgroundMode = $("#background-mode");
+const backgroundInput = $("#background");
 
-let resetButton;
-let copyCode;
-let htmlCode;
+const radiusInput = $("#radius");
+const zoomInput = $("#zoom");
+const positionXInput = $("#position-x");
+const positionYInput = $("#position-y");
+
+const radiusValue = $("#radius-value");
+const zoomValue = $("#zoom-value");
+const xValue = $("#x-value");
+const yValue = $("#y-value");
+
+const sizeOptions = $$(".size-option");
+
+const screens = $$(".tool-screen");
+const steps = $$(".step");
 
 
 /* =========================================================
    STATE
    ========================================================= */
 
-let sourceImage = null;
-let sourceData = null;
-let initialized = false;
+const state = {
+
+    image: null,
+
+    file: null,
+
+    objectURL: null,
+
+    imageWidth: 0,
+
+    imageHeight: 0,
+
+    currentStep: 1,
+
+    settings: {
+
+        size: 256,
+
+        fit: "contain",
+
+        backgroundMode: "transparent",
+
+        background: "#ffffff",
+
+        radius: 0,
+
+        zoom: 100,
+
+        positionX: 50,
+
+        positionY: 50
+
+    },
+
+    exportSizes: [
+        16,
+        32,
+        48,
+        64
+    ]
+
+};
+
+
+/* =========================================================
+   CANVAS CONTEXT
+   ========================================================= */
+
+const ctx = previewCanvas
+    ? previewCanvas.getContext("2d", {
+        alpha: true,
+        willReadFrequently: false
+    })
+    : null;
 
 
 /* =========================================================
    INITIALIZATION
    ========================================================= */
 
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
+function init() {
 
-        initializeElements();
-
-        initializeTool();
-
-    }
-);
-
-
-/* =========================================================
-   GET ELEMENTS
-   ========================================================= */
-
-function initializeElements() {
-
-    app =
-        $("app");
-
-    fileInput =
-        $("file-input");
-
-    chooseButton =
-        $("choose-button");
-
-    dropZone =
-        $("drop-zone");
-
-    previewCanvas =
-        $("preview-canvas");
-
-    emptyPreview =
-        $("empty-preview");
-
-    downloadPng =
-        $("download-png");
-
-    downloadIco =
-        $("download-ico");
-
-    downloadZip =
-        $("download-zip");
-
-    resetButton =
-        $("reset-button");
-
-    copyCode =
-        $("copy-code");
-
-    htmlCode =
-        $("html-code");
-
-}
-
-
-/* =========================================================
-   TOOL INITIALIZATION
-   ========================================================= */
-
-function initializeTool() {
-
-    if (initialized) {
+    if (!previewCanvas || !ctx) {
+        console.error(
+            "Nexauren Favicon Creator: Canvas is not supported."
+        );
         return;
     }
 
-    initialized = true;
+    bindUploadEvents();
 
-    setupUpload();
+    bindControls();
 
-    setupControls();
+    bindNavigation();
 
-    setupDownloads();
+    bindSizeOptions();
 
-    setupReset();
+    bindPageTransitions();
 
-    setupCopy();
+    updateControlValues();
 
-    updateHtmlCode();
+    updateBackgroundControl();
 
-}
+    updateSteps();
 
-/* =========================================================
-   SESSION CHECK
-   ========================================================= */
-
-async function checkSession() {
-
-    showAccessScreen(
-        "Dream. Create. Build."
-    );
-
-
-    /*
-     * Timeout prevents infinite loading.
-     */
-
-    const controller =
-        new AbortController();
-
-
-    const timeout =
-        setTimeout(
-            () => controller.abort(),
-            8000
-        );
-
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/me",
-                {
-                    method: "GET",
-                    credentials: "include",
-                    cache: "no-store",
-
-                    headers: {
-                        "Accept":
-                            "application/json"
-                    },
-
-                    signal:
-                        controller.signal
-                }
-            );
-
-
-        clearTimeout(timeout);
-
-
-        if (!response.ok) {
-
-            redirectToLogin();
-
-            return;
-
-        }
-
-
-        const data =
-            await response.json();
-
-
-        if (
-            !data ||
-            data.success !== true ||
-            data.authenticated !== true ||
-            !data.user
-        ) {
-
-            redirectToLogin();
-
-            return;
-
-        }
-
-
-        /*
-         * Authentication succeeded.
-         */
-
-        openTool();
-
-
-    } catch (error) {
-
-        clearTimeout(timeout);
-
-
-        console.error(
-            "Nexauren Favicon Creator access error:",
-            error
-        );
-
-
-        /*
-         * Never leave the user stuck
-         * on an infinite spinner.
-         */
-
-        redirectToLogin();
-
-    }
+    updateExportSizes();
 
 }
 
 
 /* =========================================================
-   ACCESS SCREEN
+   UPLOAD EVENTS
    ========================================================= */
 
-function showAccessScreen(message) {
+function bindUploadEvents() {
 
-    if (accessLoading) {
-
-        accessLoading.hidden = false;
-
-        const messageElement =
-            accessLoading.querySelector(
-                "[data-access-message]"
-            );
-
-        if (messageElement) {
-
-            messageElement.textContent =
-                message;
-
-        } else {
-
-            /*
-             * Fallback for older HTML.
-             */
-
-            const text =
-                accessLoading.querySelector(
-                    ".loading-text"
-                );
-
-            if (text) {
-                text.textContent = message;
-            }
-
-        }
-
-    }
-
-
-    if (app) {
-
-        app.hidden = true;
-
-    }
-
-}
-
-
-/* =========================================================
-   OPEN TOOL
-   ========================================================= */
-
-function openTool() {
-
-    if (accessLoading) {
-
-        accessLoading.hidden = true;
-
-    }
-
-
-    if (app) {
-
-        app.hidden = false;
-
-    }
-
-
-    document.body.classList.add(
-        "authenticated"
-    );
-
-
-    /*
-     * Prevent duplicate event listeners.
-     */
-
-    if (!initialized) {
-
-        initializeTool();
-
-        initialized = true;
-
-    }
-
-}
-
-
-/* =========================================================
-   LOGIN REDIRECT
-   ========================================================= */
-
-function redirectToLogin() {
-
-    window.location.href =
-        "/login";
-
-}
-
-
-/* =========================================================
-   TOOL INITIALIZATION
-   ========================================================= */
-
-function initializeTool() {
-
-    setupUpload();
-
-    setupControls();
-
-    setupDownloads();
-
-    setupReset();
-
-    setupCopy();
-
-    updateHtmlCode();
-
-}
-
-
-/* =========================================================
-   UPLOAD
-   ========================================================= */
-
-function setupUpload() {
-
-    if (!fileInput || !dropZone) {
-
-        console.error(
-            "Favicon Creator: upload elements missing."
-        );
-
+    if (!dropZone || !fileInput) {
         return;
-
     }
 
 
-    if (chooseButton) {
-
-        chooseButton.addEventListener(
-            "click",
-            (event) => {
-
-                event.stopPropagation();
-
-                fileInput.click();
-
-            }
-        );
-
-    }
-
-
-    dropZone.addEventListener(
+    chooseButton?.addEventListener(
         "click",
-        () => {
+        (event) => {
+
+            event.stopPropagation();
 
             fileInput.click();
 
@@ -402,20 +166,34 @@ function setupUpload() {
     );
 
 
-    fileInput.addEventListener(
-        "change",
-        () => {
+    dropZone.addEventListener(
+        "click",
+        (event) => {
 
-            const selectedFile =
-                fileInput.files &&
-                fileInput.files[0];
+            if (
+                event.target.closest("button")
+            ) {
+                return;
+            }
+
+            fileInput.click();
+
+        }
+    );
 
 
-            if (selectedFile) {
+    dropZone.addEventListener(
+        "keydown",
+        (event) => {
 
-                loadImage(
-                    selectedFile
-                );
+            if (
+                event.key === "Enter" ||
+                event.key === " "
+            ) {
+
+                event.preventDefault();
+
+                fileInput.click();
 
             }
 
@@ -423,57 +201,106 @@ function setupUpload() {
     );
 
 
-    dropZone.addEventListener(
-        "dragover",
+    fileInput.addEventListener(
+        "change",
         (event) => {
 
-            event.preventDefault();
+            const file =
+                event.target.files?.[0];
 
-            dropZone.classList.add(
-                "dragging"
-            );
+            if (file) {
+                loadImage(file);
+            }
 
         }
     );
 
 
-    dropZone.addEventListener(
+    [
+        "dragenter",
+        "dragover"
+    ].forEach((eventName) => {
+
+        dropZone.addEventListener(
+            eventName,
+            (event) => {
+
+                event.preventDefault();
+
+                event.stopPropagation();
+
+                dropZone.classList.add(
+                    "dragging"
+                );
+
+            }
+        );
+
+    });
+
+
+    [
         "dragleave",
-        () => {
+        "drop"
+    ].forEach((eventName) => {
 
-            dropZone.classList.remove(
-                "dragging"
-            );
+        dropZone.addEventListener(
+            eventName,
+            (event) => {
 
-        }
-    );
+                event.preventDefault();
+
+                event.stopPropagation();
+
+                dropZone.classList.remove(
+                    "dragging"
+                );
+
+            }
+        );
+
+    });
 
 
     dropZone.addEventListener(
         "drop",
         (event) => {
 
-            event.preventDefault();
+            const files =
+                event.dataTransfer?.files;
 
-            dropZone.classList.remove(
-                "dragging"
-            );
-
-
-            const selectedFile =
-                event.dataTransfer.files &&
-                event.dataTransfer.files[0];
-
-
-            if (selectedFile) {
-
-                loadImage(
-                    selectedFile
-                );
-
+            if (!files || !files.length) {
+                return;
             }
 
+            const file = files[0];
+
+            loadImage(file);
+
         }
+    );
+
+}
+
+
+/* =========================================================
+   IMAGE VALIDATION
+   ========================================================= */
+
+function isValidImage(file) {
+
+    if (!file) {
+        return false;
+    }
+
+    const allowedTypes = [
+        "image/png",
+        "image/jpeg",
+        "image/webp"
+    ];
+
+    return allowedTypes.includes(
+        file.type
     );
 
 }
@@ -485,135 +312,78 @@ function setupUpload() {
 
 function loadImage(file) {
 
-    const allowedTypes = [
-        "image/png",
-        "image/jpeg",
-        "image/webp"
-    ];
+    if (!isValidImage(file)) {
 
-
-    if (
-        !allowedTypes.includes(
-            file.type
-        )
-    ) {
-
-        alert(
-            "Please select a PNG, JPG, JPEG or WebP image."
+        showMessage(
+            "Please choose a PNG, JPG, JPEG or WebP image."
         );
 
         return;
+    }
+
+
+    const maxFileSize =
+        25 * 1024 * 1024;
+
+
+    if (file.size > maxFileSize) {
+
+        showMessage(
+            "The image is too large. Maximum size is 25 MB."
+        );
+
+        return;
+    }
+
+
+    if (state.objectURL) {
+
+        URL.revokeObjectURL(
+            state.objectURL
+        );
 
     }
 
 
-    const reader =
-        new FileReader();
+    state.file = file;
+
+    state.objectURL =
+        URL.createObjectURL(file);
 
 
-    reader.onload = () => {
-
-        const image =
-            new Image();
+    const image =
+        new Image();
 
 
-        image.onload = () => {
+    image.onload = () => {
 
-            sourceImage =
-                image;
+        state.image = image;
 
-            sourceData =
-                reader.result;
+        state.imageWidth =
+            image.naturalWidth;
 
-
-            if (emptyPreview) {
-
-                emptyPreview.hidden =
-                    true;
-
-            }
+        state.imageHeight =
+            image.naturalHeight;
 
 
-            if (previewCanvas) {
+        renderPreview();
 
-                previewCanvas.hidden =
-                    false;
-
-            }
-
-
-            enableTool();
-
-            render();
-
-        };
-
-
-        image.onerror = () => {
-
-            alert(
-                "Unable to read this image."
-            );
-
-        };
-
-
-        image.src =
-            reader.result;
+        goToStep(2);
 
     };
 
 
-    reader.onerror = () => {
+    image.onerror = () => {
 
-        alert(
-            "Unable to load this file."
+        showMessage(
+            "Unable to read this image."
         );
 
     };
 
 
-    reader.readAsDataURL(file);
-
-}
-
-
-/* =========================================================
-   ENABLE TOOL
-   ========================================================= */
-
-function enableTool() {
-
-    if (downloadPng) {
-
-        downloadPng.disabled =
-            false;
-
-    }
-
-
-    if (downloadIco) {
-
-        downloadIco.disabled =
-            false;
-
-    }
-
-
-    if (downloadZip) {
-
-        downloadZip.disabled =
-            false;
-
-    }
-
-
-    if (copyCode) {
-
-        copyCode.disabled =
-            false;
-
-    }
+    image.src =
+        state.objectURL;
 
 }
 
@@ -622,420 +392,204 @@ function enableTool() {
    CONTROLS
    ========================================================= */
 
-function setupControls() {
-
-    const controls = [
-        "main-size",
-        "fit",
-        "background-mode",
-        "background"
-    ];
+function bindControls() {
 
 
-    controls.forEach(
-        (id) => {
+    mainSize?.addEventListener(
+        "change",
+        () => {
 
-            const element =
-                $(id);
+            state.settings.size =
+                Number(mainSize.value);
 
-
-            if (!element) {
-                return;
-            }
-
-
-            element.addEventListener(
-                "change",
-                render
-            );
+            renderPreview();
 
         }
     );
 
 
-    const sliders = [
-        ["radius", "radius-value"],
-        ["zoom", "zoom-value"],
-        ["position-x", "x-value"],
-        ["position-y", "y-value"]
-    ];
+    fitSelect?.addEventListener(
+        "change",
+        () => {
 
+            state.settings.fit =
+                fitSelect.value;
 
-    sliders.forEach(
-        ([inputId, valueId]) => {
-
-            const input =
-                $(inputId);
-
-            const output =
-                $(valueId);
-
-
-            if (!input) {
-                return;
-            }
-
-
-            input.addEventListener(
-                "input",
-                () => {
-
-                    if (output) {
-
-                        output.textContent =
-                            input.value;
-
-                    }
-
-
-                    render();
-
-                }
-            );
+            renderPreview();
 
         }
     );
 
 
-    document
-        .querySelectorAll(
-            ".size-option"
-        )
-        .forEach(
-            (checkbox) => {
+    backgroundMode?.addEventListener(
+        "change",
+        () => {
 
-                checkbox.addEventListener(
-                    "change",
-                    render
-                );
+            state.settings.backgroundMode =
+                backgroundMode.value;
 
-            }
-        );
+            updateBackgroundControl();
+
+            renderPreview();
+
+        }
+    );
+
+
+    backgroundInput?.addEventListener(
+        "input",
+        () => {
+
+            state.settings.background =
+                backgroundInput.value;
+
+            renderPreview();
+
+        }
+    );
+
+
+    radiusInput?.addEventListener(
+        "input",
+        () => {
+
+            state.settings.radius =
+                Number(radiusInput.value);
+
+            updateControlValues();
+
+            renderPreview();
+
+        }
+    );
+
+
+    zoomInput?.addEventListener(
+        "input",
+        () => {
+
+            state.settings.zoom =
+                Number(zoomInput.value);
+
+            updateControlValues();
+
+            renderPreview();
+
+        }
+    );
+
+
+    positionXInput?.addEventListener(
+        "input",
+        () => {
+
+            state.settings.positionX =
+                Number(positionXInput.value);
+
+            updateControlValues();
+
+            renderPreview();
+
+        }
+    );
+
+
+    positionYInput?.addEventListener(
+        "input",
+        () => {
+
+            state.settings.positionY =
+                Number(positionYInput.value);
+
+            updateControlValues();
+
+            renderPreview();
+
+        }
+    );
 
 }
 
 
 /* =========================================================
-   DRAW
+   CONTROL VALUES
    ========================================================= */
 
-function draw(size) {
+function updateControlValues() {
 
-    const canvas =
-        document.createElement(
-            "canvas"
-        );
+    if (radiusValue) {
 
-
-    canvas.width =
-        size;
-
-    canvas.height =
-        size;
-
-
-    const ctx =
-        canvas.getContext(
-            "2d"
-        );
-
-
-    if (!sourceImage) {
-
-        return canvas;
+        radiusValue.textContent =
+            state.settings.radius;
 
     }
 
 
-    /*
-     * Background
-     */
+    if (zoomValue) {
 
-    const backgroundMode =
-        $("background-mode");
-
-    const background =
-        $("background");
-
-
-    if (
-        backgroundMode &&
-        backgroundMode.value === "color" &&
-        background
-    ) {
-
-        ctx.fillStyle =
-            background.value;
-
-        ctx.fillRect(
-            0,
-            0,
-            size,
-            size
-        );
+        zoomValue.textContent =
+            state.settings.zoom;
 
     }
 
 
-    /*
-     * Rounded corners
-     */
+    if (xValue) {
 
-    const radiusInput =
-        $("radius");
-
-
-    const radius =
-        radiusInput
-            ? size *
-              (
-                  Number(
-                      radiusInput.value
-                  ) / 100
-              )
-            : 0;
-
-
-    if (radius > 0) {
-
-        ctx.save();
-
-        roundRect(
-            ctx,
-            0,
-            0,
-            size,
-            size,
-            radius
-        );
-
-        ctx.clip();
+        xValue.textContent =
+            state.settings.positionX;
 
     }
 
 
-    /*
-     * Fit
-     */
+    if (yValue) {
 
-    const fitElement =
-        $("fit");
-
-
-    const fit =
-        fitElement
-            ? fitElement.value
-            : "contain";
-
-
-    const zoomElement =
-        $("zoom");
-
-
-    const scale =
-        zoomElement
-            ? Number(
-                zoomElement.value
-              ) / 100
-            : 1;
-
-
-    let ratio;
-
-
-    if (fit === "cover") {
-
-        ratio =
-            Math.max(
-                size /
-                    sourceImage.width,
-
-                size /
-                    sourceImage.height
-            );
-
-    } else {
-
-        ratio =
-            Math.min(
-                size /
-                    sourceImage.width,
-
-                size /
-                    sourceImage.height
-            );
+        yValue.textContent =
+            state.settings.positionY;
 
     }
-
-
-    const width =
-        sourceImage.width *
-        ratio *
-        scale;
-
-
-    const height =
-        sourceImage.height *
-        ratio *
-        scale;
-
-
-    const positionXElement =
-        $("position-x");
-
-
-    const positionYElement =
-        $("position-y");
-
-
-    const positionX =
-        positionXElement
-            ? Number(
-                positionXElement.value
-              ) / 100
-            : 0.5;
-
-
-    const positionY =
-        positionYElement
-            ? Number(
-                positionYElement.value
-              ) / 100
-            : 0.5;
-
-
-    const x =
-        (size - width) *
-        positionX;
-
-
-    const y =
-        (size - height) *
-        positionY;
-
-
-    ctx.drawImage(
-        sourceImage,
-        x,
-        y,
-        width,
-        height
-    );
-
-
-    if (radius > 0) {
-
-        ctx.restore();
-
-    }
-
-
-    return canvas;
 
 }
 
 
 /* =========================================================
-   ROUNDED RECTANGLE
+   BACKGROUND CONTROL
    ========================================================= */
 
-function roundRect(
-    ctx,
-    x,
-    y,
-    width,
-    height,
-    radius
-) {
+function updateBackgroundControl() {
 
-    const r =
-        Math.min(
-            radius,
-            width / 2,
-            height / 2
-        );
-
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-        x + r,
-        y
-    );
-
-    ctx.arcTo(
-        x + width,
-        y,
-        x + width,
-        y + height,
-        r
-    );
-
-    ctx.arcTo(
-        x + width,
-        y + height,
-        x,
-        y + height,
-        r
-    );
-
-    ctx.arcTo(
-        x,
-        y + height,
-        x,
-        y,
-        r
-    );
-
-    ctx.arcTo(
-        x,
-        y,
-        x + width,
-        y,
-        r
-    );
-
-    ctx.closePath();
-
-}
-
-
-/* =========================================================
-   RENDER
-   ========================================================= */
-
-function render() {
-
-    if (
-        !sourceImage ||
-        !previewCanvas
-    ) {
-
+    if (!backgroundInput) {
         return;
-
     }
 
 
-    const sizeElement =
-        $("main-size");
+    const enabled =
+        state.settings.backgroundMode ===
+        "color";
+
+
+    backgroundInput.disabled =
+        !enabled;
+
+
+    backgroundInput.style.opacity =
+        enabled ? "1" : ".45";
+
+}
+
+
+/* =========================================================
+   RENDER PREVIEW
+   ========================================================= */
+
+function renderPreview() {
+
+    if (!state.image || !ctx) {
+        return;
+    }
 
 
     const size =
-        sizeElement
-            ? Number(
-                sizeElement.value
-              )
-            : 256;
-
-
-    const canvas =
-        draw(size);
-
-
-    const ctx =
-        previewCanvas.getContext(
-            "2d"
-        );
+        state.settings.size;
 
 
     previewCanvas.width =
@@ -1053,185 +607,333 @@ function render() {
     );
 
 
-    ctx.drawImage(
-        canvas,
-        0,
-        0
+    /* -----------------------------------------------------
+       BACKGROUND
+    ----------------------------------------------------- */
+
+    if (
+        state.settings.backgroundMode ===
+        "color"
+    ) {
+
+        ctx.fillStyle =
+            state.settings.background;
+
+        ctx.fillRect(
+            0,
+            0,
+            size,
+            size
+        );
+
+    }
+
+
+    /* -----------------------------------------------------
+       CLIPPING
+    ----------------------------------------------------- */
+
+    const radius =
+        size *
+        (state.settings.radius / 100);
+
+
+    ctx.save();
+
+    if (radius > 0) {
+
+        roundedRect(
+            ctx,
+            0,
+            0,
+            size,
+            size,
+            radius
+        );
+
+        ctx.clip();
+
+    }
+
+
+    /* -----------------------------------------------------
+       IMAGE
+    ----------------------------------------------------- */
+
+    drawImageToCanvas(
+        ctx,
+        state.image,
+        size
     );
 
 
-    updateHtmlCode();
+    ctx.restore();
+
+
+    /* -----------------------------------------------------
+       UI
+    ----------------------------------------------------- */
+
+    emptyPreview?.setAttribute(
+        "hidden",
+        ""
+    );
+
+    previewCanvas.removeAttribute(
+        "hidden"
+    );
 
 }
 
 
 /* =========================================================
-   SELECTED SIZES
+   DRAW IMAGE
    ========================================================= */
 
-function selectedSizes() {
-
-    return [
-        ...document.querySelectorAll(
-            ".size-option:checked"
-        )
-    ].map(
-        checkbox =>
-            Number(
-                checkbox.value
-            )
-    );
-
-}
-
-
-/* =========================================================
-   DOWNLOAD BLOB
-   ========================================================= */
-
-function downloadBlob(
-    blob,
-    filename
+function drawImageToCanvas(
+    context,
+    image,
+    size
 ) {
 
-    if (!blob) {
-        return;
-    }
+    const imageWidth =
+        image.naturalWidth;
+
+    const imageHeight =
+        image.naturalHeight;
 
 
-    const url =
-        URL.createObjectURL(
-            blob
-        );
+    const fit =
+        state.settings.fit;
 
 
-    const anchor =
-        document.createElement(
-            "a"
-        );
+    const zoom =
+        state.settings.zoom / 100;
 
 
-    anchor.href =
-        url;
-
-    anchor.download =
-        filename;
+    let scale;
 
 
-    document.body.appendChild(
-        anchor
-    );
+    if (fit === "cover") {
 
-
-    anchor.click();
-
-    anchor.remove();
-
-
-    setTimeout(
-        () => {
-
-            URL.revokeObjectURL(
-                url
+        scale =
+            Math.max(
+                size / imageWidth,
+                size / imageHeight
             );
 
-        },
-        1000
-    );
+    } else {
 
-}
-
-
-/* =========================================================
-   DOWNLOADS
-   ========================================================= */
-
-function setupDownloads() {
-
-    if (downloadPng) {
-
-        downloadPng.addEventListener(
-            "click",
-            () => {
-
-                if (!sourceImage) {
-                    return;
-                }
-
-
-                const size =
-                    Number(
-                        $("main-size").value
-                    );
-
-
-                const canvas =
-                    draw(size);
-
-
-                canvas.toBlob(
-                    (blob) => {
-
-                        downloadBlob(
-                            blob,
-                            `favicon-${size}x${size}.png`
-                        );
-
-                    },
-                    "image/png"
-                );
-
-            }
-        );
+        scale =
+            Math.min(
+                size / imageWidth,
+                size / imageHeight
+            );
 
     }
+
+
+    scale *= zoom;
+
+
+    const drawWidth =
+        imageWidth * scale;
+
+    const drawHeight =
+        imageHeight * scale;
 
 
     /*
-     * V1 ICO fallback.
+     * Position values:
      *
-     * We do not rename PNG to ICO.
+     * 0%   = left / top
+     * 50%  = center
+     * 100% = right / bottom
      */
 
-    if (downloadIco) {
+    const availableX =
+        size - drawWidth;
 
-        downloadIco.addEventListener(
-            "click",
-            () => {
-
-                if (!sourceImage) {
-                    return;
-                }
+    const availableY =
+        size - drawHeight;
 
 
-                const canvas =
-                    draw(32);
+    const x =
+        availableX *
+        (state.settings.positionX / 100);
 
 
-                canvas.toBlob(
-                    (blob) => {
+    const y =
+        availableY *
+        (state.settings.positionY / 100);
 
-                        downloadBlob(
-                            blob,
-                            "favicon-32x32.png"
-                        );
 
-                    },
-                    "image/png"
-                );
+    context.imageSmoothingEnabled =
+        true;
 
-            }
+    context.imageSmoothingQuality =
+        "high";
+
+
+    context.drawImage(
+        image,
+        x,
+        y,
+        drawWidth,
+        drawHeight
+    );
+
+}
+
+
+/* =========================================================
+   ROUNDED RECT
+   ========================================================= */
+
+function roundedRect(
+    context,
+    x,
+    y,
+    width,
+    height,
+    radius
+) {
+
+    radius =
+        Math.min(
+            radius,
+            width / 2,
+            height / 2
         );
 
-    }
+
+    context.beginPath();
 
 
-    if (downloadZip) {
+    context.moveTo(
+        x + radius,
+        y
+    );
 
-        downloadZip.addEventListener(
-            "click",
-            createZip
-        );
+
+    context.lineTo(
+        x + width - radius,
+        y
+    );
+
+
+    context.quadraticCurveTo(
+        x + width,
+        y,
+        x + width,
+        y + radius
+    );
+
+
+    context.lineTo(
+        x + width,
+        y + height - radius
+    );
+
+
+    context.quadraticCurveTo(
+        x + width,
+        y + height,
+        x + width - radius,
+        y + height
+    );
+
+
+    context.lineTo(
+        x + radius,
+        y + height
+    );
+
+
+    context.quadraticCurveTo(
+        x,
+        y + height,
+        x,
+        y + height - radius
+    );
+
+
+    context.lineTo(
+        x,
+        y + radius
+    );
+
+
+    context.quadraticCurveTo(
+        x,
+        y,
+        x + radius,
+        y
+    );
+
+
+    context.closePath();
+
+}
+
+
+/* =========================================================
+   SIZE OPTIONS
+   ========================================================= */
+
+function bindSizeOptions() {
+
+    sizeOptions.forEach(
+        (checkbox) => {
+
+            checkbox.addEventListener(
+                "change",
+                updateExportSizes
+            );
+
+        }
+    );
+
+}
+
+
+function updateExportSizes() {
+
+    state.exportSizes =
+        sizeOptions
+            .filter(
+                checkbox =>
+                    checkbox.checked
+            )
+            .map(
+                checkbox =>
+                    Number(checkbox.value)
+            )
+            .filter(
+                size =>
+                    Number.isFinite(size)
+            );
+
+
+    /*
+     * Always keep at least one
+     * valid export size.
+     */
+
+    if (!state.exportSizes.length) {
+
+        const first =
+            sizeOptions[0];
+
+        if (first) {
+
+            first.checked =
+                true;
+
+            state.exportSizes =
+                [Number(first.value)];
+
+        }
 
     }
 
@@ -1239,24 +941,390 @@ function setupDownloads() {
 
 
 /* =========================================================
-   ZIP
+   NAVIGATION
    ========================================================= */
 
-async function createZip() {
+function bindNavigation() {
 
-    if (!sourceImage) {
+    document.addEventListener(
+        "click",
+        (event) => {
+
+            const target =
+                event.target.closest(
+                    "[data-next-step], [data-prev-step], [data-step-target]"
+                );
+
+
+            if (!target) {
+                return;
+            }
+
+
+            const next =
+                target.dataset.nextStep;
+
+            const previous =
+                target.dataset.prevStep;
+
+            const direct =
+                target.dataset.stepTarget;
+
+
+            if (next) {
+
+                goToStep(
+                    Number(next)
+                );
+
+            }
+
+
+            if (previous) {
+
+                goToStep(
+                    Number(previous)
+                );
+
+            }
+
+
+            if (direct) {
+
+                goToStep(
+                    Number(direct)
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   GO TO STEP
+   ========================================================= */
+
+function goToStep(step) {
+
+    step =
+        Math.max(
+            1,
+            Math.min(
+                3,
+                Number(step)
+            )
+        );
+
+
+    /*
+     * Do not allow export/customization
+     * without an image.
+     */
+
+    if (
+        step > 1 &&
+        !state.image
+    ) {
+
+        step = 1;
+
+    }
+
+
+    state.currentStep =
+        step;
+
+
+    screens.forEach(
+        (screen) => {
+
+            const screenNumber =
+                Number(
+                    screen.dataset.screen
+                );
+
+
+            if (
+                screenNumber === step
+            ) {
+
+                screen.removeAttribute(
+                    "hidden"
+                );
+
+                screen.classList.add(
+                    "active"
+                );
+
+            } else {
+
+                screen.setAttribute(
+                    "hidden",
+                    ""
+                );
+
+                screen.classList.remove(
+                    "active"
+                );
+
+            }
+
+        }
+    );
+
+
+    updateSteps();
+
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+
+
+    /*
+     * Refresh export screen
+     * whenever the user enters it.
+     */
+
+    if (step === 3) {
+
+        prepareExportScreen();
+
+    }
+
+}
+
+
+/* =========================================================
+   STEP INDICATOR
+   ========================================================= */
+
+function updateSteps() {
+
+    steps.forEach(
+        (stepElement) => {
+
+            const number =
+                Number(
+                    stepElement.dataset.step
+                );
+
+
+            stepElement.classList.toggle(
+                "active",
+                number === state.currentStep
+            );
+
+
+            stepElement.classList.toggle(
+                "completed",
+                number < state.currentStep
+            );
+
+        }
+    );
+
+
+    /*
+     * Update connecting lines.
+     */
+
+    const lines =
+        $$(".step-line");
+
+
+    lines.forEach(
+        (line, index) => {
+
+            const completed =
+                state.currentStep >
+                index + 1;
+
+
+            line.style.background =
+                completed
+                    ? "rgba(22, 163, 106, .35)"
+                    : "";
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   EXPORT SCREEN
+   ========================================================= */
+
+function prepareExportScreen() {
+
+    const exportCanvas =
+        $("#export-canvas");
+
+
+    if (
+        exportCanvas &&
+        state.image
+    ) {
+
+        renderCanvasAtSize(
+            exportCanvas,
+            256
+        );
+
+    }
+
+
+    const exportList =
+        $("#export-size-list");
+
+
+    if (exportList) {
+
+        exportList.innerHTML =
+            state.exportSizes
+                .map(
+                    size => `
+                        <span class="export-size">
+                            ${size} × ${size}
+                        </span>
+                    `
+                )
+                .join("");
+
+    }
+
+}
+
+
+/* =========================================================
+   RENDER AT SPECIFIC SIZE
+   ========================================================= */
+
+function renderCanvasAtSize(
+    canvas,
+    size
+) {
+
+    if (!state.image) {
         return;
     }
 
 
-    const sizes =
-        selectedSizes();
+    const context =
+        canvas.getContext(
+            "2d"
+        );
 
 
-    if (!sizes.length) {
+    canvas.width =
+        size;
 
-        alert(
-            "Select at least one favicon size."
+    canvas.height =
+        size;
+
+
+    context.clearRect(
+        0,
+        0,
+        size,
+        size
+    );
+
+
+    if (
+        state.settings.backgroundMode ===
+        "color"
+    ) {
+
+        context.fillStyle =
+            state.settings.background;
+
+        context.fillRect(
+            0,
+            0,
+            size,
+            size
+        );
+
+    }
+
+
+    context.save();
+
+
+        const radius =
+        size *
+        (state.settings.radius / 100);
+
+
+    if (radius > 0) {
+
+        roundedRect(
+            context,
+            0,
+            0,
+            size,
+            size,
+            radius
+        );
+
+        context.clip();
+
+    }
+
+
+    drawImageToCanvas(
+        context,
+        state.image,
+        size
+    );
+
+
+    context.restore();
+
+}
+
+
+/* =========================================================
+   EXPORT ACTIONS
+   ========================================================= */
+
+function bindExportActions() {
+
+    const downloadPackButton =
+        $("#download-pack");
+
+    const downloadSingleButton =
+        $("#download-single");
+
+    downloadPackButton?.addEventListener(
+        "click",
+        downloadFaviconPack
+    );
+
+    downloadSingleButton?.addEventListener(
+        "click",
+        downloadSingleFavicon
+    );
+
+}
+
+
+/* =========================================================
+   DOWNLOAD SINGLE FAVICON
+   ========================================================= */
+
+function downloadSingleFavicon() {
+
+    if (!state.image) {
+
+        showMessage(
+            "Please upload an image first."
         );
 
         return;
@@ -1264,115 +1332,180 @@ async function createZip() {
     }
 
 
-    downloadZip.disabled =
-        true;
+    const size =
+        state.settings.size;
 
-    downloadZip.textContent =
-        "Creating pack...";
+
+    const canvas =
+        document.createElement("canvas");
+
+
+    renderCanvasAtSize(
+        canvas,
+        size
+    );
+
+
+    canvas.toBlob(
+        (blob) => {
+
+            if (!blob) {
+
+                showMessage(
+                    "Unable to create the favicon."
+                );
+
+                return;
+
+            }
+
+
+            downloadBlob(
+                blob,
+                `favicon-${size}x${size}.png`
+            );
+
+        },
+        "image/png"
+    );
+
+}
+
+
+/* =========================================================
+   DOWNLOAD FAVICON PACK
+   ========================================================= */
+
+async function downloadFaviconPack() {
+
+    if (!state.image) {
+
+        showMessage(
+            "Please upload an image first."
+        );
+
+        return;
+
+    }
+
+
+    if (!state.exportSizes.length) {
+
+        showMessage(
+            "Choose at least one favicon size."
+        );
+
+        return;
+
+    }
+
+
+    const button =
+        $("#download-pack");
+
+
+    setButtonLoading(
+        button,
+        true
+    );
 
 
     try {
 
-        if (!window.JSZip) {
+        /*
+         * ZIP is loaded only when needed.
+         * This keeps the initial page lighter.
+         */
 
-            await loadScript(
-                "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
-            );
-
-        }
+        const JSZip =
+            await loadJSZip();
 
 
         const zip =
-            new window.JSZip();
-
-
-        const folder =
-            zip.folder(
-                "nexauren-favicon-pack"
-            );
+            new JSZip();
 
 
         for (
-            const size of sizes
+            const size
+            of state.exportSizes
         ) {
 
             const canvas =
-                draw(size);
+                document.createElement(
+                    "canvas"
+                );
+
+
+            renderCanvasAtSize(
+                canvas,
+                size
+            );
 
 
             const blob =
                 await canvasToBlob(
-                    canvas
+                    canvas,
+                    "image/png"
                 );
 
 
-            if (blob) {
-
-                folder.file(
-                    `favicon-${size}x${size}.png`,
-                    blob
-                );
-
-            }
+            zip.file(
+                `favicon-${size}x${size}.png`,
+                blob
+            );
 
         }
 
 
-        folder.file(
-            "favicon-code.html",
-            htmlCode
-                ? htmlCode.value
-                : ""
-        );
+        /*
+         * Include a simple README
+         * describing the generated files.
+         */
 
-
-        folder.file(
+        zip.file(
             "README.txt",
-            [
-                "NEXAUREN FAVICON PACK",
-                "",
-                "Generated with Nexauren Favicon Creator V1.",
-                "",
-                "PNG favicon files are included.",
-                "",
-                "Use favicon-code.html inside your website <head>.",
-                ""
-            ].join("\n")
+            createExportReadme()
         );
 
 
-        const output =
+        const zipBlob =
             await zip.generateAsync({
-                type: "blob"
+                type: "blob",
+                compression: "DEFLATE",
+                compressionOptions: {
+                    level: 6
+                }
             });
 
 
         downloadBlob(
-            output,
+            zipBlob,
             "nexauren-favicon-pack.zip"
         );
 
 
+        showMessage(
+            "Your favicon pack is ready."
+        );
+
     } catch (error) {
 
         console.error(
-            "ZIP creation error:",
+            "Favicon export error:",
             error
         );
 
 
-                alert(
+        showMessage(
             "Unable to create the favicon pack."
         );
 
-
     } finally {
 
-        downloadZip.disabled =
-            false;
-
-        downloadZip.textContent =
-            "Download Favicon Pack";
+        setButtonLoading(
+            button,
+            false
+        );
 
     }
 
@@ -1380,33 +1513,61 @@ async function createZip() {
 
 
 /* =========================================================
-   CANVAS TO BLOB
+   LOAD JSZIP
    ========================================================= */
 
-function canvasToBlob(canvas) {
+function loadJSZip() {
 
-    return new Promise(
-        (resolve) => {
+    if (window.JSZip) {
 
-            canvas.toBlob(
-                resolve,
-                "image/png"
-            );
+        return Promise.resolve(
+            window.JSZip
+        );
 
-        }
-    );
+    }
 
-}
-
-
-/* =========================================================
-   LOAD EXTERNAL SCRIPT
-   ========================================================= */
-
-function loadScript(src) {
 
     return new Promise(
         (resolve, reject) => {
+
+            const existing =
+                document.querySelector(
+                    'script[data-jszip]'
+                );
+
+
+            if (existing) {
+
+                existing.addEventListener(
+                    "load",
+                    () => {
+
+                        if (window.JSZip) {
+                            resolve(
+                                window.JSZip
+                            );
+                        } else {
+                            reject(
+                                new Error(
+                                    "JSZip failed to load."
+                                )
+                            );
+                        }
+
+                    }
+                );
+
+
+                existing.addEventListener(
+                    "error",
+                    reject
+                );
+
+
+                return;
+
+            }
+
 
             const script =
                 document.createElement(
@@ -1415,20 +1576,40 @@ function loadScript(src) {
 
 
             script.src =
-                src;
+                "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
 
             script.async =
                 true;
 
+            script.dataset.jszip =
+                "true";
 
-            script.onload =
-                () => resolve();
+
+            script.onload = () => {
+
+                if (window.JSZip) {
+
+                    resolve(
+                        window.JSZip
+                    );
+
+                } else {
+
+                    reject(
+                        new Error(
+                            "JSZip is unavailable."
+                        )
+                    );
+
+                }
+
+            };
 
 
             script.onerror =
                 () => reject(
                     new Error(
-                        "Failed to load external library."
+                        "Could not load JSZip."
                     )
                 );
 
@@ -1444,130 +1625,292 @@ function loadScript(src) {
 
 
 /* =========================================================
-   HTML CODE
+   CANVAS → BLOB
    ========================================================= */
 
-function updateHtmlCode() {
+function canvasToBlob(
+    canvas,
+    type = "image/png",
+    quality
+) {
 
-    if (!htmlCode) {
-        return;
-    }
+    return new Promise(
+        (resolve, reject) => {
+
+            canvas.toBlob(
+                (blob) => {
+
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(
+                            new Error(
+                                "Canvas conversion failed."
+                            )
+                        );
+                    }
+
+                },
+                type,
+                quality
+            );
+
+        }
+    );
+
+}
 
 
-    htmlCode.value =
-`<!-- Nexauren Favicon -->
+/* =========================================================
+   DOWNLOAD BLOB
+   ========================================================= */
 
-<link
-    rel="icon"
-    type="image/png"
-    sizes="32x32"
-    href="/favicon-32x32.png"
->
+function downloadBlob(
+    blob,
+    filename
+) {
 
-<link
-    rel="icon"
-    type="image/png"
-    sizes="16x16"
-    href="/favicon-16x16.png"
->`;
+    const url =
+        URL.createObjectURL(blob);
+
+
+    const link =
+        document.createElement("a");
+
+
+    link.href =
+        url;
+
+    link.download =
+        filename;
+
+    link.style.display =
+        "none";
+
+
+    document.body.appendChild(
+        link
+    );
+
+
+    link.click();
+
+
+    link.remove();
+
+
+    /*
+     * Delay revocation slightly so
+     * mobile browsers have time to
+     * begin the download.
+     */
+
+    setTimeout(
+        () => {
+            URL.revokeObjectURL(url);
+        },
+        1500
+    );
+
+}
+
+
+/* =========================================================
+   EXPORT README
+   ========================================================= */
+
+function createExportReadme() {
+
+    const sizes =
+        state.exportSizes
+            .map(
+                size =>
+                    `${size} × ${size}`
+            )
+            .join(", ");
+
+
+    return `NEXAUREN — FAVICON PACK
+
+Generated locally in your browser.
+
+Included sizes:
+${sizes}
+
+Source image:
+${state.file?.name || "Unknown"}
+
+Image dimensions:
+${state.imageWidth} × ${state.imageHeight}
+
+Settings:
+- Fit: ${state.settings.fit}
+- Background: ${state.settings.backgroundMode}
+- Radius: ${state.settings.radius}%
+- Zoom: ${state.settings.zoom}%
+- Position X: ${state.settings.positionX}%
+- Position Y: ${state.settings.positionY}%
+
+No image was uploaded to a server by this tool.
+`;
 
 
 }
 
 
 /* =========================================================
-   COPY HTML
+   BUTTON LOADING STATE
    ========================================================= */
 
-function setupCopy() {
+function setButtonLoading(
+    button,
+    loading
+) {
 
-    if (!copyCode) {
+    if (!button) {
         return;
     }
 
 
-    copyCode.addEventListener(
-        "click",
-        async () => {
+    if (loading) {
 
-            if (!htmlCode) {
+        button.dataset.originalText =
+            button.textContent;
+
+
+        button.disabled =
+            true;
+
+
+        button.setAttribute(
+            "aria-busy",
+            "true"
+        );
+
+
+        button.textContent =
+            "Creating pack…";
+
+    } else {
+
+        button.disabled =
+            false;
+
+
+        button.removeAttribute(
+            "aria-busy"
+        );
+
+
+        if (
+            button.dataset.originalText
+        ) {
+
+            button.textContent =
+                button.dataset.originalText;
+
+        }
+
+    }
+
+}
+
+
+/* =========================================================
+   PAGE TRANSITIONS
+   ========================================================= */
+
+function bindPageTransitions() {
+
+    document.addEventListener(
+        "click",
+        (event) => {
+
+            const link =
+                event.target.closest(
+                    "a[href]"
+                );
+
+
+            if (!link) {
                 return;
             }
 
 
+            const href =
+                link.getAttribute(
+                    "href"
+                );
+
+
+            if (
+                !href ||
+                href.startsWith("#") ||
+                href.startsWith("javascript:")
+            ) {
+                return;
+            }
+
+
+            if (
+                link.target === "_blank" ||
+                link.hasAttribute("download") ||
+                event.ctrlKey ||
+                event.metaKey ||
+                event.shiftKey ||
+                event.altKey
+            ) {
+                return;
+            }
+
+
+            /*
+             * Only animate normal internal
+             * navigation.
+             */
+
+            let url;
+
             try {
 
-                await navigator.clipboard.writeText(
-                    htmlCode.value
-                );
-
-
-                const originalText =
-                    copyCode.textContent;
-
-
-                copyCode.textContent =
-                    "Copied ✓";
-
-
-                setTimeout(
-                    () => {
-
-                        copyCode.textContent =
-                            originalText;
-
-                    },
-                    1200
-                );
-
-
-            } catch (error) {
-
-                /*
-                 * Clipboard fallback
-                 */
-
-                try {
-
-                    htmlCode.focus();
-
-                    htmlCode.select();
-
-                    document.execCommand(
-                        "copy"
+                url =
+                    new URL(
+                        href,
+                        window.location.href
                     );
 
+            } catch {
 
-                    copyCode.textContent =
-                        "Copied ✓";
-
-
-                    setTimeout(
-                        () => {
-
-                            copyCode.textContent =
-                                "Copy HTML";
-
-                        },
-                        1200
-                    );
-
-
-                } catch (fallbackError) {
-
-                    console.error(
-                        "Copy error:",
-                        fallbackError
-                    );
-
-
-                    alert(
-                        "Unable to copy the HTML code."
-                    );
-
-                }
+                return;
 
             }
+
+
+            if (
+                url.origin !==
+                window.location.origin
+            ) {
+                return;
+            }
+
+
+            event.preventDefault();
+
+
+            pageTransition?.classList.add(
+                "active"
+            );
+
+
+            setTimeout(
+                () => {
+
+                    window.location.href =
+                        url.href;
+
+                },
+                220
+            );
 
         }
     );
@@ -1576,244 +1919,278 @@ function setupCopy() {
 
 
 /* =========================================================
-   RESET
+   MESSAGE SYSTEM
    ========================================================= */
 
-function setupReset() {
+function showMessage(
+    message
+) {
 
-    if (!resetButton) {
-        return;
+    /*
+     * Reuse an existing message
+     * element when possible.
+     */
+
+    let toast =
+        $("#favicon-toast");
+
+
+    if (!toast) {
+
+        toast =
+            document.createElement(
+                "div"
+            );
+
+
+        toast.id =
+            "favicon-toast";
+
+
+        toast.className =
+            "favicon-toast";
+
+
+        toast.setAttribute(
+            "role",
+            "status"
+        );
+
+
+        document.body.appendChild(
+            toast
+        );
+
     }
 
 
-    resetButton.addEventListener(
-        "click",
+    toast.textContent =
+        message;
+
+
+    toast.classList.add(
+        "visible"
+    );
+
+
+    clearTimeout(
+        showMessage.timeout
+    );
+
+
+    showMessage.timeout =
+        setTimeout(
+            () => {
+
+                toast.classList.remove(
+                    "visible"
+                );
+
+            },
+            3200
+        );
+
+}
+
+
+/* =========================================================
+   RESET TOOL
+   ========================================================= */
+
+function resetTool() {
+
+    if (state.objectURL) {
+
+        URL.revokeObjectURL(
+            state.objectURL
+        );
+
+    }
+
+
+    state.image =
+        null;
+
+    state.file =
+        null;
+
+    state.objectURL =
+        null;
+
+    state.imageWidth =
+        0;
+
+    state.imageHeight =
+        0;
+
+
+    state.settings = {
+
+        size: 256,
+
+        fit: "contain",
+
+        backgroundMode: "transparent",
+
+        background: "#ffffff",
+
+        radius: 0,
+
+        zoom: 100,
+
+        positionX: 50,
+
+        positionY: 50
+
+    };
+
+
+    if (fileInput) {
+        fileInput.value =
+            "";
+    }
+
+
+    if (mainSize) {
+        mainSize.value =
+            "256";
+    }
+
+
+    if (fitSelect) {
+        fitSelect.value =
+            "contain";
+    }
+
+
+    if (backgroundMode) {
+        backgroundMode.value =
+            "transparent";
+    }
+
+
+    if (backgroundInput) {
+        backgroundInput.value =
+            "#ffffff";
+    }
+
+
+    if (radiusInput) {
+        radiusInput.value =
+            "0";
+    }
+
+
+    if (zoomInput) {
+        zoomInput.value =
+            "100";
+    }
+
+
+    if (positionXInput) {
+        positionXInput.value =
+            "50";
+    }
+
+
+    if (positionYInput) {
+        positionYInput.value =
+            "50";
+    }
+
+
+    if (ctx) {
+
+        ctx.clearRect(
+            0,
+            0,
+            previewCanvas.width,
+            previewCanvas.height
+        );
+
+    }
+
+
+    previewCanvas?.setAttribute(
+        "hidden",
+        ""
+    );
+
+
+    emptyPreview?.removeAttribute(
+        "hidden"
+    );
+
+
+    sizeOptions.forEach(
+        (checkbox) => {
+
+            checkbox.checked =
+                [16, 32, 48, 64]
+                    .includes(
+                        Number(
+                            checkbox.value
+                        )
+                    );
+
+        }
+    );
+
+
+    updateExportSizes();
+
+    updateControlValues();
+
+    updateBackgroundControl();
+
+    goToStep(1);
+
+}
+
+
+/* =========================================================
+   BEFORE UNLOAD
+   ========================================================= */
+
+window.addEventListener(
+    "beforeunload",
+    () => {
+
+        if (state.objectURL) {
+
+            URL.revokeObjectURL(
+                state.objectURL
+            );
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   START
+   ========================================================= */
+
+if (
+    document.readyState ===
+    "loading"
+) {
+
+    document.addEventListener(
+        "DOMContentLoaded",
         () => {
 
-            sourceImage =
-                null;
+            init();
 
-            sourceData =
-                null;
-
-
-            if (fileInput) {
-
-                fileInput.value =
-                    "";
-
-            }
-
-
-            if (previewCanvas) {
-
-                previewCanvas.hidden =
-                    true;
-
-                const ctx =
-                    previewCanvas.getContext(
-                        "2d"
-                    );
-
-
-                if (ctx) {
-
-                    ctx.clearRect(
-                        0,
-                        0,
-                        previewCanvas.width,
-                        previewCanvas.height
-                    );
-
-                }
-
-            }
-
-
-            if (emptyPreview) {
-
-                emptyPreview.hidden =
-                    false;
-
-            }
-
-
-            if (downloadPng) {
-
-                downloadPng.disabled =
-                    true;
-
-            }
-
-
-            if (downloadIco) {
-
-                downloadIco.disabled =
-                    true;
-
-            }
-
-
-            if (downloadZip) {
-
-                downloadZip.disabled =
-                    true;
-
-            }
-
-
-            if (copyCode) {
-
-                copyCode.disabled =
-                    true;
-
-            }
-
-
-            /*
-             * Restore controls
-             */
-
-            const defaults = {
-                "main-size": "256",
-                "fit": "contain",
-                "background-mode": "transparent",
-                "background": "#ffffff",
-                "radius": "0",
-                "zoom": "100",
-                "position-x": "50",
-                "position-y": "50"
-            };
-
-
-            Object.entries(
-                defaults
-            ).forEach(
-                ([id, value]) => {
-
-                    const element =
-                        $(id);
-
-
-                    if (element) {
-
-                        element.value =
-                            value;
-
-                    }
-
-                }
-            );
-
-
-            /*
-             * Restore slider labels
-             */
-
-            const values = {
-                "radius-value": "0",
-                "zoom-value": "100",
-                "x-value": "50",
-                "y-value": "50"
-            };
-
-
-            Object.entries(
-                values
-            ).forEach(
-                ([id, value]) => {
-
-                    const element =
-                        $(id);
-
-
-                    if (element) {
-
-                        element.textContent =
-                            value;
-
-                    }
-
-                }
-            );
-
-
-            updateHtmlCode();
-
+        },
+        {
+            once: true
         }
     );
 
-}
+} else {
 
-
-/* =========================================================
-   INITIAL UI STATE
-   ========================================================= */
-
-function initializeUiState() {
-
-    /*
-     * Make sure the tool remains hidden
-     * until authentication succeeds.
-     */
-
-    if (app) {
-
-        app.hidden =
-            true;
-
-    }
-
-
-    if (accessLoading) {
-
-        accessLoading.hidden =
-            false;
-
-    }
-
-
-    /*
-     * Disable actions before
-     * an image is selected.
-     */
-
-    if (downloadPng) {
-
-        downloadPng.disabled =
-            true;
-
-    }
-
-
-    if (downloadIco) {
-
-        downloadIco.disabled =
-            true;
-
-    }
-
-
-    if (downloadZip) {
-
-        downloadZip.disabled =
-            true;
-
-    }
-
-
-    if (copyCode) {
-
-        copyCode.disabled =
-            true;
-
-    }
+    init();
 
 }
-
-
-/* =========================================================
-   RUN INITIAL UI STATE
-   ========================================================= */
-
-initializeUiState();
