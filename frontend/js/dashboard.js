@@ -3,15 +3,9 @@
  * NEXAUREN
  * DASHBOARD
  * =========================================================
- *
- * Responsabilidade:
- * - Verificar a sessão atual
- * - Mostrar dados do utilizador
- * - Fazer logout
- *
- * A autenticação permanece no Worker.
- * =========================================================
  */
+
+"use strict";
 
 
 const title =
@@ -49,7 +43,8 @@ function showMessage(
         return;
     }
 
-    message.textContent = text;
+    message.textContent =
+        text;
 
     message.className =
         `auth-message ${type}`;
@@ -84,7 +79,7 @@ function setLogoutLoading(
 
 
 /* =========================================================
-   LOAD CURRENT USER
+   LOAD USER
    ========================================================= */
 
 async function loadCurrentUser() {
@@ -96,7 +91,10 @@ async function loadCurrentUser() {
                 "/api/me",
                 {
                     method: "GET",
-                    credentials: "include",
+
+                    credentials:
+                        "include",
+
                     headers: {
                         "Accept":
                             "application/json"
@@ -158,7 +156,7 @@ async function loadCurrentUser() {
     } catch (error) {
 
         console.error(
-            "Dashboard authentication check failed:",
+            "Dashboard authentication error:",
             error
         );
 
@@ -180,11 +178,6 @@ async function logout() {
 
     setLogoutLoading(true);
 
-    showMessage(
-        "",
-        "success"
-    );
-
 
     try {
 
@@ -193,7 +186,10 @@ async function logout() {
                 "/api/logout",
                 {
                     method: "POST",
-                    credentials: "include",
+
+                    credentials:
+                        "include",
+
                     headers: {
                         "Accept":
                             "application/json"
@@ -241,7 +237,7 @@ async function logout() {
     } catch (error) {
 
         console.error(
-            "Logout failed:",
+            "Logout error:",
             error
         );
 
@@ -284,7 +280,7 @@ if (logoutButtonMain) {
 
 
 /* =========================================================
-   INITIALIZE
+   START
    ========================================================= */
 
 loadCurrentUser();
