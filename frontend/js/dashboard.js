@@ -49,8 +49,6 @@ const categories = [
 
 ];
 
-];
-
 
 /* =========================================================
    START
@@ -60,7 +58,17 @@ document.addEventListener(
     "DOMContentLoaded",
     async () => {
 
-        await checkSession();
+        const authenticated =
+            await checkSession();
+
+        /*
+         * Só renderiza a Dashboard
+         * se existir uma sessão válida.
+         */
+
+        if (!authenticated) {
+            return;
+        }
 
         renderCategories();
 
@@ -113,11 +121,6 @@ async function checkSession() {
             !data.authenticated ||
             !data.user
         ) {
-
-            /*
-             * Dashboard só deve ser
-             * acessível com sessão.
-             */
 
             window.location.href =
                 "/login";
@@ -223,8 +226,7 @@ function renderCategories() {
 
 
     /*
-     * Ativar animações depois
-     * de criar os elementos.
+     * Ativar animações
      */
 
     requestAnimationFrame(
@@ -325,4 +327,4 @@ function escapeHtml(value) {
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
 
-        }
+   }
