@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
 
     <meta
@@ -8,23 +10,205 @@
         content="width=device-width, initial-scale=1.0"
     >
 
+    <!-- =========================================
+         PRIMARY SEO
+    ========================================== -->
+
+    <title>
+        Image Compressor Online — Compress JPG, PNG & WebP | Nexauren
+    </title>
+
     <meta
         name="description"
-        content="Nexauren Image Compressor — compress and optimize your images directly in your browser."
+        content="Compress JPG, PNG and WebP images online for free with Nexauren. Reduce image file size directly in your browser while controlling quality and output format."
+    >
+
+    <meta
+        name="keywords"
+        content="image compressor, image compressor online, compress image, compress JPG, compress PNG, compress WebP, reduce image size, optimize images"
+    >
+
+    <meta
+        name="author"
+        content="Nexauren"
+    >
+
+    <meta
+        name="robots"
+        content="index, follow, max-image-preview:large"
+    >
+
+    <meta
+        name="googlebot"
+        content="index, follow, max-image-preview:large"
     >
 
     <meta
         name="theme-color"
-        content="#0b0f14"
+        content="#ffffff"
     >
 
-    <title>Image Compressor — Nexauren</title>
+
+    <!-- =========================================
+         CANONICAL
+    ========================================== -->
+
+    <link
+        rel="canonical"
+        href="https://nexaurenstory.com/tools/image/compressor/"
+    >
+
+
+    <!-- =========================================
+         FAVICON
+    ========================================== -->
+
+    <link
+        rel="icon"
+        href="/favicon.ico"
+    >
+
+
+    <!-- =========================================
+         OPEN GRAPH
+    ========================================== -->
+
+    <meta
+        property="og:type"
+        content="website"
+    >
+
+    <meta
+        property="og:title"
+        content="Image Compressor Online — Nexauren"
+    >
+
+    <meta
+        property="og:description"
+        content="Compress JPG, PNG and WebP images online directly in your browser with Nexauren."
+    >
+
+    <meta
+        property="og:url"
+        content="https://nexaurenstory.com/tools/image/compressor/"
+    >
+
+    <meta
+        property="og:site_name"
+        content="Nexauren"
+    >
+
+    <meta
+        property="og:locale"
+        content="en_US"
+    >
+
+    <!--
+    Se tiver uma imagem social própria,
+    substitua pelo caminho real:
+
+    <meta
+        property="og:image"
+        content="https://nexaurenstory.com/assets/images/image-compressor-og.jpg"
+    >
+    -->
+
+
+    <!-- =========================================
+         TWITTER / X
+    ========================================== -->
+
+    <meta
+        name="twitter:card"
+        content="summary_large_image"
+    >
+
+    <meta
+        name="twitter:title"
+        content="Image Compressor Online — Nexauren"
+    >
+
+    <meta
+        name="twitter:description"
+        content="Compress JPG, PNG and WebP images directly in your browser with Nexauren."
+    >
+
+    <!--
+    Se tiver imagem social:
+
+    <meta
+        name="twitter:image"
+        content="https://nexaurenstory.com/assets/images/image-compressor-og.jpg"
+    >
+    -->
+
+
+    <!-- =========================================
+         STYLES
+    ========================================== -->
 
     <link
         rel="stylesheet"
         href="./style.css"
     >
+
+
+    <!-- =========================================
+         STRUCTURED DATA
+         SOFTWARE APPLICATION
+    ========================================== -->
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Nexauren Image Compressor",
+        "applicationCategory": "MultimediaApplication",
+        "applicationSubCategory": "Image Compression",
+        "operatingSystem": "Web Browser",
+        "description": "Online image compressor for JPG, PNG and WebP images. Compress and optimize images directly in the browser.",
+        "url": "https://nexaurenstory.com/tools/image/compressor/",
+        "browserRequirements": "Requires JavaScript and a modern web browser",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "publisher": {
+            "@type": "Organization",
+            "name": "Nexauren",
+            "url": "https://nexaurenstory.com/"
+        }
+    }
+    </script>
+
+
+    <!-- =========================================
+         STRUCTURED DATA
+         WEB APPLICATION
+    ========================================== -->
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Image Compressor",
+        "url": "https://nexaurenstory.com/tools/image/compressor/",
+        "description": "Compress JPG, PNG and WebP images online directly in your browser.",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "All",
+        "browserRequirements": "Requires JavaScript",
+        "isAccessibleForFree": true,
+        "creator": {
+            "@type": "Organization",
+            "name": "Nexauren",
+            "url": "https://nexaurenstory.com/"
+        }
+    }
+    </script>
+
 </head>
+
 
 <body>
 
@@ -59,23 +243,29 @@
 
         <!-- TOOL -->
 
-        <section class="compressor">
+        <section
+            class="compressor"
+            aria-labelledby="tool-title"
+        >
 
             <!-- TITLE -->
 
             <div class="tool-intro">
 
-                <span class="tool-icon">
+                <span
+                    class="tool-icon"
+                    aria-hidden="true"
+                >
                     ◈
                 </span>
 
-                <h1>
+                <h1 id="tool-title">
                     Image Compressor
                 </h1>
 
                 <p>
-                    Compress your images quickly and
-                    easily without leaving your browser.
+                    Compress JPG, PNG and WebP images
+                    quickly and easily directly in your browser.
                 </p>
 
             </div>
@@ -92,6 +282,7 @@
                     class="step active"
                     data-step="1"
                 >
+
                     <span class="step-number">
                         1
                     </span>
@@ -99,16 +290,21 @@
                     <span class="step-label">
                         Upload
                     </span>
+
                 </div>
 
 
-                <div class="step-line"></div>
+                <div
+                    class="step-line"
+                    aria-hidden="true"
+                ></div>
 
 
                 <div
                     class="step"
                     data-step="2"
                 >
+
                     <span class="step-number">
                         2
                     </span>
@@ -116,16 +312,21 @@
                     <span class="step-label">
                         Adjust
                     </span>
+
                 </div>
 
 
-                <div class="step-line"></div>
+                <div
+                    class="step-line"
+                    aria-hidden="true"
+                ></div>
 
 
                 <div
                     class="step"
                     data-step="3"
                 >
+
                     <span class="step-number">
                         3
                     </span>
@@ -133,6 +334,7 @@
                     <span class="step-label">
                         Download
                     </span>
+
                 </div>
 
             </nav>
@@ -144,6 +346,7 @@
                 class="tool-step active"
                 id="step-upload"
                 data-step-content="1"
+                aria-labelledby="upload-title"
             >
 
                 <div
@@ -151,12 +354,15 @@
                     id="upload-area"
                 >
 
-                    <div class="upload-icon">
+                    <div
+                        class="upload-icon"
+                        aria-hidden="true"
+                    >
                         ↑
                     </div>
 
-                    <h2>
-                        Upload an image
+                    <h2 id="upload-title">
+                        Compress an image online
                     </h2>
 
                     <p>
@@ -175,7 +381,7 @@
                     <input
                         type="file"
                         id="image-input"
-                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        accept="image/jpeg,image/png,image/webp"
                         hidden
                     >
 
@@ -194,6 +400,7 @@
                 class="tool-step"
                 id="step-adjust"
                 data-step-content="2"
+                aria-labelledby="adjust-title"
                 hidden
             >
 
@@ -206,7 +413,7 @@
                         <div class="panel-header">
 
                             <h2>
-                                Preview
+                                Image Preview
                             </h2>
 
                         </div>
@@ -216,7 +423,7 @@
                             <img
                                 id="preview-image"
                                 src=""
-                                alt="Selected image preview"
+                                alt="Preview of the selected image"
                             >
 
                         </div>
@@ -230,8 +437,8 @@
 
                         <div class="panel-header">
 
-                            <h2>
-                                Adjust
+                            <h2 id="adjust-title">
+                                Compression Settings
                             </h2>
 
                         </div>
@@ -333,6 +540,7 @@
                                 min="10"
                                 max="100"
                                 value="80"
+                                aria-label="Image quality"
                             >
 
                         </div>
@@ -373,22 +581,26 @@
                 class="tool-step"
                 id="step-download"
                 data-step-content="3"
+                aria-labelledby="result-title"
                 hidden
             >
 
                 <div class="result-panel">
 
-                    <div class="success-icon">
+                    <div
+                        class="success-icon"
+                        aria-hidden="true"
+                    >
                         ✓
                     </div>
 
-                    <h2>
-                        Your image is ready
+                    <h2 id="result-title">
+                        Your compressed image is ready
                     </h2>
 
                     <p>
-                        Your image has been compressed
-                        successfully.
+                        Your image has been processed successfully
+                        and is ready to download.
                     </p>
 
 
@@ -399,7 +611,7 @@
                         <img
                             id="result-image"
                             src=""
-                            alt="Compressed image preview"
+                            alt="Preview of the compressed image"
                         >
 
                     </div>
@@ -486,6 +698,65 @@
                 aria-live="polite"
             ></div>
 
+
+            <!-- SEO CONTENT -->
+
+            <section
+                class="seo-content"
+                aria-labelledby="about-image-compressor"
+            >
+
+                <h2 id="about-image-compressor">
+                    Free Online Image Compressor
+                </h2>
+
+                <p>
+                    Nexauren Image Compressor helps you
+                    reduce the file size of JPG, PNG and
+                    WebP images directly in your browser.
+                    Choose your preferred output format
+                    and adjust image quality before downloading
+                    the optimized file.
+                </p>
+
+                <h2>
+                    Compress JPG, PNG and WebP Images
+                </h2>
+
+                <p>
+                    Reduce image file sizes for websites,
+                    social media, documents and everyday
+                    digital use. The tool processes images
+                    locally in your browser, helping keep
+                    your files on your device during compression.
+                </p>
+
+                <h2>
+                    How to Compress an Image
+                </h2>
+
+                <ol>
+
+                    <li>
+                        Upload a JPG, PNG or WebP image.
+                    </li>
+
+                    <li>
+                        Choose the output format and quality.
+                    </li>
+
+                    <li>
+                        Click <strong>Compress Image</strong>.
+                    </li>
+
+                    <li>
+                        Download your optimized image.
+                    </li>
+
+                </ol>
+
+            </section>
+
         </section>
 
     </main>
@@ -497,4 +768,5 @@
     ></script>
 
 </body>
-</html>
+
+    </html>
