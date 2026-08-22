@@ -1,6 +1,6 @@
 /* =========================================================
    NEXAUREN — FAVICON CREATOR
-   SCRIPT.JS — COMPLETE REBUILD
+   SCRIPT.JS — COMPLETE STABLE VERSION
    ========================================================= */
 
 "use strict";
@@ -18,85 +18,7 @@ const $$ = (selector, parent = document) =>
 
 
 /* =========================================================
-   DOM ELEMENTS
-   ========================================================= */
-
-const pageTransition =
-    $("#page-transition");
-
-const dropZone =
-    $("#drop-zone");
-
-const chooseButton =
-    $("#choose-button");
-
-const fileInput =
-    $("#file-input");
-
-const emptyPreview =
-    $("#empty-preview");
-
-const previewCanvas =
-    $("#preview-canvas");
-
-const mainSize =
-    $("#main-size");
-
-const fitSelect =
-    $("#fit");
-
-const backgroundMode =
-    $("#background-mode");
-
-const backgroundInput =
-    $("#background");
-
-const radiusInput =
-    $("#radius");
-
-const zoomInput =
-    $("#zoom");
-
-const positionXInput =
-    $("#position-x");
-
-const positionYInput =
-    $("#position-y");
-
-const radiusValue =
-    $("#radius-value");
-
-const zoomValue =
-    $("#zoom-value");
-
-const xValue =
-    $("#x-value");
-
-const yValue =
-    $("#y-value");
-
-const screens =
-    $$(".tool-screen");
-
-const steps =
-    $$(".step");
-
-const sizeOptions =
-    $$(".size-option");
-
-
-/* =========================================================
-   CANVAS
-   ========================================================= */
-
-const ctx =
-    previewCanvas
-        ? previewCanvas.getContext("2d")
-        : null;
-
-
-/* =========================================================
-   APPLICATION STATE
+   STATE
    ========================================================= */
 
 const state = {
@@ -117,43 +39,67 @@ const state = {
 
     settings: {
 
-        size: mainSize
-            ? Number(mainSize.value) || 256
-            : 256,
+        size: 256,
 
-        fit: fitSelect
-            ? fitSelect.value
-            : "contain",
+        fit: "contain",
 
-        backgroundMode: backgroundMode
-            ? backgroundMode.value
-            : "transparent",
+        backgroundMode: "transparent",
 
-        background: backgroundInput
-            ? backgroundInput.value
-            : "#ffffff",
+        background: "#ffffff",
 
-        radius: radiusInput
-            ? Number(radiusInput.value)
-            : 0,
+        radius: 0,
 
-        zoom: zoomInput
-            ? Number(zoomInput.value)
-            : 100,
+        zoom: 100,
 
-        positionX: positionXInput
-            ? Number(positionXInput.value)
-            : 50,
+        positionX: 50,
 
-        positionY: positionYInput
-            ? Number(positionYInput.value)
-            : 50
+        positionY: 50
 
     },
 
-    exportSizes: []
+    exportSizes: [
+        16,
+        32,
+        48,
+        64,
+        128,
+        256
+    ]
 
 };
+
+
+/* =========================================================
+   DOM REFERENCES
+   ========================================================= */
+
+let pageTransition;
+let dropZone;
+let chooseButton;
+let fileInput;
+
+let emptyPreview;
+let previewCanvas;
+let previewContext;
+
+let mainSize;
+let fitSelect;
+let backgroundMode;
+let backgroundInput;
+
+let radiusInput;
+let zoomInput;
+let positionXInput;
+let positionYInput;
+
+let radiusValue;
+let zoomValue;
+let xValue;
+let yValue;
+
+let screens = [];
+let steps = [];
+let sizeOptions = [];
 
 
 /* =========================================================
@@ -162,25 +108,18 @@ const state = {
 
 function init() {
 
+    cacheDOM();
+
     console.log(
         "Nexauren Favicon Creator initialized."
     );
 
 
-    if (!previewCanvas || !ctx) {
-
-        console.error(
-            "Nexauren Favicon Creator: Canvas unavailable."
-        );
-
-        return;
-
-    }
-
+    readInitialSettings();
 
     initializeExportSizes();
 
-    bindUpload();
+    bindUploadEvents();
 
     bindControls();
 
@@ -188,187 +127,408 @@ function init() {
 
     bindNavigation();
 
+    bindExportEvents();
+
     bindPageTransitions();
 
     bindKeyboardShortcuts();
 
-    updateControlLabels();
+    updateControlValues();
 
     updateBackgroundControl();
 
     updateSteps();
 
-    createExportFallbackUI();
+    updateExportSizeUI();
+
+    showInitialScreen();
 
 }
 
 
 /* =========================================================
-   UPLOAD
+   CACHE DOM
    ========================================================= */
 
-function bindUpload() {
+function cacheDOM() {
 
-    if (!dropZone || !fileInput) {
+    pageTransition =
+        $("#page-transition");
+
+    dropZone =
+        $("#drop-zone");
+
+    chooseButton =
+        $("#choose-button");
+
+    fileInput =
+        $("#file-input");
+
+    emptyPreview =
+        $("#empty-preview");
+
+    previewCanvas =
+        $("#preview-canvas");
+
+    previewContext =
+        previewCanvas
+            ? previewCanvas.getContext("2d")
+            : null;
+
+    mainSize =
+        $("#main-size");
+
+    fitSelect =
+        $("#fit");
+
+    backgroundMode =
+        $("#background-mode");
+
+    backgroundInput =
+        $("#background");
+
+    radiusInput =
+        $("#radius");
+
+    zoomInput =
+        $("#zoom");
+
+    positionXInput =
+        $("#position-x");
+
+    positionYInput =
+        $("#position-y");
+
+    radiusValue =
+        $("#radius-value");
+
+    zoomValue =
+        $("#zoom-value");
+
+    xValue =
+        $("#x-value");
+
+    yValue =
+        $("#y-value");
+
+    screens =
+        $$(".tool-screen");
+
+    steps =
+        $$(".step");
+
+    sizeOptions =
+        $$(".size-option");
+
+}
+
+
+/* =========================================================
+   READ INITIAL SETTINGS
+   ========================================================= */
+
+function readInitialSettings() {
+
+    if (mainSize) {
+
+        const value =
+            Number(mainSize.value);
+
+        if (
+            Number.isFinite(value) &&
+            value > 0
+        ) {
+
+            state.settings.size =
+                value;
+
+        }
+
+    }
+
+
+    if (fitSelect) {
+
+        state.settings.fit =
+            fitSelect.value ||
+            "contain";
+
+    }
+
+
+    if (backgroundMode) {
+
+        state.settings.backgroundMode =
+            backgroundMode.value ||
+            "transparent";
+
+    }
+
+
+    if (backgroundInput) {
+
+        state.settings.background =
+            backgroundInput.value ||
+            "#ffffff";
+
+    }
+
+
+    if (radiusInput) {
+
+        state.settings.radius =
+            clamp(
+                Number(radiusInput.value),
+                0,
+                100
+            );
+
+    }
+
+
+    if (zoomInput) {
+
+        state.settings.zoom =
+            clamp(
+                Number(zoomInput.value),
+                1,
+                500
+            );
+
+    }
+
+
+    if (positionXInput) {
+
+        state.settings.positionX =
+            clamp(
+                Number(positionXInput.value),
+                0,
+                100
+            );
+
+    }
+
+
+    if (positionYInput) {
+
+        state.settings.positionY =
+            clamp(
+                Number(positionYInput.value),
+                0,
+                100
+            );
+
+    }
+
+}
+
+
+/* =========================================================
+   INITIAL SCREEN
+   ========================================================= */
+
+function showInitialScreen() {
+
+    state.currentStep = 1;
+
+    screens.forEach(
+        screen => {
+
+            const number =
+                Number(
+                    screen.dataset.screen
+                );
+
+            if (number === 1) {
+
+                screen.hidden = false;
+
+                screen.classList.add(
+                    "active"
+                );
+
+            } else {
+
+                screen.hidden = true;
+
+                screen.classList.remove(
+                    "active"
+                );
+
+            }
+
+        }
+    );
+
+    updateSteps();
+
+}
+
+
+/* =========================================================
+   UPLOAD EVENTS
+   ========================================================= */
+
+function bindUploadEvents() {
+
+    if (!fileInput) {
         return;
     }
 
 
-    /* -----------------------------------------------------
-       CHOOSE BUTTON
-    ----------------------------------------------------- */
+    if (chooseButton) {
 
-    chooseButton?.addEventListener(
-        "click",
-        (event) => {
-
-            event.preventDefault();
-
-            event.stopPropagation();
-
-            fileInput.click();
-
-        }
-    );
-
-
-    /* -----------------------------------------------------
-       DROP ZONE CLICK
-    ----------------------------------------------------- */
-
-    dropZone.addEventListener(
-        "click",
-        (event) => {
-
-            if (
-                event.target.closest("button")
-            ) {
-                return;
-            }
-
-            fileInput.click();
-
-        }
-    );
-
-
-    /* -----------------------------------------------------
-       KEYBOARD
-    ----------------------------------------------------- */
-
-    dropZone.addEventListener(
-        "keydown",
-        (event) => {
-
-            if (
-                event.key === "Enter" ||
-                event.key === " "
-            ) {
+        chooseButton.addEventListener(
+            "click",
+            event => {
 
                 event.preventDefault();
 
-                fileInput.click();
+                event.stopPropagation();
+
+                openFilePicker();
 
             }
+        );
 
-        }
-    );
+    }
 
 
-    /* -----------------------------------------------------
-       FILE INPUT
-    ----------------------------------------------------- */
+    if (dropZone) {
+
+        dropZone.addEventListener(
+            "click",
+            event => {
+
+                if (
+                    event.target.closest("button") ||
+                    event.target.closest("input")
+                ) {
+                    return;
+                }
+
+                openFilePicker();
+
+            }
+        );
+
+
+        dropZone.addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.key === "Enter" ||
+                    event.key === " "
+                ) {
+
+                    event.preventDefault();
+
+                    openFilePicker();
+
+                }
+
+            }
+        );
+
+
+        [
+            "dragenter",
+            "dragover"
+        ].forEach(
+            eventName => {
+
+                dropZone.addEventListener(
+                    eventName,
+                    event => {
+
+                        event.preventDefault();
+
+                        event.stopPropagation();
+
+                        dropZone.classList.add(
+                            "dragging"
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+
+        dropZone.addEventListener(
+            "dragleave",
+            event => {
+
+                event.preventDefault();
+
+                event.stopPropagation();
+
+                if (
+                    event.relatedTarget &&
+                    dropZone.contains(
+                        event.relatedTarget
+                    )
+                ) {
+                    return;
+                }
+
+                dropZone.classList.remove(
+                    "dragging"
+                );
+
+            }
+        );
+
+
+        dropZone.addEventListener(
+            "drop",
+            event => {
+
+                event.preventDefault();
+
+                event.stopPropagation();
+
+                dropZone.classList.remove(
+                    "dragging"
+                );
+
+
+                const files =
+                    event.dataTransfer?.files;
+
+
+                if (
+                    files &&
+                    files.length
+                ) {
+
+                    loadImage(
+                        files[0]
+                    );
+
+                }
+
+            }
+        );
+
+    }
+
 
     fileInput.addEventListener(
         "change",
-        () => {
-
-            const file =
-                fileInput.files &&
-                fileInput.files[0];
-
-            if (file) {
-                loadImage(file);
-            }
-
-        }
-    );
-
-
-    /* -----------------------------------------------------
-       DRAG ENTER / OVER
-    ----------------------------------------------------- */
-
-    [
-        "dragenter",
-        "dragover"
-    ].forEach(
-        eventName => {
-
-            dropZone.addEventListener(
-                eventName,
-                event => {
-
-                    event.preventDefault();
-
-                    event.stopPropagation();
-
-                    dropZone.classList.add(
-                        "dragging"
-                    );
-
-                }
-            );
-
-        }
-    );
-
-
-    /* -----------------------------------------------------
-       DRAG LEAVE / DROP
-    ----------------------------------------------------- */
-
-    [
-        "dragleave",
-        "drop"
-    ].forEach(
-        eventName => {
-
-            dropZone.addEventListener(
-                eventName,
-                event => {
-
-                    event.preventDefault();
-
-                    event.stopPropagation();
-
-                    dropZone.classList.remove(
-                        "dragging"
-                    );
-
-                }
-            );
-
-        }
-    );
-
-
-    /* -----------------------------------------------------
-       DROP
-    ----------------------------------------------------- */
-
-    dropZone.addEventListener(
-        "drop",
         event => {
 
-            const files =
-                event.dataTransfer?.files;
+            const file =
+                event.target.files?.[0];
 
-            if (!files?.length) {
-                return;
+            if (file) {
+
+                loadImage(file);
+
             }
-
-            loadImage(files[0]);
 
         }
     );
@@ -377,7 +537,22 @@ function bindUpload() {
 
 
 /* =========================================================
-   IMAGE VALIDATION
+   OPEN FILE PICKER
+   ========================================================= */
+
+function openFilePicker() {
+
+    if (!fileInput) {
+        return;
+    }
+
+    fileInput.click();
+
+}
+
+
+/* =========================================================
+   VALIDATE IMAGE
    ========================================================= */
 
 function validateImageFile(file) {
@@ -392,14 +567,45 @@ function validateImageFile(file) {
     }
 
 
-    const allowedTypes = new Set([
+    const allowedTypes = [
         "image/png",
         "image/jpeg",
+        "image/jpg",
         "image/webp"
-    ]);
+    ];
 
 
-    if (!allowedTypes.has(file.type)) {
+    const extension =
+        String(file.name || "")
+            .split(".")
+            .pop()
+            .toLowerCase();
+
+
+    const allowedExtensions = [
+        "png",
+        "jpg",
+        "jpeg",
+        "webp"
+    ];
+
+
+    const validType =
+        allowedTypes.includes(
+            file.type
+        );
+
+
+    const validExtension =
+        allowedExtensions.includes(
+            extension
+        );
+
+
+    if (
+        !validType &&
+        !validExtension
+    ) {
 
         return {
             valid: false,
@@ -410,11 +616,10 @@ function validateImageFile(file) {
     }
 
 
-    const maxSize =
-        25 * 1024 * 1024;
-
-
-    if (file.size > maxSize) {
+    if (
+        file.size >
+        25 * 1024 * 1024
+    ) {
 
         return {
             valid: false,
@@ -426,7 +631,8 @@ function validateImageFile(file) {
 
 
     return {
-        valid: true
+        valid: true,
+        message: ""
     };
 
 }
@@ -461,18 +667,17 @@ function loadImage(file) {
         URL.createObjectURL(file);
 
 
-    state.file =
-        file;
-
-    state.objectURL =
-        objectURL;
-
-
     const image =
         new Image();
 
 
     image.onload = () => {
+
+        state.file =
+            file;
+
+        state.objectURL =
+            objectURL;
 
         state.image =
             image;
@@ -484,7 +689,7 @@ function loadImage(file) {
             image.naturalHeight;
 
 
-        resetImageAdjustments();
+        resetImagePosition();
 
         renderPreview();
 
@@ -501,13 +706,9 @@ function loadImage(file) {
 
     image.onerror = () => {
 
-        releaseObjectURL();
-
-        state.image =
-            null;
-
-        state.file =
-            null;
+        URL.revokeObjectURL(
+            objectURL
+        );
 
 
         showMessage(
@@ -525,10 +726,10 @@ function loadImage(file) {
 
 
 /* =========================================================
-   RESET IMAGE ADJUSTMENTS
+   RESET IMAGE POSITION
    ========================================================= */
 
-function resetImageAdjustments() {
+function resetImagePosition() {
 
     state.settings.zoom =
         100;
@@ -541,22 +742,19 @@ function resetImageAdjustments() {
 
 
     if (zoomInput) {
-        zoomInput.value =
-            "100";
+        zoomInput.value = "100";
     }
 
     if (positionXInput) {
-        positionXInput.value =
-            "50";
+        positionXInput.value = "50";
     }
 
     if (positionYInput) {
-        positionYInput.value =
-            "50";
+        positionYInput.value = "50";
     }
 
 
-    updateControlLabels();
+    updateControlValues();
 
 }
 
@@ -566,6 +764,29 @@ function resetImageAdjustments() {
    ========================================================= */
 
 function bindControls() {
+
+    mainSize?.addEventListener(
+        "input",
+        () => {
+
+            const value =
+                Number(mainSize.value);
+
+            if (
+                Number.isFinite(value) &&
+                value > 0
+            ) {
+
+                state.settings.size =
+                    value;
+
+                renderPreview();
+
+            }
+
+        }
+    );
+
 
     mainSize?.addEventListener(
         "change",
@@ -639,10 +860,10 @@ function bindControls() {
                 clamp(
                     Number(radiusInput.value),
                     0,
-                    50
+                    100
                 );
 
-            updateControlLabels();
+            updateControlValues();
 
             renderPreview();
 
@@ -657,11 +878,11 @@ function bindControls() {
             state.settings.zoom =
                 clamp(
                     Number(zoomInput.value),
-                    50,
-                    200
+                    1,
+                    500
                 );
 
-            updateControlLabels();
+            updateControlValues();
 
             renderPreview();
 
@@ -680,7 +901,7 @@ function bindControls() {
                     100
                 );
 
-            updateControlLabels();
+            updateControlValues();
 
             renderPreview();
 
@@ -699,7 +920,7 @@ function bindControls() {
                     100
                 );
 
-            updateControlLabels();
+            updateControlValues();
 
             renderPreview();
 
@@ -710,15 +931,17 @@ function bindControls() {
 
 
 /* =========================================================
-   CONTROL LABELS
+   CONTROL VALUES
    ========================================================= */
 
-function updateControlLabels() {
+function updateControlValues() {
 
     if (radiusValue) {
 
         radiusValue.textContent =
-            state.settings.radius;
+            Math.round(
+                state.settings.radius
+            );
 
     }
 
@@ -726,7 +949,9 @@ function updateControlLabels() {
     if (zoomValue) {
 
         zoomValue.textContent =
-            state.settings.zoom;
+            Math.round(
+                state.settings.zoom
+            );
 
     }
 
@@ -734,7 +959,9 @@ function updateControlLabels() {
     if (xValue) {
 
         xValue.textContent =
-            state.settings.positionX;
+            Math.round(
+                state.settings.positionX
+            );
 
     }
 
@@ -742,7 +969,9 @@ function updateControlLabels() {
     if (yValue) {
 
         yValue.textContent =
-            state.settings.positionY;
+            Math.round(
+                state.settings.positionY
+            );
 
     }
 
@@ -774,17 +1003,11 @@ function updateBackgroundControl() {
             ? "1"
             : ".45";
 
-
-    backgroundInput.setAttribute(
-        "aria-disabled",
-        String(!enabled)
-    );
-
 }
 
 
 /* =========================================================
-   PREVIEW
+   RENDER PREVIEW
    ========================================================= */
 
 function renderPreview() {
@@ -792,14 +1015,16 @@ function renderPreview() {
     if (
         !state.image ||
         !previewCanvas ||
-        !ctx
+        !previewContext
     ) {
         return;
     }
 
 
     const size =
-        state.settings.size;
+        Number(
+            state.settings.size
+        );
 
 
     if (
@@ -817,7 +1042,7 @@ function renderPreview() {
         size;
 
 
-    ctx.clearRect(
+    previewContext.clearRect(
         0,
         0,
         size,
@@ -825,19 +1050,48 @@ function renderPreview() {
     );
 
 
-    /* -----------------------------------------------------
-       BACKGROUND
-    ----------------------------------------------------- */
+    drawFavicon(
+        previewContext,
+        size
+    );
+
+
+    if (emptyPreview) {
+        emptyPreview.hidden = true;
+    }
+
+
+    previewCanvas.hidden =
+        false;
+
+}
+
+
+/* =========================================================
+   DRAW FAVICON
+   ========================================================= */
+
+function drawFavicon(
+    context,
+    size
+) {
+
+    if (!state.image) {
+        return;
+    }
+
+
+    /* Background */
 
     if (
         state.settings.backgroundMode ===
         "color"
     ) {
 
-        ctx.fillStyle =
+        context.fillStyle =
             state.settings.background;
 
-        ctx.fillRect(
+        context.fillRect(
             0,
             0,
             size,
@@ -847,11 +1101,9 @@ function renderPreview() {
     }
 
 
-    /* -----------------------------------------------------
-       IMAGE CLIP
-    ----------------------------------------------------- */
+    /* Rounded corners */
 
-    ctx.save();
+    context.save();
 
 
     const radius =
@@ -865,7 +1117,7 @@ function renderPreview() {
     if (radius > 0) {
 
         createRoundedRectPath(
-            ctx,
+            context,
             0,
             0,
             size,
@@ -873,33 +1125,19 @@ function renderPreview() {
             radius
         );
 
-        ctx.clip();
+        context.clip();
 
     }
 
 
-    drawImage(
-        ctx,
+    drawImageToContext(
+        context,
         state.image,
         size
     );
 
 
-    ctx.restore();
-
-
-    /* -----------------------------------------------------
-       SHOW CANVAS
-    ----------------------------------------------------- */
-
-    emptyPreview?.setAttribute(
-        "hidden",
-        ""
-    );
-
-    previewCanvas.removeAttribute(
-        "hidden"
-    );
+    context.restore();
 
 }
 
@@ -908,10 +1146,10 @@ function renderPreview() {
    DRAW IMAGE
    ========================================================= */
 
-function drawImage(
+function drawImageToContext(
     context,
     image,
-    canvasSize
+    size
 ) {
 
     const imageWidth =
@@ -944,37 +1182,36 @@ function drawImage(
 
         scale =
             Math.max(
-                canvasSize / imageWidth,
-                canvasSize / imageHeight
+                size / imageWidth,
+                size / imageHeight
             );
 
     } else {
 
         scale =
             Math.min(
-                canvasSize / imageWidth,
-                canvasSize / imageHeight
+                size / imageWidth,
+                size / imageHeight
             );
 
     }
 
 
-    scale *=
-        zoom;
+    scale *= zoom;
 
 
-    const width =
+    const drawWidth =
         imageWidth * scale;
 
-    const height =
+    const drawHeight =
         imageHeight * scale;
 
 
     const availableX =
-        canvasSize - width;
+        size - drawWidth;
 
     const availableY =
-        canvasSize - height;
+        size - drawHeight;
 
 
     const x =
@@ -1004,15 +1241,15 @@ function drawImage(
         image,
         x,
         y,
-        width,
-        height
+        drawWidth,
+        drawHeight
     );
 
 }
 
 
 /* =========================================================
-   ROUNDED RECT
+   ROUNDED RECTANGLE
    ========================================================= */
 
 function createRoundedRectPath(
@@ -1025,10 +1262,13 @@ function createRoundedRectPath(
 ) {
 
     radius =
-        Math.min(
-            radius,
-            width / 2,
-            height / 2
+        Math.max(
+            0,
+            Math.min(
+                radius,
+                width / 2,
+                height / 2
+            )
         );
 
 
@@ -1042,7 +1282,7 @@ function createRoundedRectPath(
 
 
     context.lineTo(
-        x + width - radius,
+                x + width - radius,
         y
     );
 
@@ -1103,147 +1343,82 @@ function createRoundedRectPath(
 
 
 /* =========================================================
-   RENDER AT EXPORT SIZE
-   ========================================================= */
-
-function renderAtSize(size) {
-
-    if (!state.image) {
-        return null;
-    }
-
-
-    const canvas =
-        document.createElement(
-            "canvas"
-        );
-
-
-    canvas.width =
-        size;
-
-    canvas.height =
-        size;
-
-
-    const context =
-        canvas.getContext(
-            "2d"
-        );
-
-
-    if (!context) {
-        return null;
-    }
-
-
-    context.clearRect(
-        0,
-        0,
-        size,
-        size
-    );
-
-
-    /* -----------------------------------------------------
-       BACKGROUND
-    ----------------------------------------------------- */
-
-    if (
-        state.settings.backgroundMode ===
-        "color"
-    ) {
-
-        context.fillStyle =
-            state.settings.background;
-
-        context.fillRect(
-            0,
-            0,
-            size,
-            size
-        );
-
-    }
-
-
-    /* -----------------------------------------------------
-       RADIUS
-    ----------------------------------------------------- */
-
-    context.save();
-
-
-    const radius =
-        size *
-        (
-            state.settings.radius /
-            100
-        );
-
-
-    if (radius > 0) {
-
-        createRoundedRectPath(
-            context,
-            0,
-            0,
-            size,
-            size,
-            radius
-        );
-
-        context.clip();
-
-    }
-
-
-    drawImage(
-        context,
-        state.image,
-        size
-    );
-
-
-    context.restore();
-
-
-    return canvas;
-
-}
-
-
-/* =========================================================
-   SIZE OPTIONS
+   EXPORT SIZES
    ========================================================= */
 
 function initializeExportSizes() {
 
-    state.exportSizes =
+    if (
+        !sizeOptions ||
+        !sizeOptions.length
+    ) {
+
+        return;
+
+    }
+
+
+    const selected =
         sizeOptions
             .filter(
-                input =>
-                    input.checked
+                option =>
+                    option.checked
             )
             .map(
-                input =>
-                    Number(input.value)
+                option =>
+                    Number(option.value)
             )
             .filter(
-                Number.isFinite
+                value =>
+                    Number.isFinite(value) &&
+                    value > 0
             );
 
 
-    if (!state.exportSizes.length) {
+    if (selected.length) {
 
-        state.exportSizes = [
-            16,
-            32,
-            48,
-            64
-        ];
+        state.exportSizes =
+            [...new Set(selected)];
 
     }
+
+
+    /*
+     * If nothing is selected, automatically
+     * select the first available option.
+     */
+
+    if (!state.exportSizes.length) {
+
+        const first =
+            sizeOptions[0];
+
+        if (first) {
+
+            first.checked =
+                true;
+
+            const value =
+                Number(first.value);
+
+
+            if (
+                Number.isFinite(value) &&
+                value > 0
+            ) {
+
+                state.exportSizes = [
+                    value
+                ];
+
+            }
+
+        }
+
+    }
+
+
+    updateExportSizeUI();
 
 }
 
@@ -1254,10 +1429,20 @@ function initializeExportSizes() {
 
 function bindSizeOptions() {
 
-    sizeOptions.forEach(
-        checkbox => {
+    if (
+        !sizeOptions ||
+        !sizeOptions.length
+    ) {
 
-            checkbox.addEventListener(
+        return;
+
+    }
+
+
+    sizeOptions.forEach(
+        option => {
+
+            option.addEventListener(
                 "change",
                 () => {
 
@@ -1278,20 +1463,30 @@ function bindSizeOptions() {
 
 function updateExportSizes() {
 
-    state.exportSizes =
+    if (
+        !sizeOptions ||
+        !sizeOptions.length
+    ) {
+
+        return;
+
+    }
+
+
+    const selected =
         sizeOptions
             .filter(
-                checkbox =>
-                    checkbox.checked
+                option =>
+                    option.checked
             )
             .map(
-                checkbox =>
-                    Number(checkbox.value)
+                option =>
+                    Number(option.value)
             )
             .filter(
-                size =>
-                    Number.isFinite(size) &&
-                    size > 0
+                value =>
+                    Number.isFinite(value) &&
+                    value > 0
             );
 
 
@@ -1299,20 +1494,37 @@ function updateExportSizes() {
      * Never allow an empty export pack.
      */
 
-    if (!state.exportSizes.length) {
+    if (!selected.length) {
 
         const first =
             sizeOptions[0];
 
         if (first) {
 
-            first.checked = true;
+            first.checked =
+                true;
 
-            state.exportSizes = [
-                Number(first.value)
-            ];
+            const value =
+                Number(first.value);
+
+
+            if (
+                Number.isFinite(value) &&
+                value > 0
+            ) {
+
+                state.exportSizes = [
+                    value
+                ];
+
+            }
 
         }
+
+    } else {
+
+        state.exportSizes =
+            [...new Set(selected)];
 
     }
 
@@ -1330,6 +1542,7 @@ function updateExportSizeUI() {
 
     const list =
         $("#export-size-list");
+
 
     if (!list) {
         return;
@@ -1371,11 +1584,18 @@ function bindNavigation() {
             }
 
 
+            /*
+             * Do not allow another handler
+             * to process this navigation click.
+             */
+
             event.preventDefault();
+            event.stopPropagation();
 
 
             if (
-                target.dataset.nextStep
+                target.dataset.nextStep !==
+                undefined
             ) {
 
                 goToStep(
@@ -1390,7 +1610,8 @@ function bindNavigation() {
 
 
             if (
-                target.dataset.prevStep
+                target.dataset.prevStep !==
+                undefined
             ) {
 
                 goToStep(
@@ -1405,7 +1626,8 @@ function bindNavigation() {
 
 
             if (
-                target.dataset.stepTarget
+                target.dataset.stepTarget !==
+                undefined
             ) {
 
                 goToStep(
@@ -1428,37 +1650,59 @@ function bindNavigation() {
 
 function goToStep(step) {
 
-    step =
+    let targetStep =
+        Number(step);
+
+
+    if (
+        !Number.isFinite(targetStep)
+    ) {
+
+        return;
+
+    }
+
+
+    targetStep =
+        Math.round(targetStep);
+
+
+    targetStep =
         clamp(
-            Number(step),
+            targetStep,
             1,
             3
         );
 
 
     /*
-     * Step 2 and 3 require
-     * an uploaded image.
+     * Step 2 and Step 3 require an image.
      */
 
     if (
-        step > 1 &&
+        targetStep > 1 &&
         !state.image
     ) {
 
-        step = 1;
+        showMessage(
+            "Please upload an image first.",
+            "error"
+        );
+
+
+        targetStep =
+            1;
 
     }
 
 
     /*
-     * Export requires at least
-     * one selected size.
+     * Make sure export sizes exist
+     * before entering Step 3.
      */
 
     if (
-        step === 3 &&
-        !state.exportSizes.length
+        targetStep === 3
     ) {
 
         updateExportSizes();
@@ -1467,72 +1711,127 @@ function goToStep(step) {
 
 
     state.currentStep =
-        step;
+        targetStep;
 
 
-    screens.forEach(
-        screen => {
+    /*
+     * Toggle screens.
+     */
 
-            const number =
-                Number(
-                    screen.dataset.screen
-                );
+    if (
+        screens &&
+        screens.length
+    ) {
+
+        screens.forEach(
+            screen => {
+
+                const number =
+                    Number(
+                        screen.dataset.screen
+                    );
 
 
-            const active =
-                number === step;
+                const active =
+                    number ===
+                    targetStep;
 
 
-            if (active) {
+                if (active) {
 
-                screen.removeAttribute(
-                    "hidden"
-                );
+                    screen.hidden =
+                        false;
 
-                screen.classList.add(
-                    "active"
-                );
+                    screen.removeAttribute(
+                        "hidden"
+                    );
 
-            } else {
+                    screen.classList.add(
+                        "active"
+                    );
 
-                screen.setAttribute(
-                    "hidden",
-                    ""
-                );
+                } else {
 
-                screen.classList.remove(
-                    "active"
-                );
+                    screen.hidden =
+                        true;
+
+                    screen.setAttribute(
+                        "hidden",
+                        ""
+                    );
+
+                    screen.classList.remove(
+                        "active"
+                    );
+
+                }
 
             }
-
-        }
-    );
-
-
-    updateSteps();
-
-
-    if (step === 2) {
-
-        requestAnimationFrame(
-            () => renderPreview()
         );
 
     }
 
 
-    if (step === 3) {
+    updateSteps();
 
-        prepareExportScreen();
+
+    /*
+     * Render customization preview.
+     */
+
+    if (
+        targetStep === 2
+    ) {
+
+        requestAnimationFrame(
+            () => {
+
+                renderPreview();
+
+            }
+        );
 
     }
 
 
-    window.scrollTo({
-        top: 0,
-        behavior: "smooth"
-    });
+    /*
+     * Prepare export screen.
+     */
+
+    if (
+        targetStep === 3
+    ) {
+
+        requestAnimationFrame(
+            () => {
+
+                prepareExportScreen();
+
+            }
+        );
+
+    }
+
+
+    /*
+     * Scroll to top.
+     */
+
+    try {
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+
+    } catch {
+
+        window.scrollTo(
+            0,
+            0
+        );
+
+    }
 
 }
 
@@ -1543,24 +1842,36 @@ function goToStep(step) {
 
 function updateSteps() {
 
+    if (
+        !steps ||
+        !steps.length
+    ) {
+
+        return;
+
+    }
+
+
     steps.forEach(
-        step => {
+        stepElement => {
 
             const number =
                 Number(
-                    step.dataset.step
+                    stepElement.dataset.step
                 );
 
 
-            step.classList.toggle(
+            stepElement.classList.toggle(
                 "active",
-                number === state.currentStep
+                number ===
+                state.currentStep
             );
 
 
-            step.classList.toggle(
+            stepElement.classList.toggle(
                 "completed",
-                number < state.currentStep
+                number <
+                state.currentStep
             );
 
         }
@@ -1591,7 +1902,7 @@ function updateSteps() {
 
 
 /* =========================================================
-   EXPORT SCREEN
+   PREPARE EXPORT SCREEN
    ========================================================= */
 
 function prepareExportScreen() {
@@ -1611,13 +1922,7 @@ function prepareExportScreen() {
     if (exportCanvas) {
 
         const previewSize =
-            Math.min(
-                256,
-                Math.max(
-                    ...state.exportSizes,
-                    256
-                )
-            );
+            256;
 
 
         const rendered =
@@ -1628,13 +1933,13 @@ function prepareExportScreen() {
 
         if (rendered) {
 
-            const exportContext =
+            const context =
                 exportCanvas.getContext(
                     "2d"
                 );
 
 
-            if (exportContext) {
+            if (context) {
 
                 exportCanvas.width =
                     rendered.width;
@@ -1643,7 +1948,7 @@ function prepareExportScreen() {
                     rendered.height;
 
 
-                exportContext.clearRect(
+                context.clearRect(
                     0,
                     0,
                     rendered.width,
@@ -1651,7 +1956,7 @@ function prepareExportScreen() {
                 );
 
 
-                exportContext.drawImage(
+                context.drawImage(
                     rendered,
                     0,
                     0
@@ -1670,72 +1975,90 @@ function prepareExportScreen() {
 
 
 /* =========================================================
-   PAGE TRANSITIONS
+   RENDER AT SIZE
    ========================================================= */
 
-function bindPageTransitions() {
+function renderAtSize(size) {
+
+    if (!state.image) {
+        return null;
+    }
+
+
+    size =
+        Number(size);
+
+
+    if (
+        !Number.isFinite(size) ||
+        size <= 0
+    ) {
+
+        return null;
+
+    }
+
+
+    const canvas =
+        document.createElement(
+            "canvas"
+        );
+
+
+    canvas.width =
+        Math.round(size);
+
+    canvas.height =
+        Math.round(size);
+
+
+    const context =
+        canvas.getContext(
+            "2d"
+        );
+
+
+    if (!context) {
+        return null;
+    }
+
+
+    context.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    drawFavicon(
+        context,
+        canvas.width
+    );
+
+
+    return canvas;
+
+}
+
+
+/* =========================================================
+   EXPORT EVENTS
+   ========================================================= */
+
+function bindExportEvents() {
 
     document.addEventListener(
         "click",
         event => {
 
-            const link =
+            const target =
                 event.target.closest(
-                    "a[href]"
+                    "[data-export], [data-export-size], [data-export-pack], #download-button, #download-pack, #export-button, #export-pack"
                 );
 
 
-            if (!link) {
-                return;
-            }
-
-
-            const href =
-                link.getAttribute(
-                    "href"
-                );
-
-
-            /*
-             * Ignore:
-             * - anchors
-             * - external links
-             * - downloads
-             * - new tabs
-             */
-
-            if (
-                !href ||
-                href.startsWith("#") ||
-                href.startsWith("javascript:") ||
-                link.target === "_blank" ||
-                link.hasAttribute("download")
-            ) {
-                return;
-            }
-
-
-            let url;
-
-            try {
-
-                url =
-                    new URL(
-                        href,
-                        window.location.href
-                    );
-
-            } catch {
-
-                return;
-
-            }
-
-
-            if (
-                url.origin !==
-                window.location.origin
-            ) {
+            if (!target) {
                 return;
             }
 
@@ -1743,121 +2066,46 @@ function bindPageTransitions() {
             event.preventDefault();
 
 
-            if (pageTransition) {
+            if (
+                target.hasAttribute(
+                    "data-export-pack"
+                ) ||
+                target.id ===
+                "download-pack" ||
+                target.id ===
+                "export-pack"
+            ) {
 
-                pageTransition.classList.add(
-                    "active"
+                exportPack();
+
+                return;
+
+            }
+
+
+            const requestedSize =
+                target.dataset.exportSize;
+
+
+            if (
+                requestedSize !==
+                undefined
+            ) {
+
+                exportPNG(
+                    Number(
+                        requestedSize
+                    )
                 );
 
-            }
-
-
-            setTimeout(
-                () => {
-
-                    window.location.href =
-                        url.href;
-
-                },
-                180
-            );
-
-        }
-    );
-
-
-    window.addEventListener(
-        "pageshow",
-        () => {
-
-            pageTransition?.classList.remove(
-                "active"
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   KEYBOARD SHORTCUTS
-   ========================================================= */
-
-function bindKeyboardShortcuts() {
-
-    document.addEventListener(
-        "keydown",
-        event => {
-
-            /*
-             * Don't intercept keyboard input
-             * while typing/selecting.
-             */
-
-            const tag =
-                event.target?.tagName;
-
-
-            if (
-                tag === "INPUT" ||
-                tag === "SELECT" ||
-                tag === "TEXTAREA"
-            ) {
                 return;
-            }
-
-
-            /*
-             * Arrow navigation
-             */
-
-            if (
-                event.key === "ArrowRight"
-            ) {
-
-                if (
-                    state.currentStep < 3
-                ) {
-
-                    goToStep(
-                        state.currentStep + 1
-                    );
-
-                }
 
             }
 
 
-            if (
-                event.key === "ArrowLeft"
-            ) {
-
-                if (
-                    state.currentStep > 1
-                ) {
-
-                    goToStep(
-                        state.currentStep - 1
-                    );
-
-                }
-
-            }
-
-
-            /*
-             * Escape returns to upload.
-             */
-
-            if (
-                event.key === "Escape" &&
-                state.currentStep > 1
-            ) {
-
-                goToStep(1);
-
-            }
+            exportPNG(
+                state.settings.size
+            );
 
         }
     );
@@ -1866,72 +2114,43 @@ function bindKeyboardShortcuts() {
 
 
 /* =========================================================
-   EXPORT FALLBACK UI
+   EXPORT PNG
    ========================================================= */
 
-function createExportFallbackUI() {
-
-    /*
-     * This function does not modify the HTML structure.
-     *
-     * It only detects whether export controls
-     * already exist.
-     */
-
-    const exportScreen =
-        $('[data-screen="3"]');
-
-
-    if (!exportScreen) {
-        return;
-    }
-
-
-    const exportCanvas =
-        $("#export-canvas");
-
-
-    if (exportCanvas) {
-
-        exportCanvas.setAttribute(
-            "aria-label",
-            "Favicon export preview"
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   EXPORT SINGLE PNG
-   ========================================================= */
-
-function exportPNG(size) {
+async function exportPNG(size) {
 
     if (
         !state.image ||
         state.exporting
     ) {
+
         return;
+
     }
 
 
-    const numericSize =
+    size =
         Number(size);
 
 
     if (
-        !Number.isFinite(numericSize) ||
-        numericSize <= 0
+        !Number.isFinite(size) ||
+        size <= 0
     ) {
+
+        showMessage(
+            "Invalid export size.",
+            "error"
+        );
+
         return;
+
     }
 
 
     const canvas =
         renderAtSize(
-            numericSize
+            size
         );
 
 
@@ -1947,29 +2166,68 @@ function exportPNG(size) {
     }
 
 
-    canvas.toBlob(
-        blob => {
-
-            if (!blob) {
-
-                showMessage(
-                    "Unable to generate the PNG.",
-                    "error"
-                );
-
-                return;
-
-            }
+    state.exporting =
+        true;
 
 
-            downloadBlob(
-                blob,
-                `favicon-${numericSize}x${numericSize}.png`
+    setExportButtonsDisabled(
+        true
+    );
+
+
+    try {
+
+        const blob =
+            await canvasToBlob(
+                canvas,
+                "image/png"
             );
 
-        },
-        "image/png"
-    );
+
+        if (!blob) {
+
+            throw new Error(
+                "Canvas returned an empty blob."
+            );
+
+        }
+
+
+        downloadBlob(
+            blob,
+            `favicon-${size}x${size}.png`
+        );
+
+
+        showMessage(
+            `Favicon ${size} × ${size} exported.`,
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "PNG export failed:",
+            error
+        );
+
+
+        showMessage(
+            "Unable to export the PNG.",
+            "error"
+        );
+
+    } finally {
+
+        state.exporting =
+            false;
+
+
+        setExportButtonsDisabled(
+            false
+        );
+
+    }
 
 }
 
@@ -1984,14 +2242,18 @@ async function exportPack() {
         !state.image ||
         state.exporting
     ) {
+
         return;
+
     }
 
 
     updateExportSizes();
 
 
-    if (!state.exportSizes.length) {
+    if (
+        !state.exportSizes.length
+    ) {
 
         showMessage(
             "Select at least one favicon size.",
@@ -2015,7 +2277,8 @@ async function exportPack() {
     try {
 
         for (
-            const size of state.exportSizes
+            const size
+            of state.exportSizes
         ) {
 
             const canvas =
@@ -2047,12 +2310,9 @@ async function exportPack() {
             );
 
 
-            /*
-             * Small delay prevents browsers
-             * from blocking multiple downloads.
-             */
-
-            await wait(100);
+            await wait(
+                150
+            );
 
         }
 
@@ -2065,13 +2325,13 @@ async function exportPack() {
     } catch (error) {
 
         console.error(
-            "Favicon export failed:",
+            "Export pack failed:",
             error
         );
 
 
         showMessage(
-            "Something went wrong while exporting.",
+            "Something went wrong during export.",
             "error"
         );
 
@@ -2091,7 +2351,7 @@ async function exportPack() {
 
 
 /* =========================================================
-   CANVAS → BLOB
+   CANVAS TO BLOB
    ========================================================= */
 
 function canvasToBlob(
@@ -2102,10 +2362,25 @@ function canvasToBlob(
     return new Promise(
         resolve => {
 
+            if (
+                !canvas ||
+                typeof canvas.toBlob !==
+                "function"
+            ) {
+
+                resolve(null);
+
+                return;
+
+            }
+
+
             canvas.toBlob(
                 blob => {
 
-                    resolve(blob);
+                    resolve(
+                        blob
+                    );
 
                 },
                 type
@@ -2125,6 +2400,11 @@ function downloadBlob(
     blob,
     filename
 ) {
+
+    if (!blob) {
+        return;
+    }
+
 
     const url =
         URL.createObjectURL(
@@ -2153,10 +2433,20 @@ function downloadBlob(
     );
 
 
-    link.click();
+    /*
+     * requestAnimationFrame improves
+     * compatibility with some browsers.
+     */
 
+    requestAnimationFrame(
+        () => {
 
-    link.remove();
+            link.click();
+
+            link.remove();
+
+        }
+    );
 
 
     setTimeout(
@@ -2167,14 +2457,14 @@ function downloadBlob(
             );
 
         },
-        1000
+        1500
     );
 
 }
 
 
 /* =========================================================
-   EXPORT BUTTON DISCOVERY
+   DISABLE EXPORT BUTTONS
    ========================================================= */
 
 function setExportButtonsDisabled(
@@ -2187,23 +2477,29 @@ function setExportButtonsDisabled(
         "#export-button",
         "#export-pack",
         "[data-export]",
+        "[data-export-size]",
         "[data-export-pack]"
     ];
+
+
+    const buttons = [];
 
 
     selectors.forEach(
         selector => {
 
             $$(selector).forEach(
-                button => {
+                element => {
 
                     if (
-                        button instanceof
-                        HTMLButtonElement
+                        !buttons.includes(
+                            element
+                        )
                     ) {
 
-                        button.disabled =
-                            disabled;
+                        buttons.push(
+                            element
+                        );
 
                     }
 
@@ -2213,63 +2509,23 @@ function setExportButtonsDisabled(
         }
     );
 
-}
 
-
-/* =========================================================
-   EXPORT CLICK HANDLERS
-   ========================================================= */
-
-function bindExportEvents() {
-
-    document.addEventListener(
-        "click",
-        event => {
-
-            const target =
-                event.target.closest(
-                    "[data-export], [data-export-size], [data-export-pack]"
-                );
-
-
-            if (!target) {
-                return;
-            }
-
-
-            event.preventDefault();
-
+    buttons.forEach(
+        button => {
 
             if (
-                target.hasAttribute(
-                    "data-export-pack"
-                )
+                "disabled" in button
             ) {
 
-                exportPack();
-
-                return;
-
-            }
-
-
-            const size =
-                target.dataset.exportSize;
-
-
-            if (size) {
-
-                exportPNG(
-                    Number(size)
-                );
-
-                return;
+                button.disabled =
+                    disabled;
 
             }
 
 
-            exportPNG(
-                state.settings.size
+            button.setAttribute(
+                "aria-disabled",
+                String(disabled)
             );
 
         }
@@ -2279,136 +2535,291 @@ function bindExportEvents() {
 
 
 /* =========================================================
-   RESET TOOL
+   PAGE TRANSITIONS
    ========================================================= */
 
-function resetTool() {
+function bindPageTransitions() {
 
-    releaseObjectURL();
+    document.addEventListener(
+        "click",
+        event => {
 
+            /*
+             * IMPORTANT:
+             * Navigation buttons must NOT be captured
+             * by the page transition handler.
+             */
 
-    state.image =
-        null;
-
-    state.file =
-        null;
-
-    state.imageWidth =
-        0;
-
-    state.imageHeight =
-        0;
-
-
-    state.currentStep =
-        1;
+            const navigation =
+                event.target.closest(
+                    "[data-next-step], [data-prev-step], [data-step-target]"
+                );
 
 
-    state.settings.size =
-        mainSize
-            ? Number(mainSize.value) || 256
-            : 256;
+            if (navigation) {
+                return;
+            }
 
 
-    state.settings.fit =
-        fitSelect
-            ? fitSelect.value
-            : "contain";
+            const link =
+                event.target.closest(
+                    "a[href]"
+                );
 
 
-    state.settings.backgroundMode =
-        backgroundMode
-            ? backgroundMode.value
-            : "transparent";
+            if (!link) {
+                return;
+            }
 
 
-    state.settings.background =
-        backgroundInput
-            ? backgroundInput.value
-            : "#ffffff";
+            const href =
+                link.getAttribute(
+                    "href"
+                );
 
 
-    state.settings.radius =
-        0;
+                        if (
+                !href ||
+                href.startsWith("#") ||
+                href.startsWith("javascript:")
+            ) {
 
-    state.settings.zoom =
-        100;
+                return;
 
-    state.settings.positionX =
-        50;
-
-    state.settings.positionY =
-        50;
+            }
 
 
-    if (previewCanvas) {
+            if (
+                link.target === "_blank" ||
+                link.hasAttribute("download") ||
+                link.hasAttribute("data-no-transition")
+            ) {
 
-        previewCanvas.width =
-            1;
+                return;
 
-        previewCanvas.height =
-            1;
-
-        previewCanvas.setAttribute(
-            "hidden",
-            ""
-        );
-
-    }
+            }
 
 
-    emptyPreview?.removeAttribute(
-        "hidden"
+            let url;
+
+
+            try {
+
+                url =
+                    new URL(
+                        href,
+                        window.location.href
+                    );
+
+            } catch {
+
+                return;
+
+            }
+
+
+            /*
+             * Only intercept links belonging
+             * to the current website.
+             */
+
+            if (
+                url.origin !==
+                window.location.origin
+            ) {
+
+                return;
+
+            }
+
+
+            /*
+             * Do not interfere with special
+             * browser actions.
+             */
+
+            if (
+                event.ctrlKey ||
+                event.metaKey ||
+                event.shiftKey ||
+                event.altKey
+            ) {
+
+                return;
+
+            }
+
+
+            event.preventDefault();
+
+
+            if (pageTransition) {
+
+                pageTransition.classList.add(
+                    "active"
+                );
+
+            }
+
+
+            setTimeout(
+                () => {
+
+                    window.location.href =
+                        url.href;
+
+                },
+                180
+            );
+
+        }
     );
-
-
-    if (fileInput) {
-        fileInput.value = "";
-    }
-
-
-    if (radiusInput) {
-        radiusInput.value = "0";
-    }
-
-    if (zoomInput) {
-        zoomInput.value = "100";
-    }
-
-    if (positionXInput) {
-        positionXInput.value = "50";
-    }
-
-    if (positionYInput) {
-        positionYInput.value = "50";
-    }
-
-
-    updateControlLabels();
-
-    updateBackgroundControl();
-
-    goToStep(1);
 
 }
 
 
 /* =========================================================
-   OBJECT URL CLEANUP
+   KEYBOARD SHORTCUTS
    ========================================================= */
 
-function releaseObjectURL() {
+function bindKeyboardShortcuts() {
 
-    if (state.objectURL) {
+    document.addEventListener(
+        "keydown",
+        event => {
 
-        URL.revokeObjectURL(
-            state.objectURL
-        );
+            /*
+             * Ignore shortcuts while typing.
+             */
 
-        state.objectURL =
-            null;
+            const target =
+                event.target;
 
-    }
+
+            const tagName =
+                target &&
+                target.tagName
+                    ? target.tagName.toLowerCase()
+                    : "";
+
+
+            const isTyping =
+                tagName === "input" ||
+                tagName === "textarea" ||
+                tagName === "select" ||
+                target?.isContentEditable;
+
+
+            if (isTyping) {
+                return;
+            }
+
+
+            /*
+             * Escape:
+             * return to the previous step.
+             */
+
+            if (
+                event.key === "Escape"
+            ) {
+
+                if (
+                    state.currentStep > 1
+                ) {
+
+                    event.preventDefault();
+
+                    goToStep(
+                        state.currentStep - 1
+                    );
+
+                }
+
+                return;
+
+            }
+
+
+            /*
+             * Arrow Left:
+             * previous step.
+             */
+
+            if (
+                event.key === "ArrowLeft"
+            ) {
+
+                if (
+                    state.currentStep > 1
+                ) {
+
+                    event.preventDefault();
+
+                    goToStep(
+                        state.currentStep - 1
+                    );
+
+                }
+
+                return;
+
+            }
+
+
+            /*
+             * Arrow Right:
+             * next step.
+             */
+
+            if (
+                event.key === "ArrowRight"
+            ) {
+
+                if (
+                    state.currentStep < 3
+                ) {
+
+                    event.preventDefault();
+
+                    goToStep(
+                        state.currentStep + 1
+                    );
+
+                }
+
+                return;
+
+            }
+
+
+            /*
+             * Ctrl/Cmd + S:
+             * export the current favicon.
+             */
+
+            if (
+                (
+                    event.ctrlKey ||
+                    event.metaKey
+                ) &&
+                event.key.toLowerCase() === "s"
+            ) {
+
+                if (state.image) {
+
+                    event.preventDefault();
+
+                    exportPNG(
+                        state.settings.size
+                    );
+
+                }
+
+            }
+
+        }
+    );
 
 }
 
@@ -2422,150 +2833,150 @@ function showMessage(
     type = "info"
 ) {
 
-    let container =
-        $("#favicon-message");
+    if (!message) {
+        return;
+    }
 
 
-    if (!container) {
+    /*
+     * Try existing message elements first.
+     */
 
-        container =
+    const existing =
+        $(
+            "#message, #status-message, #toast, .toast"
+        );
+
+
+    if (existing) {
+
+        existing.textContent =
+            message;
+
+
+        existing.classList.remove(
+            "success",
+            "error",
+            "info",
+            "warning",
+            "show",
+            "visible"
+        );
+
+
+        existing.classList.add(
+            type
+        );
+
+
+        /*
+         * Support both common toast
+         * class naming conventions.
+         */
+
+        existing.classList.add(
+            "show"
+        );
+
+        existing.classList.add(
+            "visible"
+        );
+
+
+        clearTimeout(
+            existing._nexaurenMessageTimer
+        );
+
+
+        existing._nexaurenMessageTimer =
+            setTimeout(
+                () => {
+
+                    existing.classList.remove(
+                        "show",
+                        "visible"
+                    );
+
+                },
+                3000
+            );
+
+
+        return;
+
+    }
+
+
+    /*
+     * If the HTML does not contain a
+     * message element, create one.
+     */
+
+    let toast =
+        $("#nexauren-toast");
+
+
+    if (!toast) {
+
+        toast =
             document.createElement(
                 "div"
             );
 
 
-        container.id =
-            "favicon-message";
+        toast.id =
+            "nexauren-toast";
 
 
-        container.setAttribute(
+        toast.setAttribute(
             "role",
             "status"
         );
 
 
-        container.style.position =
-            "fixed";
+        toast.setAttribute(
+            "aria-live",
+            "polite"
+        );
 
-        container.style.left =
-            "50%";
-
-        container.style.bottom =
-            "24px";
-
-        container.style.transform =
-            "translateX(-50%) translateY(20px)";
-
-        container.style.zIndex =
-            "10000";
-
-        container.style.maxWidth =
-            "calc(100% - 32px)";
-
-        container.style.padding =
-            "12px 18px";
-
-        container.style.borderRadius =
-            "14px";
-
-        container.style.fontSize =
-            "14px";
-
-        container.style.fontWeight =
-            "700";
-
-        container.style.boxShadow =
-                     "0 15px 40px rgba(20,30,70,.18)";
-
-        container.style.opacity =
-            "0";
-
-        container.style.transition =
-            "opacity .25s ease, transform .25s ease";
 
         document.body.appendChild(
-            container
+            toast
         );
 
     }
 
 
-    container.textContent =
+    toast.textContent =
         message;
 
 
-    /* -----------------------------------------------------
-       MESSAGE TYPE
-    ----------------------------------------------------- */
-
-    if (type === "error") {
-
-        container.style.background =
-            "#fff0f0";
-
-        container.style.color =
-            "#b42318";
-
-    } else if (type === "success") {
-
-        container.style.background =
-            "#ecfdf3";
-
-        container.style.color =
-            "#067647";
-
-    } else {
-
-        container.style.background =
-            "#eef4ff";
-
-        container.style.color =
-            "#2457a6";
-
-    }
-
-
-    /* -----------------------------------------------------
-       SHOW
-    ----------------------------------------------------- */
-
-    requestAnimationFrame(
-        () => {
-
-            container.style.opacity =
-                "1";
-
-            container.style.transform =
-                "translateX(-50%) translateY(0)";
-
-        }
-    );
+    toast.className =
+        `nexauren-toast ${type} show`;
 
 
     clearTimeout(
-        showMessage.timeout
+        toast._nexaurenMessageTimer
     );
 
 
-    showMessage.timeout =
+    toast._nexaurenMessageTimer =
         setTimeout(
             () => {
 
-                container.style.opacity =
-                    "0";
-
-                container.style.transform =
-                    "translateX(-50%) translateY(20px)";
+                toast.classList.remove(
+                    "show"
+                );
 
             },
-            3500
+            3000
         );
 
 }
 
 
 /* =========================================================
-   UTILITY — CLAMP
+   CLAMP
    ========================================================= */
 
 function clamp(
@@ -2574,23 +2985,30 @@ function clamp(
     max
 ) {
 
+    value =
+        Number(value);
+
+
     if (!Number.isFinite(value)) {
+
         return min;
+
     }
 
+
     return Math.min(
+        max,
         Math.max(
-            value,
-            min
-        ),
-        max
+            min,
+            value
+        )
     );
 
 }
 
 
 /* =========================================================
-   UTILITY — WAIT
+   WAIT
    ========================================================= */
 
 function wait(
@@ -2612,14 +3030,134 @@ function wait(
 
 
 /* =========================================================
-   INITIALIZE APPLICATION
+   RELEASE OBJECT URL
    ========================================================= */
 
-function initializeApplication() {
+function releaseObjectURL() {
 
-    init();
+    if (
+        state.objectURL
+    ) {
 
-    bindExportEvents();
+        try {
+
+            URL.revokeObjectURL(
+                state.objectURL
+            );
+
+        } catch (error) {
+
+            console.warn(
+                "Could not revoke object URL:",
+                error
+            );
+
+        }
+
+    }
+
+
+    state.objectURL =
+        null;
+
+}
+
+
+/* =========================================================
+   RESET APPLICATION
+   ========================================================= */
+
+function resetApplication() {
+
+    releaseObjectURL();
+
+
+    state.image =
+        null;
+
+    state.file =
+        null;
+
+    state.imageWidth =
+        0;
+
+    state.imageHeight =
+        0;
+
+    state.currentStep =
+        1;
+
+    state.exporting =
+        false;
+
+
+    state.settings.zoom =
+        100;
+
+    state.settings.positionX =
+        50;
+
+    state.settings.positionY =
+        50;
+
+
+    if (fileInput) {
+
+        fileInput.value =
+            "";
+
+    }
+
+
+    if (previewCanvas) {
+
+        previewCanvas.hidden =
+            true;
+
+
+        if (previewContext) {
+
+            previewContext.clearRect(
+                0,
+                0,
+                previewCanvas.width,
+                previewCanvas.height
+            );
+
+        }
+
+    }
+
+
+    if (emptyPreview) {
+
+        emptyPreview.hidden =
+            false;
+
+    }
+
+
+    updateControlValues();
+
+    showInitialScreen();
+
+}
+
+
+/* =========================================================
+   BEFORE UNLOAD
+   ========================================================= */
+
+function bindBeforeUnload() {
+
+    window.addEventListener(
+        "beforeunload",
+        () => {
+
+            releaseObjectURL();
+
+        }
+    );
 
 }
 
@@ -2628,14 +3166,46 @@ function initializeApplication() {
    DOM READY
    ========================================================= */
 
+function startApplication() {
+
+    /*
+     * Prevent accidental double initialization.
+     */
+
+    if (
+        document.documentElement.dataset
+            .nexaurenFaviconInitialized ===
+        "true"
+    ) {
+
+        return;
+
+    }
+
+
+    document.documentElement.dataset
+        .nexaurenFaviconInitialized =
+        "true";
+
+
+    init();
+
+    bindBeforeUnload();
+
+}
+
+
+/* =========================================================
+   START
+   ========================================================= */
+
 if (
-    document.readyState ===
-    "loading"
+    document.readyState === "loading"
 ) {
 
     document.addEventListener(
         "DOMContentLoaded",
-        initializeApplication,
+        startApplication,
         {
             once: true
         }
@@ -2643,102 +3213,12 @@ if (
 
 } else {
 
-    initializeApplication();
+    startApplication();
 
 }
 
 
 /* =========================================================
-   CLEANUP
+   END
    ========================================================= */
-
-window.addEventListener(
-    "beforeunload",
-    () => {
-
-        releaseObjectURL();
-
-    }
-);
-
-
-/* =========================================================
-   GLOBAL DEBUG API
-   ========================================================= */
-
-/*
- * Useful while developing the tool.
- * Does not interfere with normal operation.
- */
-
-window.NexaurenFavicon =
-    Object.freeze({
-
-        getState() {
-
-            return {
-                step:
-                    state.currentStep,
-
-                hasImage:
-                    Boolean(state.image),
-
-                imageWidth:
-                    state.imageWidth,
-
-                imageHeight:
-                    state.imageHeight,
-
-                settings:
-                    {
-                        ...state.settings
-                    },
-
-                exportSizes:
-                    [...state.exportSizes]
-
-            };
-
-        },
-
-        next() {
-
-            goToStep(
-                state.currentStep + 1
-            );
-
-        },
-
-        previous() {
-
-            goToStep(
-                state.currentStep - 1
-            );
-
-        },
-
-        reset() {
-
-            resetTool();
-
-        },
-
-        render() {
-
-            renderPreview();
-
-        },
-
-        exportPNG(size) {
-
-            exportPNG(size);
-
-        },
-
-        exportPack() {
-
-            exportPack();
-
-        }
-
-    });
+ 
