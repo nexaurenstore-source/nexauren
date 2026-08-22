@@ -39,6 +39,26 @@
         "png",
         "webp"
       ]
+      {
+  "id": "pdf-compressor",
+  "name": "PDF Compressor",
+  "slug": "pdf-compressor",
+  "category": "pdf",
+  "description": "Compress and optimize PDF files directly in your browser.",
+  "icon": "file-text",
+  "path": "/tools/pdf/compressor/",
+  "status": "active",
+  "featured": false,
+  "new": true,
+  "tags": [
+    "pdf",
+    "compressor",
+    "compress",
+    "optimize",
+    "document",
+    "file-size"
+  ]
+    }
     }
   ]
 }
