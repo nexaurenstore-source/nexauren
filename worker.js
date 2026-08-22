@@ -1,38 +1,34 @@
 /*
  * =========================================================
  * NEXAUREN
- * CLOUDFLARE WORKER
+ * CLOUDFLARE WORKER — V1
  *
- * AUTHENTICATION CORE
+ * Simples:
  *
- * Inclui:
+ * GET  /api
+ * GET  /api/health
  *
- * - GET  /api
- * - GET  /api/health
- * - POST /api/register
- * - POST /api/login
- * - GET  /api/me
- * - POST /api/logout
+ * POST /api/register
+ * POST /api/login
+ * GET  /api/me
+ * POST /api/logout
  *
  * D1:
- *
  * - users
  * - sessions
  * =========================================================
  */
 
-
-/* =========================================================
-   CONFIGURATION
-   ========================================================= */
-
-const ALLOWED_ORIGIN =
-    "https://nexaurenstory.com";
+"use strict";
 
 
 /* =========================================================
-   INPUT LIMITS
+   CONFIGURAÇÃO
    ========================================================= */
+
+const SESSION_DURATION_SECONDS =
+    60 * 60 * 24 * 7; // 7 dias
+
 
 const MAX_NAME_LENGTH = 100;
 
@@ -43,23 +39,13 @@ const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 200;
 
 
-/* =========================================================
-   PASSWORD HASHING
-   ========================================================= */
-
-const PBKDF2_ITERATIONS = 100000;
-
-
-/* =========================================================
-   SESSION
-   ========================================================= */
-
 /*
- * 7 dias.
+ * PBKDF2
+ *
+ * A senha nunca é armazenada diretamente.
  */
 
-const SESSION_DURATION_SECONDS =
-    60 * 60 * 24 * 7;
+const PBKDF2_ITERATIONS = 100000;
 
 
 /* =========================================================
@@ -68,11 +54,7 @@ const SESSION_DURATION_SECONDS =
 
 export default {
 
-    async fetch(
-        request,
-        env,
-        ctx
-    ) {
+    async fetch(request, env) {
 
         try {
 
@@ -80,9 +62,9 @@ export default {
                 new URL(request.url);
 
 
-            /* -------------------------------------------------
-               CORS
-               ------------------------------------------------- */
+            /*
+             * CORS
+             */
 
             if (
                 request.method === "OPTIONS"
@@ -95,9 +77,9 @@ export default {
             }
 
 
-            /* -------------------------------------------------
-               API
-               ------------------------------------------------- */
+            /*
+             * API
+             */
 
             if (
                 url.pathname === "/api" ||
@@ -107,16 +89,15 @@ export default {
                 return await handleApiRequest(
                     request,
                     env,
-                    ctx,
                     url
                 );
 
             }
 
 
-            /* -------------------------------------------------
-               FRONTEND
-               ------------------------------------------------- */
+            /*
+             * FRONTEND
+             */
 
             return env.ASSETS.fetch(
                 request
@@ -155,7 +136,6 @@ export default {
 async function handleApiRequest(
     request,
     env,
-    ctx,
     url
 ) {
 
@@ -163,9 +143,9 @@ async function handleApiRequest(
         url.pathname;
 
 
-    /* =======================================================
-       API
-       ======================================================= */
+    /*
+     * API STATUS
+     */
 
     if (
         path === "/api" &&
@@ -185,9 +165,9 @@ async function handleApiRequest(
     }
 
 
-    /* =======================================================
-       HEALTH
-       ======================================================= */
+    /*
+     * HEALTH
+     */
 
     if (
         path === "/api/health" &&
@@ -209,16 +189,16 @@ async function handleApiRequest(
     }
 
 
-    /* =======================================================
-       REGISTER
-       ======================================================= */
+    /*
+     * REGISTER
+     */
 
     if (
         path === "/api/register" &&
         request.method === "POST"
     ) {
 
-        return await register(
+        return register(
             request,
             env
         );
@@ -226,16 +206,16 @@ async function handleApiRequest(
     }
 
 
-    /* =======================================================
-       LOGIN
-       ======================================================= */
+    /*
+     * LOGIN
+     */
 
     if (
         path === "/api/login" &&
         request.method === "POST"
     ) {
 
-        return await login(
+        return login(
             request,
             env
         );
@@ -243,16 +223,16 @@ async function handleApiRequest(
     }
 
 
-    /* =======================================================
-       CURRENT USER
-       ======================================================= */
+    /*
+     * CURRENT USER
+     */
 
     if (
         path === "/api/me" &&
         request.method === "GET"
     ) {
 
-        return await getCurrentUser(
+        return getCurrentUser(
             request,
             env
         );
@@ -260,16 +240,16 @@ async function handleApiRequest(
     }
 
 
-    /* =======================================================
-       LOGOUT
-       ======================================================= */
+    /*
+     * LOGOUT
+     */
 
     if (
         path === "/api/logout" &&
         request.method === "POST"
     ) {
 
-        return await logout(
+        return logout(
             request,
             env
         );
@@ -277,9 +257,9 @@ async function handleApiRequest(
     }
 
 
-    /* =======================================================
-       UNKNOWN ENDPOINT
-       ======================================================= */
+    /*
+     * NOT FOUND
+     */
 
     return json(
         {
@@ -303,12 +283,27 @@ async function register(
     env
 ) {
 
+    if (!env.DB) {
+
+        return json(
+            {
+                success: false,
+                message:
+                    "Database is not configured."
+            },
+            500,
+            request
+        );
+
+    }
+
+
     let data;
 
 
-    /* -------------------------------------------------------
-       JSON
-       ------------------------------------------------------- */
+    /*
+     * JSON
+     */
 
     try {
 
@@ -321,7 +316,7 @@ async function register(
             {
                 success: false,
                 message:
-                    "Invalid JSON."
+                    "Invalid request."
             },
             400,
             request
@@ -330,9 +325,9 @@ async function register(
     }
 
 
-    /* -------------------------------------------------------
-       BODY
-       ------------------------------------------------------- */
+    /*
+     * INPUT
+     */
 
     if (
         !data ||
@@ -344,7 +339,7 @@ async function register(
             {
                 success: false,
                 message:
-                    "Invalid request body."
+                    "Invalid request."
             },
             400,
             request
@@ -352,10 +347,6 @@ async function register(
 
     }
 
-
-    /* -------------------------------------------------------
-       INPUT
-       ------------------------------------------------------- */
 
     const name =
         String(
@@ -377,9 +368,9 @@ async function register(
         );
 
 
-    /* -------------------------------------------------------
-       NAME
-       ------------------------------------------------------- */
+    /*
+     * NAME
+     */
 
     if (
         !name ||
@@ -390,7 +381,7 @@ async function register(
             {
                 success: false,
                 message:
-                    "Invalid name."
+                    "Please enter a valid name."
             },
             400,
             request
@@ -399,9 +390,9 @@ async function register(
     }
 
 
-    /* -------------------------------------------------------
-       EMAIL
-       ------------------------------------------------------- */
+    /*
+     * EMAIL
+     */
 
     if (
         !email ||
@@ -413,7 +404,7 @@ async function register(
             {
                 success: false,
                 message:
-                    "Invalid email."
+                    "Please enter a valid email."
             },
             400,
             request
@@ -422,9 +413,9 @@ async function register(
     }
 
 
-    /* -------------------------------------------------------
-       PASSWORD
-       ------------------------------------------------------- */
+    /*
+     * PASSWORD
+     */
 
     if (
         password.length < MIN_PASSWORD_LENGTH ||
@@ -444,28 +435,9 @@ async function register(
     }
 
 
-    /* -------------------------------------------------------
-       DATABASE
-       ------------------------------------------------------- */
-
-    if (!env.DB) {
-
-        return json(
-            {
-                success: false,
-                message:
-                    "Database is not configured."
-            },
-            500,
-            request
-        );
-
-    }
-
-
-    /* -------------------------------------------------------
-       EXISTING USER
-       ------------------------------------------------------- */
+    /*
+     * CHECK EXISTING USER
+     */
 
     try {
 
@@ -498,7 +470,7 @@ async function register(
     } catch (error) {
 
         console.error(
-            "User lookup failed:",
+            "User lookup error:",
             error
         );
 
@@ -515,9 +487,9 @@ async function register(
     }
 
 
-    /* -------------------------------------------------------
-       HASH PASSWORD
-       ------------------------------------------------------- */
+    /*
+     * HASH PASSWORD
+     */
 
     let passwordHash;
 
@@ -532,7 +504,7 @@ async function register(
     } catch (error) {
 
         console.error(
-            "Password hashing failed:",
+            "Password hashing error:",
             error
         );
 
@@ -549,9 +521,9 @@ async function register(
     }
 
 
-    /* -------------------------------------------------------
-       USER
-       ------------------------------------------------------- */
+    /*
+     * USER
+     */
 
     const userId =
         crypto.randomUUID();
@@ -563,9 +535,9 @@ async function register(
         );
 
 
-    /* -------------------------------------------------------
-       INSERT
-       ------------------------------------------------------- */
+    /*
+     * INSERT USER
+     */
 
     try {
 
@@ -594,7 +566,7 @@ async function register(
     } catch (error) {
 
         console.error(
-            "User creation failed:",
+            "User creation error:",
             error
         );
 
@@ -611,9 +583,9 @@ async function register(
     }
 
 
-    /* -------------------------------------------------------
-       SUCCESS
-       ------------------------------------------------------- */
+    /*
+     * SUCCESS
+     */
 
     return json(
         {
@@ -642,12 +614,23 @@ async function login(
     env
 ) {
 
+    if (!env.DB) {
+
+        return json(
+            {
+                success: false,
+                message:
+                    "Database is not configured."
+            },
+            500,
+            request
+        );
+
+    }
+
+
     let data;
 
-
-    /* -------------------------------------------------------
-       JSON
-       ------------------------------------------------------- */
 
     try {
 
@@ -660,7 +643,7 @@ async function login(
             {
                 success: false,
                 message:
-                    "Invalid JSON."
+                    "Invalid request."
             },
             400,
             request
@@ -668,10 +651,6 @@ async function login(
 
     }
 
-
-    /* -------------------------------------------------------
-       INPUT
-       ------------------------------------------------------- */
 
     const email =
         String(
@@ -687,29 +666,13 @@ async function login(
         );
 
 
-    /* -------------------------------------------------------
-       VALIDATION
-       ------------------------------------------------------- */
+    /*
+     * BASIC VALIDATION
+     */
 
     if (
         !email ||
-        !isValidEmail(email)
-    ) {
-
-        return json(
-            {
-                success: false,
-                message:
-                    "Invalid email or password."
-            },
-            401,
-            request
-        );
-
-    }
-
-
-    if (
+        !isValidEmail(email) ||
         !password
     ) {
 
@@ -726,28 +689,9 @@ async function login(
     }
 
 
-    /* -------------------------------------------------------
-       DATABASE
-       ------------------------------------------------------- */
-
-    if (!env.DB) {
-
-        return json(
-            {
-                success: false,
-                message:
-                    "Database is not configured."
-            },
-            500,
-            request
-        );
-
-    }
-
-
-    /* -------------------------------------------------------
-       FIND USER
-       ------------------------------------------------------- */
+    /*
+     * FIND USER
+     */
 
     let user;
 
@@ -772,7 +716,7 @@ async function login(
     } catch (error) {
 
         console.error(
-            "Login database lookup failed:",
+            "Login database error:",
             error
         );
 
@@ -789,9 +733,9 @@ async function login(
     }
 
 
-    /* -------------------------------------------------------
-       USER NOT FOUND
-       ------------------------------------------------------- */
+    /*
+     * USER NOT FOUND
+     */
 
     if (!user) {
 
@@ -808,9 +752,9 @@ async function login(
     }
 
 
-    /* -------------------------------------------------------
-       VERIFY PASSWORD
-       ------------------------------------------------------- */
+    /*
+     * VERIFY PASSWORD
+     */
 
     let validPassword;
 
@@ -826,7 +770,7 @@ async function login(
     } catch (error) {
 
         console.error(
-            "Password verification failed:",
+            "Password verification error:",
             error
         );
 
@@ -858,30 +802,55 @@ async function login(
     }
 
 
-    /* -------------------------------------------------------
-       CREATE SESSION
-       ------------------------------------------------------- */
+    /*
+     * CREATE SESSION
+     */
 
-    const session =
-        await createSession(
-            env,
-            user.id
+    let session;
+
+
+    try {
+
+        session =
+            await createSession(
+                env,
+                user.id
+            );
+
+    } catch (error) {
+
+        console.error(
+            "Session creation error:",
+            error
         );
 
+        return json(
+            {
+                success: false,
+                message:
+                    "Unable to create session."
+            },
+            500,
+            request
+        );
 
-    /* -------------------------------------------------------
-       COOKIE
-       ------------------------------------------------------- */
+    }
+
+
+    /*
+     * COOKIE
+     */
 
     const cookie =
         buildSessionCookie(
-            session.token
+            session.token,
+            request
         );
 
 
-    /* -------------------------------------------------------
-       SUCCESS
-       ------------------------------------------------------- */
+    /*
+     * SUCCESS
+     */
 
     return json(
         {
@@ -897,7 +866,8 @@ async function login(
         200,
         request,
         {
-            "Set-Cookie": cookie
+            "Set-Cookie":
+                cookie
         }
     );
 
@@ -912,12 +882,6 @@ async function createSession(
     env,
     userId
 ) {
-
-    /*
-     * Token secreto enviado ao navegador.
-     *
-     * Apenas o hash será armazenado no D1.
-     */
 
     const tokenBytes =
         crypto.getRandomValues(
@@ -983,7 +947,7 @@ async function createSession(
 
 
 /* =========================================================
-   GET /api/me
+   GET CURRENT USER
    ========================================================= */
 
 async function getCurrentUser(
@@ -991,37 +955,92 @@ async function getCurrentUser(
     env
 ) {
 
-    const token =
-        getSessionToken(
-            request
-        );
-
-
-    if (!token) {
+    if (!env.DB) {
 
         return json(
             {
                 success: false,
-                authenticated: false
+                authenticated: false,
+                message:
+                    "Database is not configured."
             },
-            401,
+            500,
             request
         );
 
     }
 
 
-    const tokenHash =
-        await sha256(
-            token
+    const token =
+        getSessionToken(
+            request
         );
 
+
+    /*
+     * NO SESSION
+     */
+
+    if (!token) {
+
+        return json(
+            {
+                success: true,
+                authenticated: false
+            },
+            200,
+            request
+        );
+
+    }
+
+
+    /*
+     * HASH TOKEN
+     */
+
+    let tokenHash;
+
+
+    try {
+
+        tokenHash =
+            await sha256(
+                token
+            );
+
+    } catch {
+
+        return json(
+            {
+                success: false,
+                authenticated: false,
+                message:
+                    "Unable to verify session."
+            },
+            500,
+            request
+        );
+
+    }
+
+
+    /*
+     * CURRENT TIME
+     */
 
     const now =
         Math.floor(
             Date.now() / 1000
         );
 
+
+    /*
+     * FIND SESSION + USER
+     *
+     * IMPORTANTE:
+     * LIMIT 1
+     */
 
     let user;
 
@@ -1043,7 +1062,7 @@ async function getCurrentUser(
                     WHERE
                         sessions.token_hash = ?
                         AND sessions.expires_at > ?
-                    L                    IMIT 1
+                    LIMIT 1
                 `)
                 .bind(
                     tokenHash,
@@ -1054,13 +1073,14 @@ async function getCurrentUser(
     } catch (error) {
 
         console.error(
-            "Session lookup failed:",
+            "Session lookup error:",
             error
         );
 
         return json(
             {
                 success: false,
+                authenticated: false,
                 message:
                     "Unable to verify session."
             },
@@ -1071,27 +1091,33 @@ async function getCurrentUser(
     }
 
 
-    /* -------------------------------------------------------
-       SESSION INVALID / EXPIRED
-       ------------------------------------------------------- */
+    /*
+     * SESSION INVALID / EXPIRED
+     */
 
     if (!user) {
 
         return json(
             {
-                success: false,
+                success: true,
                 authenticated: false
             },
-            401,
-            request
+            200,
+            request,
+            {
+                "Set-Cookie":
+                    clearSessionCookie(
+                        request
+                    )
+            }
         );
 
     }
 
 
-    /* -------------------------------------------------------
-       SUCCESS
-       ------------------------------------------------------- */
+    /*
+     * AUTHENTICATED
+     */
 
     return json(
         {
@@ -1101,10 +1127,6 @@ async function getCurrentUser(
                 id: user.id,
                 name: user.name,
                 email: user.email
-            },
-            session: {
-                expiresAt:
-                    user.expires_at
             }
         },
         200,
@@ -1115,7 +1137,7 @@ async function getCurrentUser(
 
 
 /* =========================================================
-   POST /api/logout
+   LOGOUT
    ========================================================= */
 
 async function logout(
@@ -1130,7 +1152,7 @@ async function logout(
 
 
     /*
-     * Mesmo sem sessão, limpamos o cookie.
+     * Já não existe sessão.
      */
 
     if (!token) {
@@ -1139,78 +1161,316 @@ async function logout(
             {
                 success: true,
                 message:
-                    "Logged out successfully."
+                    "Signed out."
             },
             200,
             request,
             {
                 "Set-Cookie":
-                    clearSessionCookie()
+                    clearSessionCookie(
+                        request
+                    )
             }
         );
 
     }
 
 
-    const tokenHash =
-        await sha256(
-            token
-        );
+    if (env.DB) {
+
+        try {
+
+            const tokenHash =
+                await sha256(
+                    token
+                );
 
 
-    /* -------------------------------------------------------
-       DELETE SESSION
-       ------------------------------------------------------- */
+            await env.DB
+                .prepare(`
+                    DELETE FROM sessions
+                    WHERE token_hash = ?
+                `)
+                .bind(
+                    tokenHash
+                )
+                .run();
 
-    try {
+        } catch (error) {
 
-        await env.DB
-            .prepare(`
-                DELETE FROM sessions
-                WHERE token_hash = ?
-            `)
-            .bind(
-                tokenHash
-            )
-            .run();
+            console.error(
+                "Logout database error:",
+                error
+            );
 
-    } catch (error) {
-
-        console.error(
-            "Logout failed:",
-            error
-        );
-
-        return json(
-            {
-                success: false,
-                message:
-                    "Unable to log out."
-            },
-            500,
-            request
-        );
+        }
 
     }
 
 
-    /* -------------------------------------------------------
-       CLEAR COOKIE
-       ------------------------------------------------------- */
+    /*
+     * CLEAR COOKIE
+     */
 
     return json(
         {
             success: true,
             message:
-                "Logged out successfully."
+                "Signed out successfully."
         },
         200,
         request,
         {
             "Set-Cookie":
-                clearSessionCookie()
+                clearSessionCookie(
+                    request
+                )
         }
     );
+
+}
+
+
+/* =========================================================
+   PASSWORD HASHING
+   ========================================================= */
+
+async function hashPassword(
+    password
+) {
+
+    const salt =
+        crypto.getRandomValues(
+            new Uint8Array(16)
+        );
+
+
+    const passwordKey =
+        await crypto.subtle.importKey(
+            "raw",
+            new TextEncoder().encode(
+                password
+            ),
+            {
+                name:
+                    "PBKDF2"
+            },
+            false,
+            [
+                "deriveBits"
+            ]
+        );
+
+
+    const derivedBits =
+        await crypto.subtle.deriveBits(
+            {
+                name:
+                    "PBKDF2",
+
+                salt,
+
+                iterations:
+                    PBKDF2_ITERATIONS,
+
+                hash:
+                    "SHA-256"
+            },
+
+            passwordKey,
+
+            256
+        );
+
+
+    const hash =
+        new Uint8Array(
+            derivedBits
+        );
+
+
+    return [
+        "pbkdf2",
+        PBKDF2_ITERATIONS,
+        bytesToBase64Url(salt),
+        bytesToBase64Url(hash)
+    ].join("$");
+
+}
+
+
+/* =========================================================
+   PASSWORD VERIFICATION
+   ========================================================= */
+
+async function verifyPassword(
+    password,
+    storedHash
+) {
+
+    if (
+        typeof storedHash !== "string"
+    ) {
+
+        return false;
+
+    }
+
+
+    const parts =
+        storedHash.split("$");
+
+
+    if (
+        parts.length !== 4 ||
+        parts[0] !== "pbkdf2"
+    ) {
+
+        return false;
+
+    }
+
+
+    const iterations =
+        Number(parts[1]);
+
+
+    const salt =
+        base64UrlToBytes(
+            parts[2]
+        );
+
+
+    const expectedHash =
+        base64UrlToBytes(
+            parts[3]
+        );
+
+
+    if (
+        !Number.isInteger(iterations) ||
+        iterations <= 0 ||
+        !salt ||
+        !expectedHash
+    ) {
+
+        return false;
+
+    }
+
+
+    const passwordKey =
+        await crypto.subtle.importKey(
+            "raw",
+            new TextEncoder().encode(
+                password
+            ),
+            {
+                name:
+                    "PBKDF2"
+            },
+            false,
+            [
+                "deriveBits"
+            ]
+        );
+
+
+    const derivedBits =
+        await crypto.subtle.deriveBits(
+            {
+                name:
+                    "PBKDF2",
+
+                salt,
+
+                iterations,
+
+                hash:
+                    "SHA-256"
+            },
+
+            passwordKey,
+
+            expectedHash.length * 8
+        );
+
+
+    const actualHash =
+        new Uint8Array(
+            derivedBits
+        );
+
+
+    return constantTimeEqual(
+        actualHash,
+        expectedHash
+    );
+
+}
+
+
+/* =========================================================
+   SESSION COOKIE
+   ========================================================= */
+
+function buildSessionCookie(
+    token,
+    request
+) {
+
+    const url =
+        new URL(
+            request.url
+        );
+
+
+    const secure =
+        url.protocol === "https:"
+            ? "; Secure"
+            : "";
+
+
+    return [
+        `nexauren_session=${encodeURIComponent(token)}`,
+        "Path=/",
+        "HttpOnly",
+        "SameSite=Lax",
+        `Max-Age=${SESSION_DURATION_SECONDS}`,
+        secure
+    ].join("; ");
+
+}
+
+
+/* =========================================================
+   CLEAR SESSION COOKIE
+   ========================================================= */
+
+function clearSessionCookie(
+    request
+) {
+
+    const url =
+        new URL(
+            request.url
+        );
+
+
+    const secure =
+        url.protocol === "https:"
+            ? "; Secure"
+            : "";
+
+
+    return [
+        "nexauren_session=",
+        "Path=/",
+        "HttpOnly",
+        "SameSite=Lax",
+        "Max-Age=0",
+        secure
+    ].join("; ");
 
 }
 
@@ -1242,29 +1502,26 @@ function getSessionToken(
         );
 
 
-    return cookies.nexauren_session ||
-        null;
+    return cookies[
+        "nexauren_session"
+    ] || null;
 
 }
 
 
 /* =========================================================
-   PARSE COOKIES
+   COOKIE PARSER
    ========================================================= */
 
 function parseCookies(
-    cookieHeader
+    header
 ) {
 
     const cookies = {};
 
 
-    const parts =
-        cookieHeader.split(";");
-
-
     for (
-        const part of parts
+        const part of header.split(";")
     ) {
 
         const index =
@@ -1278,7 +1535,7 @@ function parseCookies(
         }
 
 
-        const name =
+        const key =
             part
                 .slice(0, index)
                 .trim();
@@ -1290,7 +1547,7 @@ function parseCookies(
                 .trim();
 
 
-        if (!name) {
+        if (!key) {
 
             continue;
 
@@ -1299,14 +1556,14 @@ function parseCookies(
 
         try {
 
-            cookies[name] =
+            cookies[key] =
                 decodeURIComponent(
                     value
                 );
 
         } catch {
 
-            cookies[name] =
+            cookies[key] =
                 value;
 
         }
@@ -1320,55 +1577,6 @@ function parseCookies(
 
 
 /* =========================================================
-   SESSION COOKIE
-   ========================================================= */
-
-function buildSessionCookie(
-    token
-) {
-
-    return [
-        "nexauren_session=" +
-            encodeURIComponent(token),
-
-        "Path=/",
-
-        "HttpOnly",
-
-        "Secure",
-
-        "SameSite=Lax",
-
-        `Max-Age=${SESSION_DURATION_SECONDS}`
-    ].join("; ");
-
-}
-
-
-/* =========================================================
-   CLEAR SESSION COOKIE
-   ========================================================= */
-
-function clearSessionCookie() {
-
-    return [
-        "nexauren_session=",
-
-        "Path=/",
-
-        "HttpOnly",
-
-        "Secure",
-
-        "SameSite=Lax",
-
-        "Max-Age=0"
-    ].join("; ");
-
-}
-
-
-/* =========================================================
    SHA-256
    ========================================================= */
 
@@ -1376,17 +1584,13 @@ async function sha256(
     value
 ) {
 
-    const encoder =
-        new TextEncoder();
-
-
     const data =
-        encoder.encode(
+        new TextEncoder().encode(
             value
         );
 
 
-    const hashBuffer =
+    const hash =
         await crypto.subtle.digest(
             "SHA-256",
             data
@@ -1395,7 +1599,7 @@ async function sha256(
 
     return bytesToBase64Url(
         new Uint8Array(
-            hashBuffer
+            hash
         )
     );
 
@@ -1403,124 +1607,21 @@ async function sha256(
 
 
 /* =========================================================
-   VERIFY PASSWORD
+   EMAIL VALIDATION
    ========================================================= */
 
-async function verifyPassword(
-    password,
-    storedHash
+function isValidEmail(
+    email
 ) {
 
-    if (
-        typeof storedHash !== "string"
-    ) {
-
-        return false;
-
-    }
-
-
-    const parts =
-        storedHash.split("$");
-
-
-    if (
-        parts.length !== 4
-    ) {
-
-        return false;
-
-    }
-
-
-    const algorithm =
-        parts[0];
-
-
-    const iterations =
-        Number(
-            parts[1]
-        );
-
-
-    const salt =
-        base64UrlToBytes(
-            parts[2]
-        );
-
-
-    const expectedHash =
-        base64UrlToBytes(
-            parts[3]
-        );
-
-
-    if (
-        algorithm !== "pbkdf2" ||
-        !Number.isInteger(iterations) ||
-        iterations <= 0 ||
-        !salt ||
-        !expectedHash
-    ) {
-
-        return false;
-
-    }
-
-
-    const encoder =
-        new TextEncoder();
-
-
-    const passwordBytes =
-        encoder.encode(
-            password
-        );
-
-
-    const key =
-        await crypto.subtle.importKey(
-            "raw",
-            passwordBytes,
-            {
-                name: "PBKDF2"
-            },
-            false,
-            [
-                "deriveBits"
-            ]
-        );
-
-
-    const derivedBits =
-        await crypto.subtle.deriveBits(
-            {
-                name: "PBKDF2",
-                salt: salt,
-                iterations: iterations,
-                hash: "SHA-256"
-            },
-            key,
-            expectedHash.length * 8
-        );
-
-
-    const actualHash =
-        new Uint8Array(
-            derivedBits
-        );
-
-
-    return constantTimeEqual(
-        actualHash,
-        expectedHash
-    );
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        .test(email);
 
 }
 
 
 /* =========================================================
-   CONSTANT-TIME COMPARISON
+   CONSTANT-TIME COMPARE
    ========================================================= */
 
 function constantTimeEqual(
@@ -1568,6 +1669,37 @@ function constantTimeEqual(
 
 
 /* =========================================================
+   BYTES → BASE64URL
+   ========================================================= */
+
+function bytesToBase64Url(
+    bytes
+) {
+
+    let binary = "";
+
+
+    for (
+        const byte of bytes
+    ) {
+
+        binary +=
+            String.fromCharCode(
+                byte
+            );
+
+    }
+
+
+    return btoa(binary)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "");
+
+}
+
+
+/* =========================================================
    BASE64URL → BYTES
    ========================================================= */
 
@@ -1579,18 +1711,12 @@ function base64UrlToBytes(
 
         let base64 =
             value
-                .replace(
-                    /-/g,
-                    "+"
-                )
-                .replace(
-                    /_/g,
-                    "/"
-                );
+                .replace(/-/g, "+")
+                .replace(/_/g, "/");
 
 
         while (
-            base64.length % 4 !== 0
+            base64.length % 4
         ) {
 
             base64 += "=";
@@ -1599,9 +1725,7 @@ function base64UrlToBytes(
 
 
         const binary =
-            atob(
-                base64
-            );
+            atob(base64);
 
 
         const bytes =
@@ -1634,55 +1758,112 @@ function base64UrlToBytes(
 
 
 /* =========================================================
-   EMAIL VALIDATION
-   ========================================================= */
-
-function isValidEmail(
-    email
-) {
-
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        email
-    );
-
-}
-
-
-/* =========================================================
-   CORS OPTIONS
+   OPTIONS / CORS
    ========================================================= */
 
 function handleOptions(
     request
 ) {
 
-    const origin =
-        request.headers.get(
-            "Origin"
+    const headers =
+        corsHeaders(
+            request
         );
-
-
-    if (
-        origin &&
-        origin !== ALLOWED_ORIGIN
-    ) {
-
-        return new Response(
-            null,
-            {
-                status: 403
-            }
-        );
-
-    }
 
 
     return new Response(
         null,
         {
             status: 204,
-            headers:
-                corsHeaders(request)
+            headers
+        }
+    );
+
+}
+
+
+/* =========================================================
+   JSON RESPONSE
+   ========================================================= */
+
+function json(
+    data,
+    status = 200,
+    request = null,
+    extraHeaders = {}
+) {
+
+    const headers =
+        new Headers();
+
+
+    headers.set(
+        "Content-Type",
+        "application/json; charset=UTF-8"
+    );
+
+
+    headers.set(
+        "Cache-Control",
+        "no-store"
+    );
+
+
+    headers.set(
+        "X-Content-Type-Options",
+        "nosniff"
+    );
+
+
+    headers.set(
+        "X-Frame-Options",
+        "DENY"
+    );
+
+
+    headers.set(
+        "Referrer-Policy",
+        "strict-origin-when-cross-origin"
+    );
+
+
+    const cors =
+        corsHeaders(
+            request
+        );
+
+
+    for (
+        const [key, value]
+        of Object.entries(cors)
+    ) {
+
+        headers.set(
+            key,
+            value
+        );
+
+    }
+
+
+    for (
+        const [key, value]
+        of Object.entries(extraHeaders)
+    ) {
+
+        headers.set(
+            key,
+            value
+        );
+
+    }
+
+
+    return new Response(
+        JSON.stringify(data),
+        {
+            status,
+            headers
         }
     );
 
@@ -1697,146 +1878,57 @@ function corsHeaders(
     request
 ) {
 
+    const headers = {};
+
+
+    if (!request) {
+
+        return headers;
+
+    }
+
+
     const origin =
         request.headers.get(
             "Origin"
         );
 
 
-    const headers =
-        new Headers();
+    const allowed =
+        origin === "https://nexaurenstory.com" ||
+        origin === "http://localhost:8787" ||
+        origin === "http://127.0.0.1:8787";
 
 
-    if (
-        origin === ALLOWED_ORIGIN
-    ) {
+    if (allowed) {
 
-        headers.set(
-            "Access-Control-Allow-Origin",
-            ALLOWED_ORIGIN
-        );
+        headers[
+            "Access-Control-Allow-Origin"
+        ] = origin;
 
-        headers.set(
-            "Access-Control-Allow-Credentials",
-            "true"
-        );
+
+        headers[
+            "Access-Control-Allow-Credentials"
+        ] = "true";
+
+
+        headers[
+            "Access-Control-Allow-Methods"
+        ] = "GET, POST, OPTIONS";
+
+
+        headers[
+            "Access-Control-Allow-Headers"
+        ] = "Content-Type";
+
+
+        headers[
+            "Vary"
+        ] = "Origin";
 
     }
-
-
-    headers.set(
-        "Access-Control-Allow-Methods",
-        "GET, POST, OPTIONS"
-    );
-
-
-    headers.set(
-        "Access-Control-Allow-Headers",
-        "Content-Type"
-    );
-
-
-    headers.set(
-        "Vary",
-        "Origin"
-    );
 
 
     return headers;
 
 }
-
-
-/* =========================================================
-   JSON RESPONSE
-   ========================================================= */
-
-function json(
-    data,
-    status = 200,
-    request,
-    extraHeaders = {}
-) {
-
-    const headers =
-        corsHeaders(request);
-
-
-    headers.set(
-        "Content-Type",
-        "application/json; charset=utf-8"
-    );
-
-
-    headers.set(
-        "Cache-Control",
-        "no-store"
-    );
-
-
-    for (
-        const [
-            key,
-            value
-        ] of Object.entries(
-            extraHeaders
-        )
-    ) {
-
-        headers.set(
-            key,
-            value
-        );
-
-    }
-
-
-    return new Response(
-        JSON.stringify(data),
-        {
-            status: status,
-            headers: headers
-        }
-    );
-
-}
-
-
-/* =========================================================
-   BYTES → BASE64URL
-   ========================================================= */
-
-function bytesToBase64Url(
-    bytes
-) {
-
-    let binary = "";
-
-
-    for (
-        const byte of bytes
-    ) {
-
-        binary +=
-            String.fromCharCode(
-                byte
-            );
-
-    }
-
-
-    return btoa(binary)
-        .replace(
-            /\+/g,
-            "-"
-        )
-        .replace(
-            /\//g,
-            "_"
-        )
-        .replace(
-            /=+$/,
-            ""
-        );
-
-       }
