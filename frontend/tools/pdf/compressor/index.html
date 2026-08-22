@@ -10,15 +10,107 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <meta
-        name="description"
-        content="Compress PDF files directly in your browser with Nexauren PDF Compressor."
-    >
+    <!-- =================================
+         PRIMARY SEO
+    ================================== -->
 
     <title>
-        PDF Compressor — Nexauren
+        Free PDF Compressor Online | Nexauren
     </title>
 
+    <meta
+        name="description"
+        content="Compress PDF files online for free with Nexauren. Reduce PDF file size directly in your browser while keeping your document usable."
+    >
+
+    <meta
+        name="robots"
+        content="index, follow, max-image-preview:large"
+    >
+
+    <meta
+        name="author"
+        content="Nexauren"
+    >
+
+    <meta
+        name="application-name"
+        content="Nexauren"
+    >
+
+    <meta
+        name="theme-color"
+        content="#ffffff"
+    >
+
+    <!-- =================================
+         CANONICAL
+    ================================== -->
+
+    <link
+        rel="canonical"
+        href="https://nexaurenstory.com/tools/pdf/compressor/"
+    >
+
+
+    <!-- =================================
+         OPEN GRAPH
+    ================================== -->
+
+    <meta
+        property="og:type"
+        content="website"
+    >
+
+    <meta
+        property="og:title"
+        content="Free PDF Compressor Online | Nexauren"
+    >
+
+    <meta
+        property="og:description"
+        content="Compress and optimize PDF files directly in your browser with Nexauren."
+    >
+
+    <meta
+        property="og:url"
+        content="https://nexaurenstory.com/tools/pdf/compressor/"
+    >
+
+    <meta
+        property="og:site_name"
+        content="Nexauren"
+    >
+
+    <meta
+        property="og:locale"
+        content="en_US"
+    >
+
+
+    <!-- =================================
+         TWITTER / X
+    ================================== -->
+
+    <meta
+        name="twitter:card"
+        content="summary"
+    >
+
+    <meta
+        name="twitter:title"
+        content="Free PDF Compressor Online | Nexauren"
+    >
+
+    <meta
+        name="twitter:description"
+        content="Compress PDF files directly in your browser with Nexauren."
+    >
+
+
+    <!-- =================================
+         STYLES
+    ================================== -->
 
     <link
         rel="stylesheet"
@@ -50,17 +142,22 @@
 
     <header class="tool-header">
 
-        <div class="tool-brand">
+        <div
+            class="tool-brand"
+            aria-label="Nexauren"
+        >
             NEXAUREN
         </div>
 
+
         <h1>
-            PDF Compressor
+            Free PDF Compressor Online
         </h1>
 
+
         <p>
-            Reduce your PDF file size quickly
-            while keeping your document usable.
+            Compress and reduce your PDF file size
+            directly in your browser.
         </p>
 
     </header>
@@ -78,6 +175,7 @@
         <div
             class="step active"
             data-step="1"
+            aria-current="step"
         >
 
             <span class="step-number">
@@ -144,6 +242,7 @@
     <section
         class="tool-card"
         data-step-content="1"
+        aria-labelledby="upload-title"
     >
 
         <div
@@ -151,12 +250,15 @@
             class="upload-area"
         >
 
-            <div class="upload-icon">
+            <div
+                class="upload-icon"
+                aria-hidden="true"
+            >
                 PDF
             </div>
 
 
-            <h2>
+            <h2 id="upload-title">
                 Upload your PDF
             </h2>
 
@@ -181,6 +283,7 @@
                 type="file"
                 accept="application/pdf,.pdf"
                 hidden
+                aria-label="Choose a PDF file"
             >
 
 
@@ -201,23 +304,27 @@
         class="tool-card"
         data-step-content="2"
         hidden
+        aria-labelledby="settings-title"
     >
 
         <div class="section-heading">
 
-            <span class="section-icon blue">
+            <span
+                class="section-icon blue"
+                aria-hidden="true"
+            >
                 PDF
             </span>
 
             <div>
 
-                <h2>
-                    Compression settings
+                <h2 id="settings-title">
+                    PDF Compression Settings
                 </h2>
 
                 <p>
                     Choose how much you want to
-                    reduce the PDF size.
+                    reduce the PDF file size.
                 </p>
 
             </div>
@@ -225,13 +332,19 @@
         </div>
 
 
-        <!-- PDF INFORMATION -->
+        <!-- =================================
+             PDF INFORMATION
+        ================================== -->
 
         <div class="file-information">
 
-            <div class="file-icon">
+            <div
+                class="file-icon"
+                aria-hidden="true"
+            >
                 PDF
             </div>
+
 
             <div class="file-details">
 
@@ -245,6 +358,7 @@
 
             </div>
 
+
             <button
                 id="change-pdf"
                 class="secondary-button"
@@ -256,14 +370,16 @@
         </div>
 
 
-        <!-- PREVIEW -->
+        <!-- =================================
+             PREVIEW
+        ================================== -->
 
         <div class="preview-section">
 
             <div class="preview-header">
 
                 <h3>
-                    Preview
+                    PDF Preview
                 </h3>
 
                 <span id="pdf-page-count">
@@ -276,11 +392,15 @@
             <div
                 id="pdf-preview"
                 class="pdf-preview"
+                aria-label="PDF preview"
             >
 
                 <div class="preview-placeholder">
 
-                    <span class="preview-pdf-icon">
+                    <span
+                        class="preview-pdf-icon"
+                        aria-hidden="true"
+                    >
                         PDF
                     </span>
 
@@ -300,7 +420,9 @@
         </div>
 
 
-        <!-- COMPRESSION OPTIONS -->
+        <!-- =================================
+             COMPRESSION OPTIONS
+        ================================== -->
 
         <div class="settings-grid">
 
@@ -340,9 +462,10 @@
 
             <div class="setting-group">
 
-                <label>
+                <label for="current-size">
                     Current size
                 </label>
+
 
                 <div
                     id="current-size"
@@ -358,21 +481,25 @@
 
                 <div class="compression-info">
 
-                    <div class="compression-info-icon">
+                    <div
+                        class="compression-info-icon"
+                        aria-hidden="true"
+                    >
                         i
                     </div>
 
                     <div>
 
                         <strong>
-                            About compression
+                            About PDF compression
                         </strong>
 
                         <p>
                             Compression happens locally
                             in your browser whenever
                             possible. Your PDF is not
-                            uploaded to a server.
+                            intentionally uploaded to
+                            a server.
                         </p>
 
                     </div>
@@ -384,7 +511,9 @@
         </div>
 
 
-        <!-- ACTIONS -->
+        <!-- =================================
+             ACTIONS
+        ================================== -->
 
         <div class="actions">
 
@@ -409,18 +538,22 @@
         class="tool-card"
         data-step-content="3"
         hidden
+        aria-labelledby="result-title"
     >
 
         <div class="success-box">
 
-            <div class="success-icon">
+            <div
+                class="success-icon"
+                aria-hidden="true"
+            >
                 ✓
             </div>
 
             <div>
 
-                <h2>
-                    PDF compressed successfully
+                <h2 id="result-title">
+                    PDF Compressed Successfully
                 </h2>
 
                 <p>
@@ -432,14 +565,16 @@
         </div>
 
 
-        <!-- RESULT PREVIEW -->
+        <!-- =================================
+             RESULT PREVIEW
+        ================================== -->
 
         <div class="preview-section result-preview-section">
 
             <div class="preview-header">
 
                 <h3>
-                    Result preview
+                    Result Preview
                 </h3>
 
                 <span>
@@ -452,11 +587,15 @@
             <div
                 id="result-preview"
                 class="pdf-preview"
+                aria-label="Compressed PDF preview"
             >
 
                 <div class="preview-placeholder">
 
-                    <span class="preview-pdf-icon">
+                    <span
+                        class="preview-pdf-icon"
+                        aria-hidden="true"
+                    >
                         PDF
                     </span>
 
@@ -471,7 +610,9 @@
         </div>
 
 
-        <!-- RESULT INFORMATION -->
+        <!-- =================================
+             RESULT INFORMATION
+        ================================== -->
 
         <div class="result-info">
 
@@ -526,7 +667,9 @@
         </div>
 
 
-        <!-- DOWNLOAD -->
+        <!-- =================================
+             DOWNLOAD
+        ================================== -->
 
         <div class="actions result-actions">
 
@@ -552,6 +695,68 @@
     </section>
 
 
+    <!-- =================================
+         SEO CONTENT
+    ================================== -->
+
+    <section
+        class="seo-content"
+        aria-labelledby="about-pdf-compressor"
+    >
+
+        <h2 id="about-pdf-compressor">
+            Free PDF Compressor Online
+        </h2>
+
+        <p>
+            Nexauren PDF Compressor helps you reduce
+            the size of PDF documents directly in your
+            browser. Upload a PDF, choose your
+            compression level, preview the result,
+            and download your optimized document.
+        </p>
+
+
+        <h2>
+            How to Compress a PDF
+        </h2>
+
+        <ol>
+
+            <li>
+                Upload your PDF file.
+            </li>
+
+            <li>
+                Choose your preferred compression level.
+            </li>
+
+            <li>
+                Process the PDF and preview the result.
+            </li>
+
+            <li>
+                Download your compressed PDF.
+            </li>
+
+        </ol>
+
+
+        <h2>
+            Is my PDF uploaded?
+        </h2>
+
+        <p>
+            Nexauren is designed to process files
+            locally in your browser whenever the
+            available browser technology allows it.
+            Your files are not intentionally sent to
+            a Nexauren upload server by this tool.
+        </p>
+
+    </section>
+
+
 </main>
 
 
@@ -567,4 +772,4 @@
 
 </body>
 
-      </html>
+                </html>
