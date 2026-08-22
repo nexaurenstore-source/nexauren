@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Compress PDF files directly in your browser with Nexauren PDF Compressor."
+    >
+
+    <title>
+        PDF Compressor — Nexauren
+    </title>
+
+
+    <link
+        rel="stylesheet"
+        href="./style.css"
+    >
+
+
+    <!-- =================================
+         PDF.JS
+         Used for reading and rendering PDFs
+    ================================== -->
+
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs"
+        type="module"
+    ></script>
+
+</head>
+
+
+<body>
+
+<main class="tool-container">
+
+
+    <!-- =================================
+         HEADER
+    ================================== -->
+
+    <header class="tool-header">
+
+        <div class="tool-brand">
+            NEXAUREN
+        </div>
+
+        <h1>
+            PDF Compressor
+        </h1>
+
+        <p>
+            Reduce your PDF file size quickly
+            while keeping your document usable.
+        </p>
+
+    </header>
+
+
+    <!-- =================================
+         STEPS
+    ================================== -->
+
+    <nav
+        class="steps"
+        aria-label="PDF compression steps"
+    >
+
+        <div
+            class="step active"
+            data-step="1"
+        >
+
+            <span class="step-number">
+                1
+            </span>
+
+            <span>
+                Upload
+            </span>
+
+        </div>
+
+
+        <div
+            class="step"
+            data-step="2"
+        >
+
+            <span class="step-number">
+                2
+            </span>
+
+            <span>
+                Adjust
+            </span>
+
+        </div>
+
+
+        <div
+            class="step"
+            data-step="3"
+        >
+
+            <span class="step-number">
+                3
+            </span>
+
+            <span>
+                Download
+            </span>
+
+        </div>
+
+    </nav>
+
+
+    <!-- =================================
+         STATUS
+    ================================== -->
+
+    <div
+        id="tool-status"
+        class="tool-status"
+        role="status"
+        aria-live="polite"
+    ></div>
+
+
+    <!-- =================================
+         STEP 1 — UPLOAD
+    ================================== -->
+
+    <section
+        class="tool-card"
+        data-step-content="1"
+    >
+
+        <div
+            id="upload-area"
+            class="upload-area"
+        >
+
+            <div class="upload-icon">
+                PDF
+            </div>
+
+
+            <h2>
+                Upload your PDF
+            </h2>
+
+
+            <p>
+                Drag and drop your PDF here
+                or choose a file from your device.
+            </p>
+
+
+            <button
+                id="choose-pdf"
+                class="primary-button"
+                type="button"
+            >
+                Choose PDF
+            </button>
+
+
+            <input
+                id="pdf-input"
+                type="file"
+                accept="application/pdf,.pdf"
+                hidden
+            >
+
+
+            <div class="upload-supported">
+                PDF files only • Maximum 100 MB
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =================================
+         STEP 2 — ADJUST
+    ================================== -->
+
+    <section
+        class="tool-card"
+        data-step-content="2"
+        hidden
+    >
+
+        <div class="section-heading">
+
+            <span class="section-icon blue">
+                PDF
+            </span>
+
+            <div>
+
+                <h2>
+                    Compression settings
+                </h2>
+
+                <p>
+                    Choose how much you want to
+                    reduce the PDF size.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- PDF INFORMATION -->
+
+        <div class="file-information">
+
+            <div class="file-icon">
+                PDF
+            </div>
+
+            <div class="file-details">
+
+                <strong id="pdf-file-name">
+                    document.pdf
+                </strong>
+
+                <span id="pdf-file-size">
+                    —
+                </span>
+
+            </div>
+
+            <button
+                id="change-pdf"
+                class="secondary-button"
+                type="button"
+            >
+                Change
+            </button>
+
+        </div>
+
+
+        <!-- PREVIEW -->
+
+        <div class="preview-section">
+
+            <div class="preview-header">
+
+                <h3>
+                    Preview
+                </h3>
+
+                <span id="pdf-page-count">
+                    —
+                </span>
+
+            </div>
+
+
+            <div
+                id="pdf-preview"
+                class="pdf-preview"
+            >
+
+                <div class="preview-placeholder">
+
+                    <span class="preview-pdf-icon">
+                        PDF
+                    </span>
+
+                    <strong>
+                        PDF Preview
+                    </strong>
+
+                    <span>
+                        Your document preview
+                        will appear here.
+                    </span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- COMPRESSION OPTIONS -->
+
+        <div class="settings-grid">
+
+
+            <div class="setting-group">
+
+                <label
+                    for="compression-level"
+                >
+                    Compression level
+                </label>
+
+
+                <select
+                    id="compression-level"
+                >
+
+                    <option value="low">
+                        Low — Better quality
+                    </option>
+
+                    <option
+                        value="medium"
+                        selected
+                    >
+                        Medium — Recommended
+                    </option>
+
+                    <option value="high">
+                        High — Smaller file
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="setting-group">
+
+                <label>
+                    Current size
+                </label>
+
+                <div
+                    id="current-size"
+                    class="value-box"
+                >
+                    —
+                </div>
+
+            </div>
+
+
+            <div class="setting-group full">
+
+                <div class="compression-info">
+
+                    <div class="compression-info-icon">
+                        i
+                    </div>
+
+                    <div>
+
+                        <strong>
+                            About compression
+                        </strong>
+
+                        <p>
+                            Compression happens locally
+                            in your browser whenever
+                            possible. Your PDF is not
+                            uploaded to a server.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- ACTIONS -->
+
+        <div class="actions">
+
+            <button
+                id="compress-pdf"
+                class="primary-button"
+                type="button"
+            >
+                Compress PDF
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <!-- =================================
+         STEP 3 — RESULT
+    ================================== -->
+
+    <section
+        class="tool-card"
+        data-step-content="3"
+        hidden
+    >
+
+        <div class="success-box">
+
+            <div class="success-icon">
+                ✓
+            </div>
+
+            <div>
+
+                <h2>
+                    PDF compressed successfully
+                </h2>
+
+                <p>
+                    Your optimized PDF is ready.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- RESULT PREVIEW -->
+
+        <div class="preview-section result-preview-section">
+
+            <div class="preview-header">
+
+                <h3>
+                    Result preview
+                </h3>
+
+                <span>
+                    Ready
+                </span>
+
+            </div>
+
+
+            <div
+                id="result-preview"
+                class="pdf-preview"
+            >
+
+                <div class="preview-placeholder">
+
+                    <span class="preview-pdf-icon">
+                        PDF
+                    </span>
+
+                    <strong>
+                        Compressed PDF
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- RESULT INFORMATION -->
+
+        <div class="result-info">
+
+
+            <div class="result-stat">
+
+                <span class="result-stat-label">
+                    Original
+                </span>
+
+                <strong
+                    id="result-original-size"
+                    class="result-stat-value"
+                >
+                    —
+                </strong>
+
+            </div>
+
+
+            <div class="result-stat">
+
+                <span class="result-stat-label">
+                    New size
+                </span>
+
+                <strong
+                    id="result-new-size"
+                    class="result-stat-value"
+                >
+                    —
+                </strong>
+
+            </div>
+
+
+            <div class="result-stat">
+
+                <span class="result-stat-label">
+                    Reduced
+                </span>
+
+                <strong
+                    id="result-reduction"
+                    class="result-stat-value green"
+                >
+                    —
+                </strong>
+
+            </div>
+
+        </div>
+
+
+        <!-- DOWNLOAD -->
+
+        <div class="actions result-actions">
+
+            <button
+                id="download-pdf"
+                class="primary-button"
+                type="button"
+            >
+                Download PDF
+            </button>
+
+
+            <button
+                id="compress-another"
+                class="secondary-button"
+                type="button"
+            >
+                Compress Another
+            </button>
+
+        </div>
+
+    </section>
+
+
+</main>
+
+
+<!-- =================================
+     NEXAUREN PDF COMPRESSOR
+================================== -->
+
+<script
+    src="./script.js"
+    type="module"
+    defer
+></script>
+
+</body>
+
+      </html>
