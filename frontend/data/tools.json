@@ -1,4 +1,23 @@
 {
   "tools": [
     {
-    
+      "id": "image-compressor",
+      "name": "Image Compressor",
+      "slug": "image-compressor",
+      "category": "image",
+      "description": "Compress and optimize images directly in your browser.",
+      "icon": "image",
+      "path": "/tools/image/compressor/",
+      "status": "active",
+      "featured": true,
+      "new": true,
+      "tags": [
+        "image",
+        "compressor",
+        "jpg",
+        "png",
+        "webp"
+      ]
+    }
+  ]
+}
