@@ -2,14 +2,14 @@
 
 /* =========================================================
    NEXAUREN — FAVICON CREATOR V1
+   LOCAL TOOL
+   No session
+   No backend
+   No API
    ========================================================= */
 
-
-/* =========================================================
-   ELEMENT HELPER
-   ========================================================= */
-
-const $ = (id) => document.getElementById(id);
+const $ = (id) =>
+    document.getElementById(id);
 
 
 /* =========================================================
@@ -17,7 +17,6 @@ const $ = (id) => document.getElementById(id);
    ========================================================= */
 
 let app;
-let accessLoading;
 
 let fileInput;
 let chooseButton;
@@ -48,39 +47,88 @@ let initialized = false;
    INITIALIZATION
    ========================================================= */
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
 
-    /*
-     * Get elements only after the DOM exists.
-     */
+        initializeElements();
 
-    app = $("app");
-    accessLoading = $("access-loading");
+        initializeTool();
 
-    fileInput = $("file-input");
-    chooseButton = $("choose-button");
-    dropZone = $("drop-zone");
-
-    previewCanvas = $("preview-canvas");
-    emptyPreview = $("empty-preview");
-
-    downloadPng = $("download-png");
-    downloadIco = $("download-ico");
-    downloadZip = $("download-zip");
-
-    resetButton = $("reset-button");
-    copyCode = $("copy-code");
-    htmlCode = $("html-code");
+    }
+);
 
 
-    /*
-     * Start access verification.
-     */
+/* =========================================================
+   GET ELEMENTS
+   ========================================================= */
 
-    checkSession();
+function initializeElements() {
 
-});
+    app =
+        $("app");
 
+    fileInput =
+        $("file-input");
+
+    chooseButton =
+        $("choose-button");
+
+    dropZone =
+        $("drop-zone");
+
+    previewCanvas =
+        $("preview-canvas");
+
+    emptyPreview =
+        $("empty-preview");
+
+    downloadPng =
+        $("download-png");
+
+    downloadIco =
+        $("download-ico");
+
+    downloadZip =
+        $("download-zip");
+
+    resetButton =
+        $("reset-button");
+
+    copyCode =
+        $("copy-code");
+
+    htmlCode =
+        $("html-code");
+
+}
+
+
+/* =========================================================
+   TOOL INITIALIZATION
+   ========================================================= */
+
+function initializeTool() {
+
+    if (initialized) {
+        return;
+    }
+
+    initialized = true;
+
+    setupUpload();
+
+    setupControls();
+
+    setupDownloads();
+
+    setupReset();
+
+    setupCopy();
+
+    updateHtmlCode();
+
+}
 
 /* =========================================================
    SESSION CHECK
