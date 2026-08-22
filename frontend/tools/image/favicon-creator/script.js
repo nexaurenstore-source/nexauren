@@ -1,56 +1,102 @@
 /* =========================================================
    NEXAUREN — FAVICON CREATOR
-   SCRIPT.JS
+   SCRIPT.JS — COMPLETE REBUILD
    ========================================================= */
 
 "use strict";
 
 
 /* =========================================================
-   DOM
+   DOM HELPERS
    ========================================================= */
 
-const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => [...document.querySelectorAll(selector)];
+const $ = (selector, parent = document) =>
+    parent.querySelector(selector);
+
+const $$ = (selector, parent = document) =>
+    Array.from(parent.querySelectorAll(selector));
 
 
 /* =========================================================
-   ELEMENTS
+   DOM ELEMENTS
    ========================================================= */
 
-const app = $("#app");
-const pageTransition = $("#page-transition");
+const pageTransition =
+    $("#page-transition");
 
-const dropZone = $("#drop-zone");
-const chooseButton = $("#choose-button");
-const fileInput = $("#file-input");
+const dropZone =
+    $("#drop-zone");
 
-const emptyPreview = $("#empty-preview");
-const previewCanvas = $("#preview-canvas");
+const chooseButton =
+    $("#choose-button");
 
-const mainSize = $("#main-size");
-const fitSelect = $("#fit");
-const backgroundMode = $("#background-mode");
-const backgroundInput = $("#background");
+const fileInput =
+    $("#file-input");
 
-const radiusInput = $("#radius");
-const zoomInput = $("#zoom");
-const positionXInput = $("#position-x");
-const positionYInput = $("#position-y");
+const emptyPreview =
+    $("#empty-preview");
 
-const radiusValue = $("#radius-value");
-const zoomValue = $("#zoom-value");
-const xValue = $("#x-value");
-const yValue = $("#y-value");
+const previewCanvas =
+    $("#preview-canvas");
 
-const sizeOptions = $$(".size-option");
+const mainSize =
+    $("#main-size");
 
-const screens = $$(".tool-screen");
-const steps = $$(".step");
+const fitSelect =
+    $("#fit");
+
+const backgroundMode =
+    $("#background-mode");
+
+const backgroundInput =
+    $("#background");
+
+const radiusInput =
+    $("#radius");
+
+const zoomInput =
+    $("#zoom");
+
+const positionXInput =
+    $("#position-x");
+
+const positionYInput =
+    $("#position-y");
+
+const radiusValue =
+    $("#radius-value");
+
+const zoomValue =
+    $("#zoom-value");
+
+const xValue =
+    $("#x-value");
+
+const yValue =
+    $("#y-value");
+
+const screens =
+    $$(".tool-screen");
+
+const steps =
+    $$(".step");
+
+const sizeOptions =
+    $$(".size-option");
 
 
 /* =========================================================
-   STATE
+   CANVAS
+   ========================================================= */
+
+const ctx =
+    previewCanvas
+        ? previewCanvas.getContext("2d")
+        : null;
+
+
+/* =========================================================
+   APPLICATION STATE
    ========================================================= */
 
 const state = {
@@ -67,46 +113,47 @@ const state = {
 
     currentStep: 1,
 
+    exporting: false,
+
     settings: {
 
-        size: 256,
+        size: mainSize
+            ? Number(mainSize.value) || 256
+            : 256,
 
-        fit: "contain",
+        fit: fitSelect
+            ? fitSelect.value
+            : "contain",
 
-        backgroundMode: "transparent",
+        backgroundMode: backgroundMode
+            ? backgroundMode.value
+            : "transparent",
 
-        background: "#ffffff",
+        background: backgroundInput
+            ? backgroundInput.value
+            : "#ffffff",
 
-        radius: 0,
+        radius: radiusInput
+            ? Number(radiusInput.value)
+            : 0,
 
-        zoom: 100,
+        zoom: zoomInput
+            ? Number(zoomInput.value)
+            : 100,
 
-        positionX: 50,
+        positionX: positionXInput
+            ? Number(positionXInput.value)
+            : 50,
 
-        positionY: 50
+        positionY: positionYInput
+            ? Number(positionYInput.value)
+            : 50
 
     },
 
-    exportSizes: [
-        16,
-        32,
-        48,
-        64
-    ]
+    exportSizes: []
 
 };
-
-
-/* =========================================================
-   CANVAS CONTEXT
-   ========================================================= */
-
-const ctx = previewCanvas
-    ? previewCanvas.getContext("2d", {
-        alpha: true,
-        willReadFrequently: false
-    })
-    : null;
 
 
 /* =========================================================
@@ -115,48 +162,67 @@ const ctx = previewCanvas
 
 function init() {
 
+    console.log(
+        "Nexauren Favicon Creator initialized."
+    );
+
+
     if (!previewCanvas || !ctx) {
+
         console.error(
-            "Nexauren Favicon Creator: Canvas is not supported."
+            "Nexauren Favicon Creator: Canvas unavailable."
         );
+
         return;
+
     }
 
-    bindUploadEvents();
+
+    initializeExportSizes();
+
+    bindUpload();
 
     bindControls();
 
-    bindNavigation();
-
     bindSizeOptions();
+
+    bindNavigation();
 
     bindPageTransitions();
 
-    updateControlValues();
+    bindKeyboardShortcuts();
+
+    updateControlLabels();
 
     updateBackgroundControl();
 
     updateSteps();
 
-    updateExportSizes();
+    createExportFallbackUI();
 
 }
 
 
 /* =========================================================
-   UPLOAD EVENTS
+   UPLOAD
    ========================================================= */
 
-function bindUploadEvents() {
+function bindUpload() {
 
     if (!dropZone || !fileInput) {
         return;
     }
 
 
+    /* -----------------------------------------------------
+       CHOOSE BUTTON
+    ----------------------------------------------------- */
+
     chooseButton?.addEventListener(
         "click",
         (event) => {
+
+            event.preventDefault();
 
             event.stopPropagation();
 
@@ -165,6 +231,10 @@ function bindUploadEvents() {
         }
     );
 
+
+    /* -----------------------------------------------------
+       DROP ZONE CLICK
+    ----------------------------------------------------- */
 
     dropZone.addEventListener(
         "click",
@@ -181,6 +251,10 @@ function bindUploadEvents() {
         }
     );
 
+
+    /* -----------------------------------------------------
+       KEYBOARD
+    ----------------------------------------------------- */
 
     dropZone.addEventListener(
         "keydown",
@@ -201,12 +275,17 @@ function bindUploadEvents() {
     );
 
 
+    /* -----------------------------------------------------
+       FILE INPUT
+    ----------------------------------------------------- */
+
     fileInput.addEventListener(
         "change",
-        (event) => {
+        () => {
 
             const file =
-                event.target.files?.[0];
+                fileInput.files &&
+                fileInput.files[0];
 
             if (file) {
                 loadImage(file);
@@ -216,66 +295,80 @@ function bindUploadEvents() {
     );
 
 
+    /* -----------------------------------------------------
+       DRAG ENTER / OVER
+    ----------------------------------------------------- */
+
     [
         "dragenter",
         "dragover"
-    ].forEach((eventName) => {
+    ].forEach(
+        eventName => {
 
-        dropZone.addEventListener(
-            eventName,
-            (event) => {
+            dropZone.addEventListener(
+                eventName,
+                event => {
 
-                event.preventDefault();
+                    event.preventDefault();
 
-                event.stopPropagation();
+                    event.stopPropagation();
 
-                dropZone.classList.add(
-                    "dragging"
-                );
+                    dropZone.classList.add(
+                        "dragging"
+                    );
 
-            }
-        );
+                }
+            );
 
-    });
+        }
+    );
 
+
+    /* -----------------------------------------------------
+       DRAG LEAVE / DROP
+    ----------------------------------------------------- */
 
     [
         "dragleave",
         "drop"
-    ].forEach((eventName) => {
+    ].forEach(
+        eventName => {
 
-        dropZone.addEventListener(
-            eventName,
-            (event) => {
+            dropZone.addEventListener(
+                eventName,
+                event => {
 
-                event.preventDefault();
+                    event.preventDefault();
 
-                event.stopPropagation();
+                    event.stopPropagation();
 
-                dropZone.classList.remove(
-                    "dragging"
-                );
+                    dropZone.classList.remove(
+                        "dragging"
+                    );
 
-            }
-        );
+                }
+            );
 
-    });
+        }
+    );
 
+
+    /* -----------------------------------------------------
+       DROP
+    ----------------------------------------------------- */
 
     dropZone.addEventListener(
         "drop",
-        (event) => {
+        event => {
 
             const files =
                 event.dataTransfer?.files;
 
-            if (!files || !files.length) {
+            if (!files?.length) {
                 return;
             }
 
-            const file = files[0];
-
-            loadImage(file);
+            loadImage(files[0]);
 
         }
     );
@@ -287,21 +380,54 @@ function bindUploadEvents() {
    IMAGE VALIDATION
    ========================================================= */
 
-function isValidImage(file) {
+function validateImageFile(file) {
 
     if (!file) {
-        return false;
+
+        return {
+            valid: false,
+            message: "No image was selected."
+        };
+
     }
 
-    const allowedTypes = [
+
+    const allowedTypes = new Set([
         "image/png",
         "image/jpeg",
         "image/webp"
-    ];
+    ]);
 
-    return allowedTypes.includes(
-        file.type
-    );
+
+    if (!allowedTypes.has(file.type)) {
+
+        return {
+            valid: false,
+            message:
+                "Please choose a PNG, JPG, JPEG or WebP image."
+        };
+
+    }
+
+
+    const maxSize =
+        25 * 1024 * 1024;
+
+
+    if (file.size > maxSize) {
+
+        return {
+            valid: false,
+            message:
+                "The maximum image size is 25 MB."
+        };
+
+    }
+
+
+    return {
+        valid: true
+    };
 
 }
 
@@ -312,43 +438,34 @@ function isValidImage(file) {
 
 function loadImage(file) {
 
-    if (!isValidImage(file)) {
+    const validation =
+        validateImageFile(file);
+
+
+    if (!validation.valid) {
 
         showMessage(
-            "Please choose a PNG, JPG, JPEG or WebP image."
+            validation.message,
+            "error"
         );
 
         return;
-    }
-
-
-    const maxFileSize =
-        25 * 1024 * 1024;
-
-
-    if (file.size > maxFileSize) {
-
-        showMessage(
-            "The image is too large. Maximum size is 25 MB."
-        );
-
-        return;
-    }
-
-
-    if (state.objectURL) {
-
-        URL.revokeObjectURL(
-            state.objectURL
-        );
 
     }
 
 
-    state.file = file;
+    releaseObjectURL();
+
+
+    const objectURL =
+        URL.createObjectURL(file);
+
+
+    state.file =
+        file;
 
     state.objectURL =
-        URL.createObjectURL(file);
+        objectURL;
 
 
     const image =
@@ -357,7 +474,8 @@ function loadImage(file) {
 
     image.onload = () => {
 
-        state.image = image;
+        state.image =
+            image;
 
         state.imageWidth =
             image.naturalWidth;
@@ -366,24 +484,79 @@ function loadImage(file) {
             image.naturalHeight;
 
 
+        resetImageAdjustments();
+
         renderPreview();
 
         goToStep(2);
+
+
+        showMessage(
+            "Image loaded successfully.",
+            "success"
+        );
 
     };
 
 
     image.onerror = () => {
 
+        releaseObjectURL();
+
+        state.image =
+            null;
+
+        state.file =
+            null;
+
+
         showMessage(
-            "Unable to read this image."
+            "The image could not be loaded.",
+            "error"
         );
 
     };
 
 
     image.src =
-        state.objectURL;
+        objectURL;
+
+}
+
+
+/* =========================================================
+   RESET IMAGE ADJUSTMENTS
+   ========================================================= */
+
+function resetImageAdjustments() {
+
+    state.settings.zoom =
+        100;
+
+    state.settings.positionX =
+        50;
+
+    state.settings.positionY =
+        50;
+
+
+    if (zoomInput) {
+        zoomInput.value =
+            "100";
+    }
+
+    if (positionXInput) {
+        positionXInput.value =
+            "50";
+    }
+
+    if (positionYInput) {
+        positionYInput.value =
+            "50";
+    }
+
+
+    updateControlLabels();
 
 }
 
@@ -394,15 +567,24 @@ function loadImage(file) {
 
 function bindControls() {
 
-
     mainSize?.addEventListener(
         "change",
         () => {
 
-            state.settings.size =
+            const value =
                 Number(mainSize.value);
 
-            renderPreview();
+            if (
+                Number.isFinite(value) &&
+                value > 0
+            ) {
+
+                state.settings.size =
+                    value;
+
+                renderPreview();
+
+            }
 
         }
     );
@@ -454,9 +636,13 @@ function bindControls() {
         () => {
 
             state.settings.radius =
-                Number(radiusInput.value);
+                clamp(
+                    Number(radiusInput.value),
+                    0,
+                    50
+                );
 
-            updateControlValues();
+            updateControlLabels();
 
             renderPreview();
 
@@ -469,9 +655,13 @@ function bindControls() {
         () => {
 
             state.settings.zoom =
-                Number(zoomInput.value);
+                clamp(
+                    Number(zoomInput.value),
+                    50,
+                    200
+                );
 
-            updateControlValues();
+            updateControlLabels();
 
             renderPreview();
 
@@ -484,9 +674,13 @@ function bindControls() {
         () => {
 
             state.settings.positionX =
-                Number(positionXInput.value);
+                clamp(
+                    Number(positionXInput.value),
+                    0,
+                    100
+                );
 
-            updateControlValues();
+            updateControlLabels();
 
             renderPreview();
 
@@ -499,9 +693,13 @@ function bindControls() {
         () => {
 
             state.settings.positionY =
-                Number(positionYInput.value);
+                clamp(
+                    Number(positionYInput.value),
+                    0,
+                    100
+                );
 
-            updateControlValues();
+            updateControlLabels();
 
             renderPreview();
 
@@ -512,10 +710,10 @@ function bindControls() {
 
 
 /* =========================================================
-   CONTROL VALUES
+   CONTROL LABELS
    ========================================================= */
 
-function updateControlValues() {
+function updateControlLabels() {
 
     if (radiusValue) {
 
@@ -572,24 +770,44 @@ function updateBackgroundControl() {
 
 
     backgroundInput.style.opacity =
-        enabled ? "1" : ".45";
+        enabled
+            ? "1"
+            : ".45";
+
+
+    backgroundInput.setAttribute(
+        "aria-disabled",
+        String(!enabled)
+    );
 
 }
 
 
 /* =========================================================
-   RENDER PREVIEW
+   PREVIEW
    ========================================================= */
 
 function renderPreview() {
 
-    if (!state.image || !ctx) {
+    if (
+        !state.image ||
+        !previewCanvas ||
+        !ctx
+    ) {
         return;
     }
 
 
     const size =
         state.settings.size;
+
+
+    if (
+        !Number.isFinite(size) ||
+        size <= 0
+    ) {
+        return;
+    }
 
 
     previewCanvas.width =
@@ -630,19 +848,23 @@ function renderPreview() {
 
 
     /* -----------------------------------------------------
-       CLIPPING
+       IMAGE CLIP
     ----------------------------------------------------- */
-
-    const radius =
-        size *
-        (state.settings.radius / 100);
-
 
     ctx.save();
 
+
+    const radius =
+        size *
+        (
+            state.settings.radius /
+            100
+        );
+
+
     if (radius > 0) {
 
-        roundedRect(
+        createRoundedRectPath(
             ctx,
             0,
             0,
@@ -656,11 +878,7 @@ function renderPreview() {
     }
 
 
-    /* -----------------------------------------------------
-       IMAGE
-    ----------------------------------------------------- */
-
-    drawImageToCanvas(
+    drawImage(
         ctx,
         state.image,
         size
@@ -671,7 +889,7 @@ function renderPreview() {
 
 
     /* -----------------------------------------------------
-       UI
+       SHOW CANVAS
     ----------------------------------------------------- */
 
     emptyPreview?.setAttribute(
@@ -690,10 +908,10 @@ function renderPreview() {
    DRAW IMAGE
    ========================================================= */
 
-function drawImageToCanvas(
+function drawImage(
     context,
     image,
-    size
+    canvasSize
 ) {
 
     const imageWidth =
@@ -703,69 +921,76 @@ function drawImageToCanvas(
         image.naturalHeight;
 
 
-    const fit =
-        state.settings.fit;
+    if (
+        !imageWidth ||
+        !imageHeight
+    ) {
+        return;
+    }
 
 
     const zoom =
-        state.settings.zoom / 100;
+        state.settings.zoom /
+        100;
 
 
     let scale;
 
 
-    if (fit === "cover") {
+    if (
+        state.settings.fit ===
+        "cover"
+    ) {
 
         scale =
             Math.max(
-                size / imageWidth,
-                size / imageHeight
+                canvasSize / imageWidth,
+                canvasSize / imageHeight
             );
 
     } else {
 
         scale =
             Math.min(
-                size / imageWidth,
-                size / imageHeight
+                canvasSize / imageWidth,
+                canvasSize / imageHeight
             );
 
     }
 
 
-    scale *= zoom;
+    scale *=
+        zoom;
 
 
-    const drawWidth =
+    const width =
         imageWidth * scale;
 
-    const drawHeight =
+    const height =
         imageHeight * scale;
 
 
-    /*
-     * Position values:
-     *
-     * 0%   = left / top
-     * 50%  = center
-     * 100% = right / bottom
-     */
-
     const availableX =
-        size - drawWidth;
+        canvasSize - width;
 
     const availableY =
-        size - drawHeight;
+        canvasSize - height;
 
 
     const x =
         availableX *
-        (state.settings.positionX / 100);
+        (
+            state.settings.positionX /
+            100
+        );
 
 
     const y =
         availableY *
-        (state.settings.positionY / 100);
+        (
+            state.settings.positionY /
+            100
+        );
 
 
     context.imageSmoothingEnabled =
@@ -779,8 +1004,8 @@ function drawImageToCanvas(
         image,
         x,
         y,
-        drawWidth,
-        drawHeight
+        width,
+        height
     );
 
 }
@@ -790,7 +1015,7 @@ function drawImageToCanvas(
    ROUNDED RECT
    ========================================================= */
 
-function roundedRect(
+function createRoundedRectPath(
     context,
     x,
     y,
@@ -878,17 +1103,167 @@ function roundedRect(
 
 
 /* =========================================================
+   RENDER AT EXPORT SIZE
+   ========================================================= */
+
+function renderAtSize(size) {
+
+    if (!state.image) {
+        return null;
+    }
+
+
+    const canvas =
+        document.createElement(
+            "canvas"
+        );
+
+
+    canvas.width =
+        size;
+
+    canvas.height =
+        size;
+
+
+    const context =
+        canvas.getContext(
+            "2d"
+        );
+
+
+    if (!context) {
+        return null;
+    }
+
+
+    context.clearRect(
+        0,
+        0,
+        size,
+        size
+    );
+
+
+    /* -----------------------------------------------------
+       BACKGROUND
+    ----------------------------------------------------- */
+
+    if (
+        state.settings.backgroundMode ===
+        "color"
+    ) {
+
+        context.fillStyle =
+            state.settings.background;
+
+        context.fillRect(
+            0,
+            0,
+            size,
+            size
+        );
+
+    }
+
+
+    /* -----------------------------------------------------
+       RADIUS
+    ----------------------------------------------------- */
+
+    context.save();
+
+
+    const radius =
+        size *
+        (
+            state.settings.radius /
+            100
+        );
+
+
+    if (radius > 0) {
+
+        createRoundedRectPath(
+            context,
+            0,
+            0,
+            size,
+            size,
+            radius
+        );
+
+        context.clip();
+
+    }
+
+
+    drawImage(
+        context,
+        state.image,
+        size
+    );
+
+
+    context.restore();
+
+
+    return canvas;
+
+}
+
+
+/* =========================================================
    SIZE OPTIONS
+   ========================================================= */
+
+function initializeExportSizes() {
+
+    state.exportSizes =
+        sizeOptions
+            .filter(
+                input =>
+                    input.checked
+            )
+            .map(
+                input =>
+                    Number(input.value)
+            )
+            .filter(
+                Number.isFinite
+            );
+
+
+    if (!state.exportSizes.length) {
+
+        state.exportSizes = [
+            16,
+            32,
+            48,
+            64
+        ];
+
+    }
+
+}
+
+
+/* =========================================================
+   BIND SIZE OPTIONS
    ========================================================= */
 
 function bindSizeOptions() {
 
     sizeOptions.forEach(
-        (checkbox) => {
+        checkbox => {
 
             checkbox.addEventListener(
                 "change",
-                updateExportSizes
+                () => {
+
+                    updateExportSizes();
+
+                }
             );
 
         }
@@ -896,6 +1271,10 @@ function bindSizeOptions() {
 
 }
 
+
+/* =========================================================
+   UPDATE EXPORT SIZES
+   ========================================================= */
 
 function updateExportSizes() {
 
@@ -911,13 +1290,13 @@ function updateExportSizes() {
             )
             .filter(
                 size =>
-                    Number.isFinite(size)
+                    Number.isFinite(size) &&
+                    size > 0
             );
 
 
     /*
-     * Always keep at least one
-     * valid export size.
+     * Never allow an empty export pack.
      */
 
     if (!state.exportSizes.length) {
@@ -927,15 +1306,46 @@ function updateExportSizes() {
 
         if (first) {
 
-            first.checked =
-                true;
+            first.checked = true;
 
-            state.exportSizes =
-                [Number(first.value)];
+            state.exportSizes = [
+                Number(first.value)
+            ];
 
         }
 
     }
+
+
+    updateExportSizeUI();
+
+}
+
+
+/* =========================================================
+   EXPORT SIZE UI
+   ========================================================= */
+
+function updateExportSizeUI() {
+
+    const list =
+        $("#export-size-list");
+
+    if (!list) {
+        return;
+    }
+
+
+    list.innerHTML =
+        state.exportSizes
+            .map(
+                size => `
+                    <span class="export-size">
+                        ${size} × ${size}
+                    </span>
+                `
+            )
+            .join("");
 
 }
 
@@ -948,7 +1358,7 @@ function bindNavigation() {
 
     document.addEventListener(
         "click",
-        (event) => {
+        event => {
 
             const target =
                 event.target.closest(
@@ -961,38 +1371,47 @@ function bindNavigation() {
             }
 
 
-            const next =
-                target.dataset.nextStep;
-
-            const previous =
-                target.dataset.prevStep;
-
-            const direct =
-                target.dataset.stepTarget;
+            event.preventDefault();
 
 
-            if (next) {
+            if (
+                target.dataset.nextStep
+            ) {
 
                 goToStep(
-                    Number(next)
+                    Number(
+                        target.dataset.nextStep
+                    )
                 );
+
+                return;
 
             }
 
 
-            if (previous) {
+            if (
+                target.dataset.prevStep
+            ) {
 
                 goToStep(
-                    Number(previous)
+                    Number(
+                        target.dataset.prevStep
+                    )
                 );
+
+                return;
 
             }
 
 
-            if (direct) {
+            if (
+                target.dataset.stepTarget
+            ) {
 
                 goToStep(
-                    Number(direct)
+                    Number(
+                        target.dataset.stepTarget
+                    )
                 );
 
             }
@@ -1010,18 +1429,16 @@ function bindNavigation() {
 function goToStep(step) {
 
     step =
-        Math.max(
+        clamp(
+            Number(step),
             1,
-            Math.min(
-                3,
-                Number(step)
-            )
+            3
         );
 
 
     /*
-     * Do not allow export/customization
-     * without an image.
+     * Step 2 and 3 require
+     * an uploaded image.
      */
 
     if (
@@ -1034,22 +1451,39 @@ function goToStep(step) {
     }
 
 
+    /*
+     * Export requires at least
+     * one selected size.
+     */
+
+    if (
+        step === 3 &&
+        !state.exportSizes.length
+    ) {
+
+        updateExportSizes();
+
+    }
+
+
     state.currentStep =
         step;
 
 
     screens.forEach(
-        (screen) => {
+        screen => {
 
-            const screenNumber =
+            const number =
                 Number(
                     screen.dataset.screen
                 );
 
 
-            if (
-                screenNumber === step
-            ) {
+            const active =
+                number === step;
+
+
+            if (active) {
 
                 screen.removeAttribute(
                     "hidden"
@@ -1079,22 +1513,26 @@ function goToStep(step) {
     updateSteps();
 
 
-    window.scrollTo({
-        top: 0,
-        behavior: "smooth"
-    });
+    if (step === 2) {
 
+        requestAnimationFrame(
+            () => renderPreview()
+        );
 
-    /*
-     * Refresh export screen
-     * whenever the user enters it.
-     */
+    }
+
 
     if (step === 3) {
 
         prepareExportScreen();
 
     }
+
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
 
 }
 
@@ -1106,21 +1544,21 @@ function goToStep(step) {
 function updateSteps() {
 
     steps.forEach(
-        (stepElement) => {
+        step => {
 
             const number =
                 Number(
-                    stepElement.dataset.step
+                    step.dataset.step
                 );
 
 
-            stepElement.classList.toggle(
+            step.classList.toggle(
                 "active",
                 number === state.currentStep
             );
 
 
-            stepElement.classList.toggle(
+            step.classList.toggle(
                 "completed",
                 number < state.currentStep
             );
@@ -1128,10 +1566,6 @@ function updateSteps() {
         }
     );
 
-
-    /*
-     * Update connecting lines.
-     */
 
     const lines =
         $$(".step-line");
@@ -1162,656 +1596,75 @@ function updateSteps() {
 
 function prepareExportScreen() {
 
+    if (!state.image) {
+        return;
+    }
+
+
+    updateExportSizes();
+
+
     const exportCanvas =
         $("#export-canvas");
 
 
-    if (
-        exportCanvas &&
-        state.image
-    ) {
+    if (exportCanvas) {
 
-        renderCanvasAtSize(
-            exportCanvas,
-            256
-        );
-
-    }
-
-
-    const exportList =
-        $("#export-size-list");
-
-
-    if (exportList) {
-
-        exportList.innerHTML =
-            state.exportSizes
-                .map(
-                    size => `
-                        <span class="export-size">
-                            ${size} × ${size}
-                        </span>
-                    `
+        const previewSize =
+            Math.min(
+                256,
+                Math.max(
+                    ...state.exportSizes,
+                    256
                 )
-                .join("");
-
-    }
-
-}
+            );
 
 
-/* =========================================================
-   RENDER AT SPECIFIC SIZE
-   ========================================================= */
-
-function renderCanvasAtSize(
-    canvas,
-    size
-) {
-
-    if (!state.image) {
-        return;
-    }
+        const rendered =
+            renderAtSize(
+                previewSize
+            );
 
 
-    const context =
-        canvas.getContext(
-            "2d"
-        );
+        if (rendered) {
 
-
-    canvas.width =
-        size;
-
-    canvas.height =
-        size;
-
-
-    context.clearRect(
-        0,
-        0,
-        size,
-        size
-    );
-
-
-    if (
-        state.settings.backgroundMode ===
-        "color"
-    ) {
-
-        context.fillStyle =
-            state.settings.background;
-
-        context.fillRect(
-            0,
-            0,
-            size,
-            size
-        );
-
-    }
-
-
-    context.save();
-
-
-        const radius =
-        size *
-        (state.settings.radius / 100);
-
-
-    if (radius > 0) {
-
-        roundedRect(
-            context,
-            0,
-            0,
-            size,
-            size,
-            radius
-        );
-
-        context.clip();
-
-    }
-
-
-    drawImageToCanvas(
-        context,
-        state.image,
-        size
-    );
-
-
-    context.restore();
-
-}
-
-
-/* =========================================================
-   EXPORT ACTIONS
-   ========================================================= */
-
-function bindExportActions() {
-
-    const downloadPackButton =
-        $("#download-pack");
-
-    const downloadSingleButton =
-        $("#download-single");
-
-    downloadPackButton?.addEventListener(
-        "click",
-        downloadFaviconPack
-    );
-
-    downloadSingleButton?.addEventListener(
-        "click",
-        downloadSingleFavicon
-    );
-
-}
-
-
-/* =========================================================
-   DOWNLOAD SINGLE FAVICON
-   ========================================================= */
-
-function downloadSingleFavicon() {
-
-    if (!state.image) {
-
-        showMessage(
-            "Please upload an image first."
-        );
-
-        return;
-
-    }
-
-
-    const size =
-        state.settings.size;
-
-
-    const canvas =
-        document.createElement("canvas");
-
-
-    renderCanvasAtSize(
-        canvas,
-        size
-    );
-
-
-    canvas.toBlob(
-        (blob) => {
-
-            if (!blob) {
-
-                showMessage(
-                    "Unable to create the favicon."
+            const exportContext =
+                exportCanvas.getContext(
+                    "2d"
                 );
 
-                return;
+
+            if (exportContext) {
+
+                exportCanvas.width =
+                    rendered.width;
+
+                exportCanvas.height =
+                    rendered.height;
+
+
+                exportContext.clearRect(
+                    0,
+                    0,
+                    rendered.width,
+                    rendered.height
+                );
+
+
+                exportContext.drawImage(
+                    rendered,
+                    0,
+                    0
+                );
 
             }
 
-
-            downloadBlob(
-                blob,
-                `favicon-${size}x${size}.png`
-            );
-
-        },
-        "image/png"
-    );
-
-}
-
-
-/* =========================================================
-   DOWNLOAD FAVICON PACK
-   ========================================================= */
-
-async function downloadFaviconPack() {
-
-    if (!state.image) {
-
-        showMessage(
-            "Please upload an image first."
-        );
-
-        return;
-
-    }
-
-
-    if (!state.exportSizes.length) {
-
-        showMessage(
-            "Choose at least one favicon size."
-        );
-
-        return;
-
-    }
-
-
-    const button =
-        $("#download-pack");
-
-
-    setButtonLoading(
-        button,
-        true
-    );
-
-
-    try {
-
-        /*
-         * ZIP is loaded only when needed.
-         * This keeps the initial page lighter.
-         */
-
-        const JSZip =
-            await loadJSZip();
-
-
-        const zip =
-            new JSZip();
-
-
-        for (
-            const size
-            of state.exportSizes
-        ) {
-
-            const canvas =
-                document.createElement(
-                    "canvas"
-                );
-
-
-            renderCanvasAtSize(
-                canvas,
-                size
-            );
-
-
-            const blob =
-                await canvasToBlob(
-                    canvas,
-                    "image/png"
-                );
-
-
-            zip.file(
-                `favicon-${size}x${size}.png`,
-                blob
-            );
-
-        }
-
-
-        /*
-         * Include a simple README
-         * describing the generated files.
-         */
-
-        zip.file(
-            "README.txt",
-            createExportReadme()
-        );
-
-
-        const zipBlob =
-            await zip.generateAsync({
-                type: "blob",
-                compression: "DEFLATE",
-                compressionOptions: {
-                    level: 6
-                }
-            });
-
-
-        downloadBlob(
-            zipBlob,
-            "nexauren-favicon-pack.zip"
-        );
-
-
-        showMessage(
-            "Your favicon pack is ready."
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Favicon export error:",
-            error
-        );
-
-
-        showMessage(
-            "Unable to create the favicon pack."
-        );
-
-    } finally {
-
-        setButtonLoading(
-            button,
-            false
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   LOAD JSZIP
-   ========================================================= */
-
-function loadJSZip() {
-
-    if (window.JSZip) {
-
-        return Promise.resolve(
-            window.JSZip
-        );
-
-    }
-
-
-    return new Promise(
-        (resolve, reject) => {
-
-            const existing =
-                document.querySelector(
-                    'script[data-jszip]'
-                );
-
-
-            if (existing) {
-
-                existing.addEventListener(
-                    "load",
-                    () => {
-
-                        if (window.JSZip) {
-                            resolve(
-                                window.JSZip
-                            );
-                        } else {
-                            reject(
-                                new Error(
-                                    "JSZip failed to load."
-                                )
-                            );
-                        }
-
-                    }
-                );
-
-
-                existing.addEventListener(
-                    "error",
-                    reject
-                );
-
-
-                return;
-
-            }
-
-
-            const script =
-                document.createElement(
-                    "script"
-                );
-
-
-            script.src =
-                "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
-
-            script.async =
-                true;
-
-            script.dataset.jszip =
-                "true";
-
-
-            script.onload = () => {
-
-                if (window.JSZip) {
-
-                    resolve(
-                        window.JSZip
-                    );
-
-                } else {
-
-                    reject(
-                        new Error(
-                            "JSZip is unavailable."
-                        )
-                    );
-
-                }
-
-            };
-
-
-            script.onerror =
-                () => reject(
-                    new Error(
-                        "Could not load JSZip."
-                    )
-                );
-
-
-            document.head.appendChild(
-                script
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   CANVAS → BLOB
-   ========================================================= */
-
-function canvasToBlob(
-    canvas,
-    type = "image/png",
-    quality
-) {
-
-    return new Promise(
-        (resolve, reject) => {
-
-            canvas.toBlob(
-                (blob) => {
-
-                    if (blob) {
-                        resolve(blob);
-                    } else {
-                        reject(
-                            new Error(
-                                "Canvas conversion failed."
-                            )
-                        );
-                    }
-
-                },
-                type,
-                quality
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   DOWNLOAD BLOB
-   ========================================================= */
-
-function downloadBlob(
-    blob,
-    filename
-) {
-
-    const url =
-        URL.createObjectURL(blob);
-
-
-    const link =
-        document.createElement("a");
-
-
-    link.href =
-        url;
-
-    link.download =
-        filename;
-
-    link.style.display =
-        "none";
-
-
-    document.body.appendChild(
-        link
-    );
-
-
-    link.click();
-
-
-    link.remove();
-
-
-    /*
-     * Delay revocation slightly so
-     * mobile browsers have time to
-     * begin the download.
-     */
-
-    setTimeout(
-        () => {
-            URL.revokeObjectURL(url);
-        },
-        1500
-    );
-
-}
-
-
-/* =========================================================
-   EXPORT README
-   ========================================================= */
-
-function createExportReadme() {
-
-    const sizes =
-        state.exportSizes
-            .map(
-                size =>
-                    `${size} × ${size}`
-            )
-            .join(", ");
-
-
-    return `NEXAUREN — FAVICON PACK
-
-Generated locally in your browser.
-
-Included sizes:
-${sizes}
-
-Source image:
-${state.file?.name || "Unknown"}
-
-Image dimensions:
-${state.imageWidth} × ${state.imageHeight}
-
-Settings:
-- Fit: ${state.settings.fit}
-- Background: ${state.settings.backgroundMode}
-- Radius: ${state.settings.radius}%
-- Zoom: ${state.settings.zoom}%
-- Position X: ${state.settings.positionX}%
-- Position Y: ${state.settings.positionY}%
-
-No image was uploaded to a server by this tool.
-`;
-
-
-}
-
-
-/* =========================================================
-   BUTTON LOADING STATE
-   ========================================================= */
-
-function setButtonLoading(
-    button,
-    loading
-) {
-
-    if (!button) {
-        return;
-    }
-
-
-    if (loading) {
-
-        button.dataset.originalText =
-            button.textContent;
-
-
-        button.disabled =
-            true;
-
-
-        button.setAttribute(
-            "aria-busy",
-            "true"
-        );
-
-
-        button.textContent =
-            "Creating pack…";
-
-    } else {
-
-        button.disabled =
-            false;
-
-
-        button.removeAttribute(
-            "aria-busy"
-        );
-
-
-        if (
-            button.dataset.originalText
-        ) {
-
-            button.textContent =
-                button.dataset.originalText;
-
         }
 
     }
+
+
+    updateExportSizeUI();
 
 }
 
@@ -1824,7 +1677,7 @@ function bindPageTransitions() {
 
     document.addEventListener(
         "click",
-        (event) => {
+        event => {
 
             const link =
                 event.target.closest(
@@ -1843,31 +1696,24 @@ function bindPageTransitions() {
                 );
 
 
+            /*
+             * Ignore:
+             * - anchors
+             * - external links
+             * - downloads
+             * - new tabs
+             */
+
             if (
                 !href ||
                 href.startsWith("#") ||
-                href.startsWith("javascript:")
-            ) {
-                return;
-            }
-
-
-            if (
+                href.startsWith("javascript:") ||
                 link.target === "_blank" ||
-                link.hasAttribute("download") ||
-                event.ctrlKey ||
-                event.metaKey ||
-                event.shiftKey ||
-                event.altKey
+                link.hasAttribute("download")
             ) {
                 return;
             }
 
-
-            /*
-             * Only animate normal internal
-             * navigation.
-             */
 
             let url;
 
@@ -1897,9 +1743,13 @@ function bindPageTransitions() {
             event.preventDefault();
 
 
-            pageTransition?.classList.add(
-                "active"
-            );
+            if (pageTransition) {
+
+                pageTransition.classList.add(
+                    "active"
+                );
+
+            }
 
 
             setTimeout(
@@ -1909,7 +1759,19 @@ function bindPageTransitions() {
                         url.href;
 
                 },
-                220
+                180
+            );
+
+        }
+    );
+
+
+    window.addEventListener(
+        "pageshow",
+        () => {
+
+            pageTransition?.classList.remove(
+                "active"
             );
 
         }
@@ -1919,57 +1781,764 @@ function bindPageTransitions() {
 
 
 /* =========================================================
-   MESSAGE SYSTEM
+   KEYBOARD SHORTCUTS
    ========================================================= */
 
-function showMessage(
-    message
-) {
+function bindKeyboardShortcuts() {
+
+    document.addEventListener(
+        "keydown",
+        event => {
+
+            /*
+             * Don't intercept keyboard input
+             * while typing/selecting.
+             */
+
+            const tag =
+                event.target?.tagName;
+
+
+            if (
+                tag === "INPUT" ||
+                tag === "SELECT" ||
+                tag === "TEXTAREA"
+            ) {
+                return;
+            }
+
+
+            /*
+             * Arrow navigation
+             */
+
+            if (
+                event.key === "ArrowRight"
+            ) {
+
+                if (
+                    state.currentStep < 3
+                ) {
+
+                    goToStep(
+                        state.currentStep + 1
+                    );
+
+                }
+
+            }
+
+
+            if (
+                event.key === "ArrowLeft"
+            ) {
+
+                if (
+                    state.currentStep > 1
+                ) {
+
+                    goToStep(
+                        state.currentStep - 1
+                    );
+
+                }
+
+            }
+
+
+            /*
+             * Escape returns to upload.
+             */
+
+            if (
+                event.key === "Escape" &&
+                state.currentStep > 1
+            ) {
+
+                goToStep(1);
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   EXPORT FALLBACK UI
+   ========================================================= */
+
+function createExportFallbackUI() {
 
     /*
-     * Reuse an existing message
-     * element when possible.
+     * This function does not modify the HTML structure.
+     *
+     * It only detects whether export controls
+     * already exist.
      */
 
-    let toast =
-        $("#favicon-toast");
+    const exportScreen =
+        $('[data-screen="3"]');
 
 
-    if (!toast) {
-
-        toast =
-            document.createElement(
-                "div"
-            );
+    if (!exportScreen) {
+        return;
+    }
 
 
-        toast.id =
-            "favicon-toast";
+    const exportCanvas =
+        $("#export-canvas");
 
 
-        toast.className =
-            "favicon-toast";
+    if (exportCanvas) {
+
+        exportCanvas.setAttribute(
+            "aria-label",
+            "Favicon export preview"
+        );
+
+    }
+
+}
 
 
-        toast.setAttribute(
-            "role",
-            "status"
+/* =========================================================
+   EXPORT SINGLE PNG
+   ========================================================= */
+
+function exportPNG(size) {
+
+    if (
+        !state.image ||
+        state.exporting
+    ) {
+        return;
+    }
+
+
+    const numericSize =
+        Number(size);
+
+
+    if (
+        !Number.isFinite(numericSize) ||
+        numericSize <= 0
+    ) {
+        return;
+    }
+
+
+    const canvas =
+        renderAtSize(
+            numericSize
         );
 
 
-        document.body.appendChild(
-            toast
+    if (!canvas) {
+
+        showMessage(
+            "Unable to create the favicon.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    canvas.toBlob(
+        blob => {
+
+            if (!blob) {
+
+                showMessage(
+                    "Unable to generate the PNG.",
+                    "error"
+                );
+
+                return;
+
+            }
+
+
+            downloadBlob(
+                blob,
+                `favicon-${numericSize}x${numericSize}.png`
+            );
+
+        },
+        "image/png"
+    );
+
+}
+
+
+/* =========================================================
+   EXPORT COMPLETE PACK
+   ========================================================= */
+
+async function exportPack() {
+
+    if (
+        !state.image ||
+        state.exporting
+    ) {
+        return;
+    }
+
+
+    updateExportSizes();
+
+
+    if (!state.exportSizes.length) {
+
+        showMessage(
+            "Select at least one favicon size.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    state.exporting =
+        true;
+
+
+    setExportButtonsDisabled(
+        true
+    );
+
+
+    try {
+
+        for (
+            const size of state.exportSizes
+        ) {
+
+            const canvas =
+                renderAtSize(
+                    size
+                );
+
+
+            if (!canvas) {
+                continue;
+            }
+
+
+            const blob =
+                await canvasToBlob(
+                    canvas,
+                    "image/png"
+                );
+
+
+            if (!blob) {
+                continue;
+            }
+
+
+            downloadBlob(
+                blob,
+                `favicon-${size}x${size}.png`
+            );
+
+
+            /*
+             * Small delay prevents browsers
+             * from blocking multiple downloads.
+             */
+
+            await wait(100);
+
+        }
+
+
+        showMessage(
+            "Your favicon pack has been exported.",
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Favicon export failed:",
+            error
+        );
+
+
+        showMessage(
+            "Something went wrong while exporting.",
+            "error"
+        );
+
+    } finally {
+
+        state.exporting =
+            false;
+
+
+        setExportButtonsDisabled(
+            false
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   CANVAS → BLOB
+   ========================================================= */
+
+function canvasToBlob(
+    canvas,
+    type = "image/png"
+) {
+
+    return new Promise(
+        resolve => {
+
+            canvas.toBlob(
+                blob => {
+
+                    resolve(blob);
+
+                },
+                type
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   DOWNLOAD BLOB
+   ========================================================= */
+
+function downloadBlob(
+    blob,
+    filename
+) {
+
+    const url =
+        URL.createObjectURL(
+            blob
+        );
+
+
+    const link =
+        document.createElement(
+            "a"
+        );
+
+
+    link.href =
+        url;
+
+    link.download =
+        filename;
+
+    link.style.display =
+        "none";
+
+
+    document.body.appendChild(
+        link
+    );
+
+
+    link.click();
+
+
+    link.remove();
+
+
+    setTimeout(
+        () => {
+
+            URL.revokeObjectURL(
+                url
+            );
+
+        },
+        1000
+    );
+
+}
+
+
+/* =========================================================
+   EXPORT BUTTON DISCOVERY
+   ========================================================= */
+
+function setExportButtonsDisabled(
+    disabled
+) {
+
+    const selectors = [
+        "#download-button",
+        "#download-pack",
+        "#export-button",
+        "#export-pack",
+        "[data-export]",
+        "[data-export-pack]"
+    ];
+
+
+    selectors.forEach(
+        selector => {
+
+            $$(selector).forEach(
+                button => {
+
+                    if (
+                        button instanceof
+                        HTMLButtonElement
+                    ) {
+
+                        button.disabled =
+                            disabled;
+
+                    }
+
+                }
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   EXPORT CLICK HANDLERS
+   ========================================================= */
+
+function bindExportEvents() {
+
+    document.addEventListener(
+        "click",
+        event => {
+
+            const target =
+                event.target.closest(
+                    "[data-export], [data-export-size], [data-export-pack]"
+                );
+
+
+            if (!target) {
+                return;
+            }
+
+
+            event.preventDefault();
+
+
+            if (
+                target.hasAttribute(
+                    "data-export-pack"
+                )
+            ) {
+
+                exportPack();
+
+                return;
+
+            }
+
+
+            const size =
+                target.dataset.exportSize;
+
+
+            if (size) {
+
+                exportPNG(
+                    Number(size)
+                );
+
+                return;
+
+            }
+
+
+            exportPNG(
+                state.settings.size
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   RESET TOOL
+   ========================================================= */
+
+function resetTool() {
+
+    releaseObjectURL();
+
+
+    state.image =
+        null;
+
+    state.file =
+        null;
+
+    state.imageWidth =
+        0;
+
+    state.imageHeight =
+        0;
+
+
+    state.currentStep =
+        1;
+
+
+    state.settings.size =
+        mainSize
+            ? Number(mainSize.value) || 256
+            : 256;
+
+
+    state.settings.fit =
+        fitSelect
+            ? fitSelect.value
+            : "contain";
+
+
+    state.settings.backgroundMode =
+        backgroundMode
+            ? backgroundMode.value
+            : "transparent";
+
+
+    state.settings.background =
+        backgroundInput
+            ? backgroundInput.value
+            : "#ffffff";
+
+
+    state.settings.radius =
+        0;
+
+    state.settings.zoom =
+        100;
+
+    state.settings.positionX =
+        50;
+
+    state.settings.positionY =
+        50;
+
+
+    if (previewCanvas) {
+
+        previewCanvas.width =
+            1;
+
+        previewCanvas.height =
+            1;
+
+        previewCanvas.setAttribute(
+            "hidden",
+            ""
         );
 
     }
 
 
-    toast.textContent =
+    emptyPreview?.removeAttribute(
+        "hidden"
+    );
+
+
+    if (fileInput) {
+        fileInput.value = "";
+    }
+
+
+    if (radiusInput) {
+        radiusInput.value = "0";
+    }
+
+    if (zoomInput) {
+        zoomInput.value = "100";
+    }
+
+    if (positionXInput) {
+        positionXInput.value = "50";
+    }
+
+    if (positionYInput) {
+        positionYInput.value = "50";
+    }
+
+
+    updateControlLabels();
+
+    updateBackgroundControl();
+
+    goToStep(1);
+
+}
+
+
+/* =========================================================
+   OBJECT URL CLEANUP
+   ========================================================= */
+
+function releaseObjectURL() {
+
+    if (state.objectURL) {
+
+        URL.revokeObjectURL(
+            state.objectURL
+        );
+
+        state.objectURL =
+            null;
+
+    }
+
+}
+
+
+/* =========================================================
+   MESSAGE SYSTEM
+   ========================================================= */
+
+function showMessage(
+    message,
+    type = "info"
+) {
+
+    let container =
+        $("#favicon-message");
+
+
+    if (!container) {
+
+        container =
+            document.createElement(
+                "div"
+            );
+
+
+        container.id =
+            "favicon-message";
+
+
+        container.setAttribute(
+            "role",
+            "status"
+        );
+
+
+        container.style.position =
+            "fixed";
+
+        container.style.left =
+            "50%";
+
+        container.style.bottom =
+            "24px";
+
+        container.style.transform =
+            "translateX(-50%) translateY(20px)";
+
+        container.style.zIndex =
+            "10000";
+
+        container.style.maxWidth =
+            "calc(100% - 32px)";
+
+        container.style.padding =
+            "12px 18px";
+
+        container.style.borderRadius =
+            "14px";
+
+        container.style.fontSize =
+            "14px";
+
+        container.style.fontWeight =
+            "700";
+
+        container.style.boxShadow =
+                     "0 15px 40px rgba(20,30,70,.18)";
+
+        container.style.opacity =
+            "0";
+
+        container.style.transition =
+            "opacity .25s ease, transform .25s ease";
+
+        document.body.appendChild(
+            container
+        );
+
+    }
+
+
+    container.textContent =
         message;
 
 
-    toast.classList.add(
-        "visible"
+    /* -----------------------------------------------------
+       MESSAGE TYPE
+    ----------------------------------------------------- */
+
+    if (type === "error") {
+
+        container.style.background =
+            "#fff0f0";
+
+        container.style.color =
+            "#b42318";
+
+    } else if (type === "success") {
+
+        container.style.background =
+            "#ecfdf3";
+
+        container.style.color =
+            "#067647";
+
+    } else {
+
+        container.style.background =
+            "#eef4ff";
+
+        container.style.color =
+            "#2457a6";
+
+    }
+
+
+    /* -----------------------------------------------------
+       SHOW
+    ----------------------------------------------------- */
+
+    requestAnimationFrame(
+        () => {
+
+            container.style.opacity =
+                "1";
+
+            container.style.transform =
+                "translateX(-50%) translateY(0)";
+
+        }
     );
 
 
@@ -1982,194 +2551,81 @@ function showMessage(
         setTimeout(
             () => {
 
-                toast.classList.remove(
-                    "visible"
-                );
+                container.style.opacity =
+                    "0";
+
+                container.style.transform =
+                    "translateX(-50%) translateY(20px)";
 
             },
-            3200
+            3500
         );
 
 }
 
 
 /* =========================================================
-   RESET TOOL
+   UTILITY — CLAMP
    ========================================================= */
 
-function resetTool() {
+function clamp(
+    value,
+    min,
+    max
+) {
 
-    if (state.objectURL) {
-
-        URL.revokeObjectURL(
-            state.objectURL
-        );
-
+    if (!Number.isFinite(value)) {
+        return min;
     }
 
-
-    state.image =
-        null;
-
-    state.file =
-        null;
-
-    state.objectURL =
-        null;
-
-    state.imageWidth =
-        0;
-
-    state.imageHeight =
-        0;
-
-
-    state.settings = {
-
-        size: 256,
-
-        fit: "contain",
-
-        backgroundMode: "transparent",
-
-        background: "#ffffff",
-
-        radius: 0,
-
-        zoom: 100,
-
-        positionX: 50,
-
-        positionY: 50
-
-    };
-
-
-    if (fileInput) {
-        fileInput.value =
-            "";
-    }
-
-
-    if (mainSize) {
-        mainSize.value =
-            "256";
-    }
-
-
-    if (fitSelect) {
-        fitSelect.value =
-            "contain";
-    }
-
-
-    if (backgroundMode) {
-        backgroundMode.value =
-            "transparent";
-    }
-
-
-    if (backgroundInput) {
-        backgroundInput.value =
-            "#ffffff";
-    }
-
-
-    if (radiusInput) {
-        radiusInput.value =
-            "0";
-    }
-
-
-    if (zoomInput) {
-        zoomInput.value =
-            "100";
-    }
-
-
-    if (positionXInput) {
-        positionXInput.value =
-            "50";
-    }
-
-
-    if (positionYInput) {
-        positionYInput.value =
-            "50";
-    }
-
-
-    if (ctx) {
-
-        ctx.clearRect(
-            0,
-            0,
-            previewCanvas.width,
-            previewCanvas.height
-        );
-
-    }
-
-
-    previewCanvas?.setAttribute(
-        "hidden",
-        ""
+    return Math.min(
+        Math.max(
+            value,
+            min
+        ),
+        max
     );
-
-
-    emptyPreview?.removeAttribute(
-        "hidden"
-    );
-
-
-    sizeOptions.forEach(
-        (checkbox) => {
-
-            checkbox.checked =
-                [16, 32, 48, 64]
-                    .includes(
-                        Number(
-                            checkbox.value
-                        )
-                    );
-
-        }
-    );
-
-
-    updateExportSizes();
-
-    updateControlValues();
-
-    updateBackgroundControl();
-
-    goToStep(1);
 
 }
 
 
 /* =========================================================
-   BEFORE UNLOAD
+   UTILITY — WAIT
    ========================================================= */
 
-window.addEventListener(
-    "beforeunload",
-    () => {
+function wait(
+    milliseconds
+) {
 
-        if (state.objectURL) {
+    return new Promise(
+        resolve => {
 
-            URL.revokeObjectURL(
-                state.objectURL
+            setTimeout(
+                resolve,
+                milliseconds
             );
 
         }
+    );
 
-    }
-);
+}
 
 
 /* =========================================================
-   START
+   INITIALIZE APPLICATION
+   ========================================================= */
+
+function initializeApplication() {
+
+    init();
+
+    bindExportEvents();
+
+}
+
+
+/* =========================================================
+   DOM READY
    ========================================================= */
 
 if (
@@ -2179,11 +2635,7 @@ if (
 
     document.addEventListener(
         "DOMContentLoaded",
-        () => {
-
-            init();
-
-        },
+        initializeApplication,
         {
             once: true
         }
@@ -2191,6 +2643,102 @@ if (
 
 } else {
 
-    init();
+    initializeApplication();
 
 }
+
+
+/* =========================================================
+   CLEANUP
+   ========================================================= */
+
+window.addEventListener(
+    "beforeunload",
+    () => {
+
+        releaseObjectURL();
+
+    }
+);
+
+
+/* =========================================================
+   GLOBAL DEBUG API
+   ========================================================= */
+
+/*
+ * Useful while developing the tool.
+ * Does not interfere with normal operation.
+ */
+
+window.NexaurenFavicon =
+    Object.freeze({
+
+        getState() {
+
+            return {
+                step:
+                    state.currentStep,
+
+                hasImage:
+                    Boolean(state.image),
+
+                imageWidth:
+                    state.imageWidth,
+
+                imageHeight:
+                    state.imageHeight,
+
+                settings:
+                    {
+                        ...state.settings
+                    },
+
+                exportSizes:
+                    [...state.exportSizes]
+
+            };
+
+        },
+
+        next() {
+
+            goToStep(
+                state.currentStep + 1
+            );
+
+        },
+
+        previous() {
+
+            goToStep(
+                state.currentStep - 1
+            );
+
+        },
+
+        reset() {
+
+            resetTool();
+
+        },
+
+        render() {
+
+            renderPreview();
+
+        },
+
+        exportPNG(size) {
+
+            exportPNG(size);
+
+        },
+
+        exportPack() {
+
+            exportPack();
+
+        }
+
+    });
