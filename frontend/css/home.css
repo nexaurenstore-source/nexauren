@@ -1,0 +1,16 @@
+/* Nexauren home: compact tool cards and reliable search UI */
+#home-featured,#home-tools{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
+.tool-card-item{display:flex;flex-direction:column;padding:16px;min-width:0;overflow:hidden}
+.tool-card-item .tool-card-media{width:64px;height:64px;min-width:64px;border-radius:14px;overflow:hidden;background:#f3f6fa;border:1px solid #e1e7ee;display:grid;place-items:center;margin-bottom:14px}
+.tool-card-item .tool-card-media img{display:block;width:42px!important;height:42px!important;max-width:42px!important;max-height:42px!important;object-fit:contain!important;margin:0!important}
+.tool-card-item .tool-card-content{display:flex;flex:1;flex-direction:column;min-width:0}
+.tool-card-item .tool-category{width:max-content;max-width:100%;padding:4px 8px;margin-bottom:8px;font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tool-card-item h3{margin:0 0 7px;font-size:1.08rem;line-height:1.2}
+.tool-card-item p{margin:0 0 16px;font-size:.9rem;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tool-card-item .card-link{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:auto;padding:10px 12px;border-radius:10px;background:#080b10;color:#fff;font-weight:900;font-size:.88rem;transition:transform .18s ease,background .18s ease}
+.tool-card-item .card-link:hover{background:#155eef;transform:translateY(-1px)}
+#home-tools:empty,#home-featured:empty{min-height:100px}
+.search-wrap{position:relative}.search{transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}.search:focus{transform:translateY(-1px)}
+.search-result-count{margin-top:10px;font-size:.82rem;color:#667085;font-weight:700}
+@media(max-width:900px){#home-featured,#home-tools{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){#home-featured,#home-tools{grid-template-columns:1fr}.tool-card-item{padding:15px}}
