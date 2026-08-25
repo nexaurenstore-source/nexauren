@@ -1,0 +1,17 @@
+{
+  "default":"en",
+  "languages":{
+    "en":{"name":"English","native":"English"},
+    "zh":{"name":"Chinese","native":"中文"},
+    "hi":{"name":"Hindi","native":"हिन्दी"},
+    "es":{"name":"Spanish","native":"Español"},
+    "fr":{"name":"French","native":"Français"}
+  },
+  "strings":{
+    "en":{"home":"Home","tools":"Tools","categories":"Categories","dashboard":"Dashboard","about":"About","faq":"FAQ","search":"Search tools","settings":"Settings","language":"Language","theme":"Theme","light":"Light","dark":"Dark","system":"System","save":"Save","cancel":"Cancel","history":"History","usage":"Usage","activity":"Activity","openTool":"Open tool","noResults":"No tools found","loading":"Loading…"},
+    "zh":{"home":"首页","tools":"工具","categories":"分类","dashboard":"仪表板","about":"关于","faq":"常见问题","search":"搜索工具","settings":"设置","language":"语言","theme":"主题","light":"浅色","dark":"深色","system":"跟随系统","save":"保存","cancel":"取消","history":"历史记录","usage":"使用情况","activity":"活动","openTool":"打开工具","noResults":"未找到工具","loading":"加载中…"},
+    "hi":{"home":"होम","tools":"टूल्स","categories":"श्रेणियाँ","dashboard":"डैशबोर्ड","about":"हमारे बारे में","faq":"अक्सर पूछे जाने वाले प्रश्न","search":"टूल खोजें","settings":"सेटिंग्स","language":"भाषा","theme":"थीम","light":"लाइट","dark":"डार्क","system":"सिस्टम","save":"सहेजें","cancel":"रद्द करें","history":"इतिहास","usage":"उपयोग","activity":"गतिविधि","openTool":"टूल खोलें","noResults":"कोई टूल नहीं मिला","loading":"लोड हो रहा है…"},
+    "es":{"home":"Inicio","tools":"Herramientas","categories":"Categorías","dashboard":"Panel","about":"Acerca de","faq":"Preguntas frecuentes","search":"Buscar herramientas","settings":"Configuración","language":"Idioma","theme":"Tema","light":"Claro","dark":"Oscuro","system":"Sistema","save":"Guardar","cancel":"Cancelar","history":"Historial","usage":"Uso","activity":"Actividad","openTool":"Abrir herramienta","noResults":"No se encontraron herramientas","loading":"Cargando…"},
+    "fr":{"home":"Accueil","tools":"Outils","categories":"Catégories","dashboard":"Tableau de bord","about":"À propos","faq":"FAQ","search":"Rechercher des outils","settings":"Paramètres","language":"Langue","theme":"Thème","light":"Clair","dark":"Sombre","system":"Système","save":"Enregistrer","cancel":"Annuler","history":"Historique","usage":"Utilisation","activity":"Activité","openTool":"Ouvrir l’outil","noResults":"Aucun outil trouvé","loading":"Chargement…"}
+  }
+}
