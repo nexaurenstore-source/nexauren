@@ -15,6 +15,21 @@
       "status": "active",
       "featured": true,
       "tags": ["image", "resize", "dimensions", "png", "jpg", "webp"]
+    },
+    {
+      "id": "image-compressor",
+      "name": "Image Compressor",
+      "slug": "image-compressor",
+      "category": "image",
+      "categoryName": "Image",
+      "description": "Compress JPG, PNG and WebP images in your browser with quality, format, dimension and comparison controls.",
+      "url": "/tools/image/image-compressor/",
+      "icon": "/assets/icons/tools/image-compressor.svg",
+      "image": "/assets/images/tools/image-compressor.svg",
+      "socialImage": "/assets/social/image-compressor.svg",
+      "status": "active",
+      "featured": true,
+      "tags": ["image", "compress", "compression", "optimize", "jpg", "png", "webp", "quality", "reduce size"]
     }
   ]
 }
