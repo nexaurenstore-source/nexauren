@@ -2,13 +2,41 @@
   'use strict';
   const grid = document.querySelector('#category-grid');
   if (!grid) return;
+
   const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
-  fetch('/data/tools.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : Promise.reject()).then(data => {
-    const tools = Array.isArray(data.tools) ? data.tools.filter(t => t.status !== 'inactive') : [];
-    const groups = [...new Map(tools.map(t => [t.category, t])).entries()].sort((a,b) => String(a[1].categoryName || a[0]).localeCompare(String(b[1].categoryName || b[0])));
-    grid.innerHTML = groups.length ? groups.map(([category, first]) => {
-      const count = tools.filter(t => t.category === category).length;
-      return `<article class="card tool-card-item"><div class="tool-card-media">${first.image ? `<img src="${escapeHTML(first.image)}" alt="" loading="lazy">` : `<div class="card-icon blue">${escapeHTML(category.slice(0,4).toUpperCase())}</div>`}</div><div class="tool-card-content"><span class="tool-category">Category</span><h3>${escapeHTML(first.categoryName || category)}</h3><p>${count} tool${count === 1 ? '' : 's'} available.</p><a class="card-link" href="/tools/?category=${encodeURIComponent(category)}">View category →</a></div></article>`;
-    }).join('') : '<div class="empty">No categories yet. Add a tool to data/tools.json and its category will appear automatically.</div>';
-  }).catch(() => { grid.innerHTML = '<div class="empty">The category registry is temporarily unavailable.</div>'; });
+  const renderEmpty = message => { grid.innerHTML = `<div class="empty"><strong>${escapeHTML(message)}</strong><p>Try again in a moment.</p></div>`; };
+
+  fetch('/data/tools.json', { cache: 'no-store', headers: { Accept: 'application/json' } })
+    .then(response => {
+      if (!response.ok) throw new Error(`Registry request failed: ${response.status}`);
+      return response.json();
+    })
+    .then(data => {
+      const tools = Array.isArray(data?.tools) ? data.tools.filter(tool => tool && tool.status !== 'inactive') : [];
+      const categories = new Map();
+      tools.forEach(tool => {
+        const id = String(tool.category || 'other').trim().toLowerCase();
+        if (!categories.has(id)) categories.set(id, { id, name: tool.categoryName || tool.category || 'Other', tools: [] });
+        categories.get(id).tools.push(tool);
+      });
+
+      const groups = [...categories.values()].sort((a, b) => a.name.localeCompare(b.name));
+      if (!groups.length) {
+        renderEmpty('No categories available yet');
+        return;
+      }
+
+      grid.innerHTML = groups.map(category => {
+        const first = category.tools[0];
+        const image = first.image || first.icon || '';
+        return `<article class="card category-card">
+          <div class="category-card-media">${image ? `<img src="${escapeHTML(image)}" alt="" loading="lazy" onerror="this.parentElement.classList.add('media-fallback');this.remove()">` : ''}<div class="category-fallback" aria-hidden="true">${escapeHTML(category.name.slice(0, 2).toUpperCase())}</div></div>
+          <div class="category-card-content"><span class="tool-category">${category.tools.length} ${category.tools.length === 1 ? 'tool' : 'tools'}</span><h2>${escapeHTML(category.name)}</h2><p>Explore useful ${escapeHTML(category.name.toLowerCase())} tools.</p><a class="card-link" href="/tools/?category=${encodeURIComponent(category.id)}">Explore category <span aria-hidden="true">→</span></a></div>
+        </article>`;
+      }).join('');
+    })
+    .catch(error => {
+      console.error('[Nexauren] categories:', error);
+      renderEmpty('Categories could not be loaded');
+    });
 })();
