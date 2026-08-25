@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /history/
+Disallow: /usage/
+Disallow: /activity/
+Sitemap: https://nexaurenstory.com/sitemap.xml
