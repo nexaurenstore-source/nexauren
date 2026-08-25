@@ -30,6 +30,21 @@
       "status": "active",
       "featured": true,
       "tags": ["image", "compress", "compression", "optimize", "jpg", "png", "webp", "quality", "reduce size"]
+    },
+    {
+      "id": "audio-converter",
+      "name": "Audio Converter",
+      "slug": "audio-converter",
+      "category": "audio",
+      "categoryName": "Audio",
+      "description": "Convert and prepare audio files with format, bitrate and volume controls in a guided browser workflow.",
+      "url": "/tools/audio/audio-converter/",
+      "icon": "/assets/icons/tools/audio-converter.svg",
+      "image": "/assets/images/tools/audio-converter.svg",
+      "socialImage": "/assets/social/audio-converter.svg",
+      "status": "active",
+      "featured": true,
+      "tags": ["audio", "converter", "mp3", "wav", "ogg", "m4a", "aac", "bitrate", "volume"]
     }
   ]
 }
