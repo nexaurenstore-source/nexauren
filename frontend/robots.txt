@@ -4,4 +4,7 @@ Disallow: /dashboard/
 Disallow: /history/
 Disallow: /usage/
 Disallow: /activity/
+Disallow: /settings/
+Disallow: /login
+Disallow: /register
 Sitemap: https://nexaurenstory.com/sitemap.xml
