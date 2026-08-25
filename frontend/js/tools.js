@@ -5,14 +5,17 @@
   if (!input || !grid) return;
 
   const categorySelect = document.querySelector('#tools-category');
+  const suggestions = document.createElement('div');
+  suggestions.className = 'search-suggestions';
+  suggestions.hidden = true;
+  input.parentElement?.appendChild(suggestions);
   let tools = [];
+  let activeSuggestion = -1;
 
   const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
-  const card = tool => `
-    <article class="card tool-card-item">
-      <div class="tool-card-media">${tool.image ? `<img src="${escapeHTML(tool.image)}" alt="" loading="lazy">` : `<div class="card-icon blue">${escapeHTML((tool.name || 'TOOL').slice(0,4))}</div>`}</div>
-      <div class="tool-card-content"><span class="tool-category">${escapeHTML(tool.categoryName || tool.category || 'Tool')}</span><h3>${escapeHTML(tool.name)}</h3><p>${escapeHTML(tool.description)}</p><a class="card-link" href="${escapeHTML(tool.url)}" data-tool-id="${escapeHTML(tool.id)}">Open tool →</a></div>
-    </article>`;
+  const matches = (tool, query) => [tool.name, tool.description, tool.category, tool.categoryName, ...(Array.isArray(tool.tags) ? tool.tags : [])].join(' ').toLowerCase().includes(query);
+
+  const card = tool => `<article class="card tool-card-item"><div class="tool-card-media">${tool.image ? `<img src="${escapeHTML(tool.image)}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\"card-icon blue\">${escapeHTML((tool.name || 'TOOL').slice(0,2).toUpperCase())}</div>'">` : `<div class="card-icon blue">${escapeHTML((tool.name || 'TOOL').slice(0,2).toUpperCase())}</div>`}</div><div class="tool-card-content"><span class="tool-category">${escapeHTML(tool.categoryName || tool.category || 'Tool')}</span><h3>${escapeHTML(tool.name)}</h3><p>${escapeHTML(tool.description)}</p><a class="card-link" href="${escapeHTML(tool.url)}" data-tool-id="${escapeHTML(tool.id)}">Open tool <span aria-hidden="true">→</span></a></div></article>`;
 
   const renderCategories = () => {
     if (!categorySelect) return;
@@ -24,24 +27,35 @@
   const render = () => {
     const q = input.value.trim().toLowerCase();
     const category = categorySelect?.value || '';
-    const found = tools.filter(t => t.status !== 'inactive').filter(t => {
-      const haystack = [t.name, t.description, t.category, t.categoryName, ...(Array.isArray(t.tags) ? t.tags : [])].join(' ').toLowerCase();
-      return (!q || haystack.includes(q)) && (!category || t.category === category);
-    });
+    const found = tools.filter(t => t.status !== 'inactive' && (!q || matches(t, q)) && (!category || t.category === category));
     grid.innerHTML = found.length ? found.map(card).join('') : `<div class="empty"><strong>No tools found</strong><p>${tools.length ? 'Try another name, category or tag.' : 'No tools are available yet.'}</p></div>`;
   };
 
-  fetch('/data/tools.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : Promise.reject()).then(data => {
-    tools = Array.isArray(data.tools) ? data.tools : [];
+  const renderSuggestions = () => {
+    const q = input.value.trim().toLowerCase();
+    if (!q) { suggestions.hidden = true; suggestions.innerHTML = ''; return; }
+    const found = tools.filter(t => t.status !== 'inactive' && matches(t, q)).slice(0, 6);
+    if (!found.length) { suggestions.hidden = true; suggestions.innerHTML = ''; return; }
+    suggestions.innerHTML = found.map((tool, index) => `<a class="search-suggestion" href="${escapeHTML(tool.url)}" data-index="${index}"><span class="suggestion-icon">${tool.icon ? `<img src="${escapeHTML(tool.icon)}" alt="">` : '✦'}</span><span><strong>${escapeHTML(tool.name)}</strong><small>${escapeHTML(tool.categoryName || tool.category || 'Tool')} · ${escapeHTML(tool.description || '')}</small></span><span class="suggestion-arrow">→</span></a>`).join('');
+    suggestions.hidden = false;
+    activeSuggestion = -1;
+  };
+
+  fetch('/data/tools.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject()).then(data => {
+    tools = Array.isArray(data?.tools) ? data.tools : [];
     renderCategories();
     render();
   }).catch(() => { tools = []; render(); });
 
-  input.addEventListener('input', render);
-  categorySelect?.addEventListener('change', () => {
-    const url = new URL(location.href);
-    if (categorySelect.value) url.searchParams.set('category', categorySelect.value); else url.searchParams.delete('category');
-    history.replaceState({}, '', url);
-    render();
+  input.addEventListener('input', () => { render(); renderSuggestions(); });
+  input.addEventListener('keydown', event => {
+    if (suggestions.hidden) return;
+    const items = [...suggestions.querySelectorAll('.search-suggestion')];
+    if (event.key === 'ArrowDown') { event.preventDefault(); activeSuggestion = Math.min(activeSuggestion + 1, items.length - 1); items.forEach((item,i) => item.classList.toggle('is-active', i === activeSuggestion)); }
+    if (event.key === 'ArrowUp') { event.preventDefault(); activeSuggestion = Math.max(activeSuggestion - 1, 0); items.forEach((item,i) => item.classList.toggle('is-active', i === activeSuggestion)); }
+    if (event.key === 'Enter' && activeSuggestion >= 0) { event.preventDefault(); items[activeSuggestion]?.click(); }
+    if (event.key === 'Escape') { suggestions.hidden = true; }
   });
+  document.addEventListener('click', event => { if (!input.parentElement?.contains(event.target)) suggestions.hidden = true; });
+  categorySelect?.addEventListener('change', () => { const url = new URL(location.href); categorySelect.value ? url.searchParams.set('category', categorySelect.value) : url.searchParams.delete('category'); history.replaceState({}, '', url); render(); });
 })();
