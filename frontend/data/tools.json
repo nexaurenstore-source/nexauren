@@ -1,4 +1,18 @@
 {
   "version": 1,
-  "tools": []
+  "tools": [
+    {
+      "id": "image-resizer",
+      "name": "Image Resizer",
+      "slug": "image-resizer",
+      "category": "image",
+      "categoryName": "Image",
+      "description": "Resize images online in your browser while keeping your files on your device.",
+      "url": "/tools/image/image-resizer/",
+      "icon": "image",
+      "status": "active",
+      "featured": true,
+      "tags": ["image", "resize", "dimensions", "png", "jpg", "webp"]
+    }
+  ]
 }
