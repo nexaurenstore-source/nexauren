@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Create your Nexauren account."
+    >
+
+    <meta
+        name="theme-color"
+        content="#08080d"
+    >
+
+    <title>Create Account — Nexauren</title>
+
+    <link
+        rel="stylesheet"
+        href="../css/style.css"
+    >
+
+</head>
+
+
+<body>
+
+
+    <!-- =====================================================
+         HEADER
+         ===================================================== -->
+
+    <header class="site-header">
+
+        <nav class="navigation">
+
+            <a
+                href="../index.html"
+                class="brand"
+                aria-label="Nexauren Home"
+            >
+
+                <span class="brand-mark">
+                    N
+                </span>
+
+                <span class="brand-name">
+                    Nexauren
+                </span>
+
+            </a>
+
+
+            <div class="nav-links">
+
+                <a href="../index.html">
+                    Home
+                </a>
+
+                <a href="tools.html">
+                    Tools
+                </a>
+
+                <a
+                    href="login.html"
+                    class="nav-login"
+                >
+                    Sign in
+                </a>
+
+            </div>
+
+        </nav>
+
+    </header>
+
+
+    <!-- =====================================================
+         MAIN
+         ===================================================== -->
+
+    <main class="auth-page">
+
+        <section class="auth-container">
+
+
+            <!-- =================================================
+                 HEADER
+                 ================================================= -->
+
+            <div class="auth-header">
+
+                <div class="auth-icon">
+                    N
+                </div>
+
+                <span class="auth-badge">
+                    Nexauren Account
+                </span>
+
+                <h1>
+                    Create your account
+                </h1>
+
+                <p>
+                    Create a Nexauren account to get
+                    started.
+                </p>
+
+            </div>
+
+
+            <!-- =================================================
+                 REGISTER FORM
+                 ================================================= -->
+
+            <form
+                id="register-form"
+                class="auth-form"
+                novalidate
+            >
+
+
+                <!-- NAME -->
+
+                <div class="form-group">
+
+                    <label
+                        for="name"
+                    >
+                        Name
+                    </label>
+
+                    <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        autocomplete="name"
+                        maxlength="100"
+                        placeholder="Your name"
+                        required
+                    >
+
+                    <small
+                        class="form-error"
+                        id="name-error"
+                    ></small>
+
+                </div>
+
+
+                <!-- EMAIL -->
+
+                <div class="form-group">
+
+                    <label
+                        for="email"
+                    >
+                        Email
+                    </label>
+
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        autocomplete="email"
+                        maxlength="254"
+                        placeholder="you@example.com"
+                        required
+                    >
+
+                    <small
+                        class="form-error"
+                        id="email-error"
+                    ></small>
+
+                </div>
+
+
+                <!-- PASSWORD -->
+
+                <div class="form-group">
+
+                    <label
+                        for="password"
+                    >
+                        Password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        autocomplete="new-password"
+                        minlength="8"
+                        maxlength="200"
+                        placeholder="At least 8 characters"
+                        required
+                    >
+
+                    <small
+                        class="form-hint"
+                    >
+                        Use at least 8 characters.
+                    </small>
+
+                    <small
+                        class="form-error"
+                        id="password-error"
+                    ></small>
+
+                </div>
+
+
+                <!-- CONFIRM PASSWORD -->
+
+                <div class="form-group">
+
+                    <label
+                        for="confirm-password"
+                    >
+                        Confirm password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="confirm-password"
+                        name="confirm-password"
+                        autocomplete="new-password"
+                        maxlength="200"
+                        placeholder="Enter your password again"
+                        required
+                    >
+
+                    <small
+                        class="form-error"
+                        id="confirm-password-error"
+                    ></small>
+
+                </div>
+
+
+                <!-- GENERAL MESSAGE -->
+
+                <div
+                    id="register-message"
+                    class="auth-message"
+                    role="alert"
+                    aria-live="polite"
+                ></div>
+
+
+                <!-- SUBMIT -->
+
+                <button
+                    type="submit"
+                    id="register-button"
+                    class="auth-submit"
+                >
+                    Create account
+                </button>
+
+
+            </form>
+
+
+            <!-- =================================================
+                 LOGIN
+                 ================================================= -->
+
+            <div class="auth-footer">
+
+                <span>
+                    Already have an account?
+                </span>
+
+                <a href="login.html">
+                    Sign in
+                </a>
+
+            </div>
+
+
+        </section>
+
+    </main>
+
+
+    <!-- =====================================================
+         REGISTER JAVASCRIPT
+         ===================================================== -->
+
+    <script
+        src="../js/register.js"
+        defer
+    ></script>
+
+</body>
+
+                    </html>
