@@ -1,486 +1,86 @@
-/*
- * =========================================================
- * NEXAUREN
- * REGISTER
- *
- * Responsabilidade:
- * - Validar o formulário
- * - Enviar os dados para /api/register
- * - Mostrar o resultado ao utilizador
- *
- * NÃO contém:
- * - SQL
- * - Password hashing
- * - Acesso direto ao D1
- *
- * Tudo isso fica no Worker.
- * =========================================================
- */
+(() => {
+  'use strict';
 
+  const form = document.getElementById('register-form');
+  if (!form) return;
 
-/* =========================================================
-   ELEMENTS
-   ========================================================= */
+  const nameInput = document.getElementById('name');
+  const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  const confirmPasswordInput = document.getElementById('confirm-password');
+  const button = document.getElementById('register-button');
+  const message = document.getElementById('register-message');
+  const errors = {
+    name: document.getElementById('name-error'),
+    email: document.getElementById('email-error'),
+    password: document.getElementById('password-error'),
+    confirm: document.getElementById('confirm-password-error')
+  };
 
-const form =
-    document.getElementById(
-        "register-form"
-    );
+  const clearErrors = () => {
+    Object.values(errors).forEach(el => { if (el) el.textContent = ''; });
+    if (message) { message.textContent = ''; message.className = 'auth-message'; }
+  };
 
-const nameInput =
-    document.getElementById(
-        "name"
-    );
-
-const emailInput =
-    document.getElementById(
-        "email"
-    );
-
-const passwordInput =
-    document.getElementById(
-        "password"
-    );
-
-const confirmPasswordInput =
-    document.getElementById(
-        "confirm-password"
-    );
-
-const registerButton =
-    document.getElementById(
-        "register-button"
-    );
-
-const message =
-    document.getElementById(
-        "register-message"
-    );
-
-
-/* =========================================================
-   ERRORS
-   ========================================================= */
-
-const nameError =
-    document.getElementById(
-        "name-error"
-    );
-
-const emailError =
-    document.getElementById(
-        "email-error"
-    );
-
-const passwordError =
-    document.getElementById(
-        "password-error"
-    );
-
-const confirmPasswordError =
-    document.getElementById(
-        "confirm-password-error"
-    );
-
-
-/* =========================================================
-   SAFETY CHECK
-   ========================================================= */
-
-if (!form) {
-
-    console.error(
-        "Nexauren: register form not found."
-    );
-
-}
-
-
-/* =========================================================
-   HELPERS
-   ========================================================= */
-
-function clearErrors() {
-
-    nameError.textContent = "";
-
-    emailError.textContent = "";
-
-    passwordError.textContent = "";
-
-    confirmPasswordError.textContent = "";
-
-    message.textContent = "";
-
-    message.className =
-        "auth-message";
-
-}
-
-
-function showMessage(
-    text,
-    type = "error"
-) {
-
+  const showMessage = (text, type = 'error') => {
     message.textContent = text;
+    message.className = `auth-message ${type}`;
+  };
 
-    message.className =
-        `auth-message ${type}`;
+  const setLoading = loading => {
+    button.disabled = loading;
+    button.setAttribute('aria-busy', String(loading));
+    button.textContent = loading ? 'Creating account…' : 'Create account';
+  };
 
-}
-
-
-function setLoading(
-    loading
-) {
-
-    registerButton.disabled =
-        loading;
-
-    if (loading) {
-
-        registerButton.textContent =
-            "Creating account...";
-
-    } else {
-
-        registerButton.textContent =
-            "Create account";
-
-    }
-
-}
-
-
-/* =========================================================
-   CLIENT VALIDATION
-   ========================================================= */
-
-function validateForm() {
-
+  const validate = () => {
     let valid = true;
+    const name = nameInput.value.trim();
+    const email = emailInput.value.trim().toLowerCase();
+    const password = passwordInput.value;
+    const confirm = confirmPasswordInput.value;
 
-
-    const name =
-        nameInput.value.trim();
-
-    const email =
-        emailInput.value
-            .trim()
-            .toLowerCase();
-
-    const password =
-        passwordInput.value;
-
-    const confirmPassword =
-        confirmPasswordInput.value;
-
-
-    /* -------------------------------------------------------
-       NAME
-       ------------------------------------------------------- */
-
-    if (!name) {
-
-        nameError.textContent =
-            "Please enter your name.";
-
-        valid = false;
-
-    } else if (
-        name.length > 100
-    ) {
-
-        nameError.textContent =
-            "Name is too long.";
-
-        valid = false;
-
-    }
-
-
-    /* -------------------------------------------------------
-       EMAIL
-       ------------------------------------------------------- */
-
-    if (!email) {
-
-        emailError.textContent =
-            "Please enter your email.";
-
-        valid = false;
-
-    } else if (
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-            email
-        )
-    ) {
-
-        emailError.textContent =
-            "Please enter a valid email.";
-
-        valid = false;
-
-    }
-
-
-    /* -------------------------------------------------------
-       PASSWORD
-       ------------------------------------------------------- */
-
-    if (
-        password.length < 8
-    ) {
-
-        passwordError.textContent =
-            "Password must contain at least 8 characters.";
-
-        valid = false;
-
-    } else if (
-        password.length > 200
-    ) {
-
-        passwordError.textContent =
-            "Password is too long.";
-
-        valid = false;
-
-    }
-
-
-    /* -------------------------------------------------------
-       CONFIRM PASSWORD
-       ------------------------------------------------------- */
-
-    if (
-        confirmPassword !== password
-    ) {
-
-        confirmPasswordError.textContent =
-            "Passwords do not match.";
-
-        valid = false;
-
-    }
-
-
+    if (!name || name.length > 100) { errors.name.textContent = 'Please enter a valid name.'; valid = false; }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errors.email.textContent = 'Please enter a valid email.'; valid = false; }
+    if (password.length < 8 || password.length > 200) { errors.password.textContent = 'Password must contain between 8 and 200 characters.'; valid = false; }
+    if (confirm !== password) { errors.confirm.textContent = 'Passwords do not match.'; valid = false; }
     return valid;
+  };
 
-}
-
-
-/* =========================================================
-   REGISTER
-   ========================================================= */
-
-async function register() {
-
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
     clearErrors();
-
-
-    /* -------------------------------------------------------
-       VALIDATE
-       ------------------------------------------------------- */
-
-    if (
-        !validateForm()
-    ) {
-
-        return;
-
-    }
-
-
-    /* -------------------------------------------------------
-       DATA
-       ------------------------------------------------------- */
-
-    const data = {
-
-        name:
-            nameInput.value.trim(),
-
-        email:
-            emailInput.value
-                .trim()
-                .toLowerCase(),
-
-        password:
-            passwordInput.value
-
-    };
-
-
-    /* -------------------------------------------------------
-       LOADING
-       ------------------------------------------------------- */
+    if (!validate()) return;
 
     setLoading(true);
-
+    showMessage('Creating your account…', '');
 
     try {
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify({
+          name: nameInput.value.trim(),
+          email: emailInput.value.trim().toLowerCase(),
+          password: passwordInput.value
+        })
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.message || 'Unable to create account.');
 
-        /* ---------------------------------------------------
-           API REQUEST
-           --------------------------------------------------- */
-
-        const response =
-            await fetch(
-                "/api/register",
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body:
-                        JSON.stringify(
-                            data
-                        )
-                }
-            );
-
-
-        /* ---------------------------------------------------
-           RESPONSE
-           --------------------------------------------------- */
-
-        let result;
-
-        try {
-
-            result =
-                await response.json();
-
-        } catch {
-
-            result = {
-                success: false,
-                message:
-                    "The server returned an invalid response."
-            };
-
-        }
-
-
-        /* ---------------------------------------------------
-           ERROR
-           --------------------------------------------------- */
-
-        if (
-            !response.ok ||
-            !result.success
-        ) {
-
-            showMessage(
-                result.message ||
-                "Unable to create account.",
-                "error"
-            );
-
-            return;
-
-        }
-
-
-        /* ---------------------------------------------------
-           SUCCESS
-           --------------------------------------------------- */
-
-        showMessage(
-            "Account created successfully.",
-            "success"
-        );
-
-
-        /* ---------------------------------------------------
-           CLEAR PASSWORDS
-           --------------------------------------------------- */
-
-        passwordInput.value = "";
-
-        confirmPasswordInput.value = "";
-
-
-        /* ---------------------------------------------------
-           OPTIONAL REDIRECT
-           ---------------------------------------------------
-
-           We do not automatically redirect yet.
-
-           Authentication/login will be implemented
-           in the next stage.
-
-        */
-
-
+      showMessage('Account created successfully. Opening your dashboard…', 'success');
+      passwordInput.value = '';
+      confirmPasswordInput.value = '';
+      setTimeout(() => { window.location.assign('/dashboard/'); }, 350);
     } catch (error) {
-
-        console.error(
-            "Registration request failed:",
-            error
-        );
-
-
-        showMessage(
-            "Unable to connect to Nexauren. Please try again.",
-            "error"
-        );
-
-
-    } finally {
-
-        setLoading(false);
-
+      showMessage(error.message || 'Unable to connect to Nexauren. Please try again.', 'error');
+      setLoading(false);
     }
+  });
 
-}
-
-
-/* =========================================================
-   FORM SUBMIT
-   ========================================================= */
-
-form.addEventListener(
-    "submit",
-    function (event) {
-
-        event.preventDefault();
-
-        register();
-
-    }
-);
-
-
-/* =========================================================
-   LIVE PASSWORD CHECK
-   ========================================================= */
-
-confirmPasswordInput.addEventListener(
-    "input",
-    function () {
-
-        if (
-            confirmPasswordInput.value ===
-            passwordInput.value
-        ) {
-
-            confirmPasswordError.textContent =
-                "";
-
-        }
-
-    }
-);
-
-
-/* =========================================================
-   INITIAL STATE
-   ========================================================= */
-
-clearErrors();
+  confirmPasswordInput.addEventListener('input', () => {
+    if (confirmPasswordInput.value === passwordInput.value) errors.confirm.textContent = '';
+  });
+})();
