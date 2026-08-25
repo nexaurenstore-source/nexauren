@@ -1,24 +1,17 @@
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-
-    if (url.pathname.startsWith('/api/')) {
-      return new Response(JSON.stringify({ ok: false, message: 'API endpoint not implemented yet.' }), {
-        status: 404,
-        headers: { 'content-type': 'application/json; charset=UTF-8' },
-      });
-    }
-
-    const response = await env.ASSETS.fetch(request);
-    const headers = new Headers(response.headers);
-    headers.set('X-Content-Type-Options', 'nosniff');
-    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
-  },
-};
+const json=(data,status=200,extra={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=UTF-8','cache-control':'no-store',...extra}});
+const cookie=(name,value,maxAge)=>`${name}=${value}; Max-Age=${maxAge}; Path=/; HttpOnly; Secure; SameSite=Lax`;
+const enc=new TextEncoder();
+function hex(bytes){return [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('')}
+function unhex(s){const a=new Uint8Array(s.length/2);for(let i=0;i<a.length;i++)a[i]=parseInt(s.slice(i*2,i*2+2),16);return a}
+async function digest(data){return crypto.subtle.digest('SHA-256',typeof data==='string'?enc.encode(data):data)}
+async function randomHex(n=32){const b=new Uint8Array(n);crypto.getRandomValues(b);return hex(b)}
+async function passwordHash(password,salt=await randomHex(16)){const key=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:unhex(salt),iterations:150000,hash:'SHA-256'},key,256);return `v1$${salt}$150000$${hex(bits)}`}
+async function passwordVerify(password,stored){try{const [v,salt,it,hash]=stored.split('$');if(v!=='v1')return false;const key=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:unhex(salt),iterations:Number(it),hash:'SHA-256'},key,256);return hex(bits)===hash}catch{return false}}
+function validEmail(e){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)&&e.length<=254}
+async function body(request){try{return await request.json()}catch{return null}}
+async function sessionUser(request,env){const raw=request.headers.get('Cookie')?.match(/(?:^|;\s*)nx_session=([^;]+)/)?.[1];if(!raw)return null;const tokenHash=hex(await digest(raw));return await env.DB.prepare('SELECT u.id,u.email,u.name,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND s.revoked_at IS NULL AND u.status=?').bind(tokenHash,new Date().toISOString(),'active').first()}
+async function auth(request,env,mode){const b=await body(request);if(!b||!validEmail(String(b.email||''))||typeof b.password!=='string'||b.password.length<8)return json({ok:false,message:'Email ou senha inválidos.'},400);const email=b.email.trim().toLowerCase();if(mode==='register'){const exists=await env.DB.prepare('SELECT id FROM users WHERE email=?').bind(email).first();if(exists)return json({ok:false,message:'Este email já está cadastrado.'},409);const id=crypto.randomUUID(),hash=await passwordHash(b.password),name=String(b.name||'').trim().slice(0,100);await env.DB.prepare('INSERT INTO users (id,email,password_hash,name) VALUES (?,?,?,?)').bind(id,email,hash,name).run();return createSession(id,email,name,env)}const user=await env.DB.prepare('SELECT id,email,name,password_hash,status FROM users WHERE email=?').bind(email).first();if(!user||user.status!=='active'||!(await passwordVerify(b.password,user.password_hash)))return json({ok:false,message:'Email ou senha incorretos.'},401);return createSession(user.id,user.email,user.name,env)}
+async function createSession(userId,email,name,env){const token=await randomHex(32),tokenHash=hex(await digest(token)),id=crypto.randomUUID(),expires=new Date(Date.now()+1000*60*60*24*30).toISOString();await env.DB.prepare('INSERT INTO sessions (id,user_id,token_hash,expires_at) VALUES (?,?,?,?,?)').bind(id,userId,tokenHash,expires).run().catch(async()=>{await env.DB.prepare('INSERT INTO sessions (id,user_id,token_hash,expires_at) VALUES (?,?,?,?)').bind(id,userId,tokenHash,expires).run()});return json({ok:true,message:'Conta autenticada com sucesso.',user:{id:userId,email,name}},200,{'Set-Cookie':cookie('nx_session',token,60*60*24*30)})}
+async function account(request,env,action){const user=await sessionUser(request,env);if(!user)return json({ok:false,message:'Sessão inválida ou expirada.'},401);if(action==='deactivate'){await env.DB.prepare("UPDATE users SET status='disabled',deactivated_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(user.id).run();await env.DB.prepare('UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE user_id=?').bind(user.id).run();return json({ok:true,message:'Conta desativada.'},200,{'Set-Cookie':cookie('nx_session','',0)})}await env.DB.prepare('DELETE FROM users WHERE id=?').bind(user.id).run();return json({ok:true,message:'Conta eliminada permanentemente.'},200,{'Set-Cookie':cookie('nx_session','',0)})}
+async function api(request,env,url){if(request.method==='POST'&&url.pathname==='/api/auth/register')return auth(request,env,'register');if(request.method==='POST'&&url.pathname==='/api/auth/login')return auth(request,env,'login');if(request.method==='POST'&&url.pathname==='/api/auth/logout'){const raw=request.headers.get('Cookie')?.match(/(?:^|;\s*)nx_session=([^;]+)/)?.[1];if(raw)await env.DB.prepare('UPDATE sessions SET revoked_at=CURRENT_TIMESTAMP WHERE token_hash=?').bind(hex(await digest(raw))).run();return json({ok:true,message:'Logout concluído.'},200,{'Set-Cookie':cookie('nx_session','',0)})}if(request.method==='POST'&&url.pathname==='/api/account/deactivate')return account(request,env,'deactivate');if(request.method==='POST'&&url.pathname==='/api/account/delete')return account(request,env,'delete');if(request.method==='GET'&&url.pathname==='/api/account/me'){const u=await sessionUser(request,env);return u?json({ok:true,user:u}):json({ok:false,user:null},401)}return json({ok:false,message:'Endpoint não encontrado.'},404)}
+export default {async fetch(request,env){const url=new URL(request.url);if(url.pathname.startsWith('/api/'))return api(request,env,url);const response=await env.ASSETS.fetch(request);const headers=new Headers(response.headers);headers.set('X-Content-Type-Options','nosniff');headers.set('Referrer-Policy','strict-origin-when-cross-origin');headers.set('Permissions-Policy','camera=(), microphone=(), geolocation=()');return new Response(response.body,{status:response.status,statusText:response.statusText,headers})}};
