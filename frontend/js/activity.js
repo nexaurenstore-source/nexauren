@@ -1,0 +1,6 @@
+(() => {
+  const list = document.querySelector('#activity-list'); if (!list) return;
+  let items = []; try { items = JSON.parse(localStorage.getItem('nexauren_activity') || '[]'); } catch {}
+  if (!items.length) return;
+  list.innerHTML = items.slice().reverse().map(item => `<div class="activity"><span class="activity-dot"></span><div><strong>${item.title || 'Activity'}</strong><div class="muted">${item.time || ''}</div></div></div>`).join('');
+})();
