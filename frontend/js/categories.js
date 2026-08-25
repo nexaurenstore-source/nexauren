@@ -2,30 +2,43 @@
   'use strict';
   const grid = document.querySelector('#category-grid');
   if (!grid) return;
-  const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
-  const renderEmpty = message => { grid.innerHTML = `<div class="empty"><strong>${escapeHTML(message)}</strong><p>Try again in a moment.</p></div>`; };
-  const registryUrl = new URL('/data/tools.json?v=' + Date.now(), window.location.origin).href;
-  fetch(registryUrl, { cache: 'no-store', headers: { Accept: 'application/json' } })
-    .then(response => {
-      if (!response.ok) throw new Error(`Registry request failed: ${response.status}`);
-      return response.json();
-    })
-    .then(data => {
-      const tools = Array.isArray(data?.tools) ? data.tools.filter(tool => tool && String(tool.status || 'active').toLowerCase() !== 'inactive') : [];
-      const categories = new Map();
-      tools.forEach(tool => {
-        const id = String(tool.category || 'other').trim().toLowerCase();
-        const name = String(tool.categoryName || tool.category || 'Other').trim() || 'Other';
-        if (!categories.has(id)) categories.set(id, { id, name, tools: [] });
-        categories.get(id).tools.push(tool);
-      });
-      const groups = [...categories.values()].sort((a, b) => a.name.localeCompare(b.name));
-      if (!groups.length) return renderEmpty('No categories available yet');
-      grid.innerHTML = groups.map(category => {
-        const first = category.tools[0] || {};
-        const image = first.image || first.icon || '';
-        return `<article class="card category-card"><div class="category-card-media">${image ? `<img src="${escapeHTML(image)}" alt="" loading="lazy" onerror="this.parentElement.classList.add('media-fallback');this.remove()">` : ''}<div class="category-fallback" aria-hidden="true">${escapeHTML(category.name.slice(0, 2).toUpperCase())}</div></div><div class="category-card-content"><span class="tool-category">${category.tools.length} ${category.tools.length === 1 ? 'tool' : 'tools'}</span><h2>${escapeHTML(category.name)}</h2><p>Explore useful ${escapeHTML(category.name.toLowerCase())} tools.</p><a class="card-link" href="/tools/?category=${encodeURIComponent(category.id)}">Explore category <span aria-hidden="true">→</span></a></div></article>`;
-      }).join('');
-    })
-    .catch(error => { console.error('[Nexauren] categories:', error); renderEmpty('Categories could not be loaded'); });
+
+  const overlay = document.querySelector('[data-process-overlay]');
+  const finish = () => { if (overlay) overlay.style.display = 'none'; };
+  const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const renderEmpty = text => { grid.innerHTML = `<div class="empty"><strong>${escapeHTML(text)}</strong><p>Try refreshing the page.</p></div>`; finish(); };
+  const render = data => {
+    const tools = Array.isArray(data?.tools) ? data.tools.filter(t => t && String(t.status || 'active').toLowerCase() !== 'inactive') : [];
+    const map = new Map();
+    tools.forEach(t => {
+      const id = String(t.category || 'other').trim().toLowerCase();
+      const name = String(t.categoryName || t.category || 'Other').trim() || 'Other';
+      if (!map.has(id)) map.set(id, {id,name,count:0});
+      map.get(id).count++;
+    });
+    const categories = [...map.values()].sort((a,b) => a.name.localeCompare(b.name));
+    if (!categories.length) return renderEmpty('No categories available yet');
+    grid.innerHTML = categories.map(c => `<article class="card category-card"><div class="category-card-content"><span class="tool-category">${c.count} ${c.count === 1 ? 'tool' : 'tools'}</span><h2>${escapeHTML(c.name)}</h2><p>Explore useful ${escapeHTML(c.name.toLowerCase())} tools.</p><a class="card-link" href="/tools/?category=${encodeURIComponent(c.id)}">Explore category <span aria-hidden="true">→</span></a></div></article>`).join('');
+    finish();
+  };
+
+  const urls = [
+    new URL('/data/tools.json?v=' + Date.now(), location.origin).href,
+    new URL('../data/tools.json?v=' + Date.now(), location.href).href,
+    new URL('/frontend/data/tools.json?v=' + Date.now(), location.origin).href
+  ];
+  const load = async () => {
+    let lastError;
+    for (const url of [...new Set(urls)]) {
+      try {
+        const response = await fetch(url, {cache:'no-store',headers:{Accept:'application/json'}});
+        if (!response.ok) throw new Error(`${response.status} ${url}`);
+        const data = await response.json();
+        render(data); return;
+      } catch (e) { lastError = e; }
+    }
+    console.error('[Nexauren] categories registry:', lastError);
+    renderEmpty('Categories could not be loaded');
+  };
+  load();
 })();
