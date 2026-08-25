@@ -9,7 +9,9 @@
       "categoryName": "Image",
       "description": "Resize images online in your browser while keeping your files on your device.",
       "url": "/tools/image/image-resizer/",
-      "icon": "image",
+      "icon": "/assets/icons/tools/image-resizer.svg",
+      "image": "/assets/images/tools/image-resizer.svg",
+      "socialImage": "/assets/social/image-resizer.svg",
       "status": "active",
       "featured": true,
       "tags": ["image", "resize", "dimensions", "png", "jpg", "webp"]
