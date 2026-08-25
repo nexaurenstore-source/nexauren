@@ -1,27 +1,78 @@
 (() => {
   'use strict';
+
   const input = document.querySelector('#tool-search');
   const grid = document.querySelector('#home-tools');
   const featuredGrid = document.querySelector('#home-featured');
+  const count = document.querySelector('#search-result-count');
   if (!input || !grid) return;
+
   let tools = [];
   const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
-  const card = tool => `<article class="card tool-card-item"><div class="tool-card-media">${tool.image ? `<img src="${escapeHTML(tool.image)}" alt="" loading="lazy">` : `<div class="card-icon blue">TOOL</div>`}</div><div class="tool-card-content"><span class="tool-category">${escapeHTML(tool.categoryName || tool.category || 'Tool')}</span><h3>${escapeHTML(tool.name)}</h3><p>${escapeHTML(tool.description)}</p><a class="card-link" href="${escapeHTML(tool.url)}">Open tool →</a></div></article>`;
+  const normalize = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+  const card = tool => `<article class="card tool-card-item">
+    <div class="tool-card-media">${tool.image ? `<img src="${escapeHTML(tool.image)}" alt="${escapeHTML(tool.name)} icon" loading="lazy">` : `<div class="card-icon blue">N</div>`}</div>
+    <div class="tool-card-content">
+      <span class="tool-category">${escapeHTML(tool.categoryName || tool.category || 'Tool')}</span>
+      <h3>${escapeHTML(tool.name)}</h3>
+      <p>${escapeHTML(tool.description)}</p>
+      <a class="card-link" href="${escapeHTML(tool.url)}">Open tool →</a>
+    </div>
+  </article>`;
+
+  const getActive = () => tools.filter(t => String(t.status || 'active').toLowerCase() !== 'inactive');
+
   const render = query => {
-    const q = query.trim().toLowerCase();
-    const active = tools.filter(t => t.status !== 'inactive');
-    const found = active.filter(t => [t.name, t.description, t.category, t.categoryName, ...(Array.isArray(t.tags) ? t.tags : [])].join(' ').toLowerCase().includes(q));
-    grid.innerHTML = found.length ? found.slice(0, 8).map(card).join('') : `<div class="empty">${active.length ? 'No tools match your search.' : 'No tools are available yet. The foundation is ready.'}</div>`;
+    const q = normalize(query);
+    const active = getActive();
+    const found = q ? active.filter(t => normalize([
+      t.name, t.description, t.category, t.categoryName, t.slug,
+      ...(Array.isArray(t.tags) ? t.tags : [])
+    ].join(' ')).includes(q)) : active;
+
+    grid.innerHTML = found.length
+      ? found.slice(0, 8).map(card).join('')
+      : `<div class="empty"><strong>No tools found.</strong><br>Try another name, category or tag.</div>`;
+
+    if (count) count.textContent = q ? `${found.length} tool${found.length === 1 ? '' : 's'} found` : `${active.length} active tool${active.length === 1 ? '' : 's'}`;
   };
+
   const renderFeatured = () => {
     if (!featuredGrid) return;
-    const featured = tools.filter(t => t.status !== 'inactive' && t.featured);
-    featuredGrid.innerHTML = featured.length ? featured.map(card).join('') : '<div class="empty">Featured tools will appear here automatically.</div>';
+    const featured = getActive().filter(t => t.featured === true);
+    featuredGrid.innerHTML = featured.length
+      ? featured.slice(0, 6).map(card).join('')
+      : '<div class="empty">Featured tools will appear here automatically.</div>';
   };
-  fetch('/data/tools.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : Promise.reject()).then(data => {
-    tools = Array.isArray(data.tools) ? data.tools : [];
-    renderFeatured();
-    render('');
-  }).catch(() => { tools = []; renderFeatured(); render(''); });
+
+  const loadTools = () => fetch('/data/tools.json?v=' + Date.now(), { cache: 'no-store' })
+    .then(response => {
+      if (!response.ok) throw new Error(`Tool registry returned ${response.status}`);
+      return response.json();
+    })
+    .then(data => {
+      tools = Array.isArray(data.tools) ? data.tools : [];
+      renderFeatured();
+      render(input.value);
+    })
+    .catch(error => {
+      console.error('Nexauren tool search:', error);
+      tools = [];
+      if (featuredGrid) featuredGrid.innerHTML = '<div class="empty">Unable to load the tool registry.</div>';
+      grid.innerHTML = '<div class="empty">Unable to load tools right now. Please refresh the page.</div>';
+      if (count) count.textContent = '';
+    });
+
   input.addEventListener('input', event => render(event.target.value));
+  input.addEventListener('search', event => render(event.target.value));
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      input.value = '';
+      render('');
+      input.focus();
+    }
+  });
+
+  loadTools();
 })();
