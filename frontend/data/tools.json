@@ -45,21 +45,6 @@
       "status": "active",
       "featured": true,
       "tags": ["audio", "converter", "mp3", "wav", "ogg", "m4a", "aac", "bitrate", "volume"]
-    },
-    {
-      "id": "audio-to-midi",
-      "name": "Audio to MIDI",
-      "slug": "audio-to-midi",
-      "category": "audio",
-      "categoryName": "Audio",
-      "description": "Detect melody notes from audio in your browser and create a downloadable MIDI file with local processing.",
-      "url": "/tools/audio/audio-to-midi/",
-      "icon": "/assets/icons/tools/audio-to-midi.svg",
-      "image": "/assets/images/tools/audio-to-midi.svg",
-      "socialImage": "/assets/social/audio-to-midi.svg",
-      "status": "active",
-      "featured": true,
-      "tags": ["audio", "midi", "converter", "music", "melody", "pitch", "notes", "midi file"]
     }
   ]
 }
