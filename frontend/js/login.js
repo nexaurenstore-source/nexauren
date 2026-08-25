@@ -1,29 +1,72 @@
 (() => {
   'use strict';
+
   const form = document.getElementById('login-form');
   if (!form) return;
-  const button = form.querySelector('button[type="submit"]');
-  const message = document.getElementById('message');
-  const setMessage = (text, error = false) => { message.textContent = text; message.setAttribute('aria-live','polite'); message.dataset.state = error ? 'error' : 'ok'; };
-  form.addEventListener('submit', async (event) => {
+
+  const email = document.getElementById('email');
+  const password = document.getElementById('password');
+  const button = document.getElementById('login-button');
+  const message = document.getElementById('login-message');
+
+  const setMessage = (text, type = '') => {
+    if (!message) return;
+    message.textContent = text;
+    message.className = `auth-message ${type}`.trim();
+  };
+
+  const setLoading = loading => {
+    button.disabled = loading;
+    button.setAttribute('aria-busy', String(loading));
+    button.textContent = loading ? 'Signing in…' : 'Sign in';
+  };
+
+  form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (!form.checkValidity()) { form.reportValidity(); return; }
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    button.disabled = true;
-    button.setAttribute('aria-busy','true');
-    setMessage('Entrando…');
+    setMessage('');
+
+    const emailValue = email.value.trim().toLowerCase();
+    const passwordValue = password.value;
+
+    if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      setMessage('Please enter a valid email.', 'error');
+      email.focus();
+      return;
+    }
+
+    if (!passwordValue) {
+      setMessage('Please enter your password.', 'error');
+      password.focus();
+      return;
+    }
+
+    setLoading(true);
+    setMessage('Signing in…');
+
     try {
-      const response = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({email,password}) });
-      const text = await response.text();
-      let data; try { data = JSON.parse(text); } catch { throw new Error('O servidor retornou uma resposta inválida.'); }
-      if (!response.ok || !data.ok) throw new Error(data.message || 'Email ou senha incorretos.');
-      setMessage('Login concluído. Abrindo sua conta…');
-      window.location.assign('/pages/account.html');
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify({ email: emailValue, password: passwordValue })
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || 'Email or password is incorrect.');
+      }
+
+      const next = new URLSearchParams(location.search).get('next');
+      const destination = next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\')
+        ? next
+        : '/dashboard/';
+
+      setMessage('Login successful. Opening your account…', 'success');
+      window.location.assign(destination);
     } catch (error) {
-      setMessage(error.message || 'Não foi possível entrar.', true);
-      button.disabled = false;
-      button.removeAttribute('aria-busy');
+      setMessage(error.message || 'Unable to sign in. Please try again.', 'error');
+      setLoading(false);
     }
   });
 })();
