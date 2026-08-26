@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Conta — Nexauren</title>
   <link rel="stylesheet" href="../css/style.css">
-  <style>
-    .auth-wrap{max-width:460px;margin:70px auto;padding:24px}.auth-card{padding:28px;border:1px solid var(--border,#ddd);border-radius:18px;background:var(--card,#fff)}.auth-card h1{margin-top:0}.auth-card form{display:grid;gap:14px}.auth-card label{display:grid;gap:7px;font-weight:600}.auth-card input{padding:13px;border:1px solid var(--border,#ddd);border-radius:10px;font:inherit}.auth-card button{padding:13px;border:0;border-radius:10px;cursor:pointer;font-weight:700}.auth-tabs{display:flex;gap:8px;margin-bottom:20px}.auth-tabs button{flex:1}.auth-tabs button.active{outline:2px solid currentColor}.auth-message{min-height:22px;margin:12px 0}.auth-message.error{color:#c62828}.auth-message.success{color:#167c3a}.auth-user{display:none}
-  </style>
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <main class="auth-wrap">
+  <main class="auth-page">
     <section class="auth-card">
+      <div class="auth-logo">Nexauren</div>
+      <p class="auth-subtitle">Sua conta, seu progresso.</p>
       <div class="auth-tabs">
         <button type="button" id="login-tab" class="active">Entrar</button>
         <button type="button" id="register-tab">Criar conta</button>
@@ -19,19 +19,18 @@
       <h1 id="auth-title">Entrar na Nexauren</h1>
       <p id="auth-description">Acesse sua conta para continuar.</p>
       <div id="auth-message" class="auth-message" role="status" aria-live="polite"></div>
-
-      <form id="login-form">
-        <label>Email<input id="login-email" type="email" autocomplete="email" required></label>
-        <label>Senha<input id="login-password" type="password" autocomplete="current-password" required></label>
-        <button type="submit">Entrar</button>
+      <form id="login-form" class="auth-form">
+        <label class="auth-field">Email<input id="login-email" type="email" autocomplete="email" required></label>
+        <label class="auth-field">Senha<input id="login-password" type="password" autocomplete="current-password" required></label>
+        <button class="auth-submit" type="submit">Entrar</button>
       </form>
-
-      <form id="register-form" hidden>
-        <label>Username<input id="register-username" type="text" minlength="3" maxlength="32" autocomplete="username" required></label>
-        <label>Email<input id="register-email" type="email" autocomplete="email" required></label>
-        <label>Senha<input id="register-password" type="password" minlength="8" autocomplete="new-password" required></label>
-        <button type="submit">Criar conta</button>
+      <form id="register-form" class="auth-form" hidden>
+        <label class="auth-field">Username<input id="register-username" type="text" minlength="3" maxlength="32" autocomplete="username" required></label>
+        <label class="auth-field">Email<input id="register-email" type="email" autocomplete="email" required></label>
+        <label class="auth-field">Senha<input id="register-password" type="password" minlength="8" autocomplete="new-password" required></label>
+        <button class="auth-submit" type="submit">Criar conta</button>
       </form>
+      <p class="auth-note">Sua senha é enviada apenas para a API segura de autenticação.</p>
     </section>
   </main>
   <script src="./auth.js"></script>
@@ -41,9 +40,9 @@
     const title=document.querySelector('#auth-title'),description=document.querySelector('#auth-description'),message=document.querySelector('#auth-message');
     function setMode(register){loginTab.classList.toggle('active',!register);registerTab.classList.toggle('active',register);loginForm.hidden=register;registerForm.hidden=!register;title.textContent=register?'Criar conta na Nexauren':'Entrar na Nexauren';description.textContent=register?'Crie sua conta para guardar seu progresso.':'Acesse sua conta para continuar.';message.textContent='';message.className='auth-message';}
     function showError(error){message.textContent=error.message||String(error);message.className='auth-message error';}
-    loginTab.onclick=()=>setMode(false); registerTab.onclick=()=>setMode(true);
-    loginForm.onsubmit=async e=>{e.preventDefault();message.textContent='Entrando...';try{await NexaurenAuth.login({email:document.querySelector('#login-email').value,password:document.querySelector('#login-password').value});message.textContent='Login realizado com sucesso.';message.className='auth-message success';location.href='../';}catch(error){showError(error);}};
-    registerForm.onsubmit=async e=>{e.preventDefault();message.textContent='Criando conta...';try{await NexaurenAuth.register({username:document.querySelector('#register-username').value,email:document.querySelector('#register-email').value,password:document.querySelector('#register-password').value});message.textContent='Conta criada com sucesso.';message.className='auth-message success';location.href='../';}catch(error){showError(error);}};
+    loginTab.onclick=()=>setMode(false);registerTab.onclick=()=>setMode(true);
+    loginForm.onsubmit=async e=>{e.preventDefault();const button=loginForm.querySelector('button');button.disabled=true;message.textContent='Entrando...';try{await NexaurenAuth.login({email:document.querySelector('#login-email').value.trim(),password:document.querySelector('#login-password').value});message.textContent='Login realizado com sucesso.';message.className='auth-message success';location.href='../';}catch(error){showError(error);button.disabled=false;}};
+    registerForm.onsubmit=async e=>{e.preventDefault();const button=registerForm.querySelector('button');button.disabled=true;message.textContent='Criando conta...';try{await NexaurenAuth.register({username:document.querySelector('#register-username').value.trim(),email:document.querySelector('#register-email').value.trim(),password:document.querySelector('#register-password').value});message.textContent='Conta criada com sucesso.';message.className='auth-message success';location.href='../';}catch(error){showError(error);button.disabled=false;}};
   </script>
 </body>
 </html>
