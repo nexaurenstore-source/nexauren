@@ -1,0 +1,105 @@
+const json = (data, status = 200, extra = {}) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...extra } });
+const uuid = () => crypto.randomUUID();
+const bytesToHex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+const sha256 = async value => bytesToHex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
+const passwordHash = async password => {
+  const salt = crypto.randomUUID();
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${password}`));
+  return `sha256:${salt}:${bytesToHex(digest)}`;
+};
+const passwordVerify = async (password, stored) => {
+  const parts = String(stored).split(':');
+  if (parts.length !== 3 || parts[0] !== 'sha256') return false;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${parts[1]}:${password}`));
+  return bytesToHex(digest) === parts[2];
+};
+const cookie = (name, value, maxAge) => `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; HttpOnly; Secure; SameSite=Lax`;
+const clearCookie = name => `${name}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`;
+const getSessionToken = request => {
+  const value = request.headers.get('Cookie') || '';
+  const match = value.match(/(?:^|;\s*)nexauren_session=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+const cors = request => {
+  const origin = request.headers.get('Origin');
+  return { 'access-control-allow-origin': origin || '*', 'access-control-allow-credentials': 'true', 'access-control-allow-headers': 'Content-Type', 'access-control-allow-methods': 'GET,POST,OPTIONS' };
+};
+const body = async request => { try { return await request.json(); } catch { return null; } };
+const clean = value => String(value ?? '').trim();
+
+async function currentUser(request, env) {
+  const raw = getSessionToken(request);
+  if (!raw) return null;
+  const hash = await sha256(raw);
+  const now = Math.floor(Date.now() / 1000);
+  return env.DB.prepare(`SELECT u.id,u.email,u.username,u.created_at,u.updated_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=?1 AND s.expires_at>?2`).bind(hash, now).first();
+}
+
+async function register(request, env) {
+  const data = await body(request);
+  const email = clean(data?.email).toLowerCase();
+  const username = clean(data?.username);
+  const password = String(data?.password ?? '');
+  if (!email || !username || password.length < 8) return json({ error: 'Use email, username e uma senha com pelo menos 8 caracteres.' }, 400);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'Email inválido.' }, 400);
+  if (!/^[A-Za-z0-9_.-]{3,32}$/.test(username)) return json({ error: 'Username deve ter 3–32 caracteres.' }, 400);
+  const exists = await env.DB.prepare('SELECT id FROM users WHERE email=?1 OR username=?2 LIMIT 1').bind(email, username).first();
+  if (exists) return json({ error: 'Email ou username já está em uso.' }, 409);
+  const id = uuid();
+  const now = Math.floor(Date.now() / 1000);
+  const hash = await passwordHash(password);
+  const session = uuid();
+  const sessionHash = await sha256(session);
+  const expires = now + 60 * 60 * 24 * 30;
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO users (id,email,username,password_hash,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?5)').bind(id,email,username,hash,now),
+    env.DB.prepare('INSERT INTO user_settings (user_id,language,theme,reduce_motion,updated_at) VALUES (?1,\'en\',\'system\',0,?2)').bind(id,now),
+    env.DB.prepare('INSERT INTO user_progress (user_id,xp,level,updated_at) VALUES (?1,0,1,?2)').bind(id,now),
+    env.DB.prepare('INSERT INTO sessions (id,user_id,token_hash,expires_at,created_at) VALUES (?1,?2,?3,?4,?5)').bind(uuid(),id,sessionHash,expires,now)
+  ]);
+  return json({ user: { id,email,username }, authenticated: true }, 201, { ...cors(request), 'set-cookie': cookie('nexauren_session', session, 60 * 60 * 24 * 30) });
+}
+
+async function login(request, env) {
+  const data = await body(request);
+  const email = clean(data?.email).toLowerCase();
+  const password = String(data?.password ?? '');
+  const user = await env.DB.prepare('SELECT id,email,username,password_hash,created_at,updated_at FROM users WHERE email=?1 LIMIT 1').bind(email).first();
+  if (!user || !(await passwordVerify(password, user.password_hash))) return json({ error: 'Email ou senha incorretos.' }, 401);
+  const now = Math.floor(Date.now() / 1000);
+  const session = uuid();
+  await env.DB.prepare('INSERT INTO sessions (id,user_id,token_hash,expires_at,created_at) VALUES (?1,?2,?3,?4,?5)').bind(uuid(),user.id,await sha256(session),now+60*60*24*30,now).run();
+  return json({ user: { id:user.id,email:user.email,username:user.username }, authenticated:true }, 200, { ...cors(request), 'set-cookie': cookie('nexauren_session',session,60*60*24*30) });
+}
+
+async function logout(request, env) {
+  const raw = getSessionToken(request);
+  if (raw) await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?1').bind(await sha256(raw)).run();
+  return json({ authenticated:false },200,{ ...cors(request), 'set-cookie':clearCookie('nexauren_session') });
+}
+
+async function me(request, env) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ authenticated:false },401,cors(request));
+  const [settings, progress] = await Promise.all([
+    env.DB.prepare('SELECT language,theme,reduce_motion,updated_at FROM user_settings WHERE user_id=?1').bind(user.id).first(),
+    env.DB.prepare('SELECT xp,level,updated_at FROM user_progress WHERE user_id=?1').bind(user.id).first()
+  ]);
+  return json({ authenticated:true, user, settings, progress },200,cors(request));
+}
+
+export default { async fetch(request, env) {
+  const headers = cors(request);
+  if (request.method === 'OPTIONS') return new Response(null,{status:204,headers});
+  const url = new URL(request.url);
+  try {
+    if (url.pathname === '/api/auth/register' && request.method === 'POST') return register(request,env);
+    if (url.pathname === '/api/auth/login' && request.method === 'POST') return login(request,env);
+    if (url.pathname === '/api/auth/logout' && request.method === 'POST') return logout(request,env);
+    if (url.pathname === '/api/auth/me' && request.method === 'GET') return me(request,env);
+    return json({ error:'Not found' },404,headers);
+  } catch (error) {
+    console.error(error);
+    return json({ error:'Erro interno do servidor.' },500,headers);
+  }
+} };
