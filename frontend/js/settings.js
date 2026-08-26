@@ -1,31 +1,70 @@
 (() => {
   'use strict';
-  const $=s=>document.querySelector(s);
-  const theme=$('#theme'),language=$('#language'),motion=$('#reduced-motion'),clear=$('#clear-data'),save=$('#save-settings'),message=$('#settings-message');
-  if(!theme&&!language)return;
-  const get=(key,fallback)=>{try{const v=localStorage.getItem(key);return v===null?fallback:v}catch{return fallback}};
-  const set=(key,value)=>{try{localStorage.setItem(key,value)}catch{}};
-  const languages=['en','zh','hi','es','fr','pt'];
-  const applyTheme=value=>{document.documentElement.dataset.theme=value;set('nexauren_theme',value)};
-  const applyMotion=value=>{document.documentElement.dataset.reduceMotion=value?'true':'false';set('nexauren_reduce_motion',value?'true':'false');document.documentElement.classList.toggle('reduce-motion',!!value)};
-  const savedLanguage=get('nexauren_language','en');
-  const savedTheme=get('nexauren_theme','system');
-  const savedMotion=get('nexauren_reduce_motion','false')==='true';
-  if(language)language.value=languages.includes(savedLanguage)?savedLanguage:'en';
-  if(theme)theme.value=['system','light','dark'].includes(savedTheme)?savedTheme:'system';
-  if(motion)motion.checked=savedMotion;
-  applyTheme(theme?.value||'system');applyMotion(!!motion?.checked);
-  function show(text,type='success'){if(!message)return;message.hidden=false;message.className=`alert alert-${type}`;message.textContent=text;clearTimeout(show.timer);show.timer=setTimeout(()=>{message.hidden=true},2500)}
-  save?.addEventListener('click',()=>{
-    const nextLanguage=language?.value||'en';
-    const nextTheme=theme?.value||'system';
-    const nextMotion=!!motion?.checked;
-    set('nexauren_language',nextLanguage);set('nexauren_theme',nextTheme);set('nexauren_reduce_motion',nextMotion?'true':'false');
-    applyTheme(nextTheme);applyMotion(nextMotion);
-    document.documentElement.lang=nextLanguage;
-    if(window.Nexauren?.i18n?.setLanguage)window.Nexauren.i18n.setLanguage(nextLanguage);
-    show(nextLanguage==='pt'?'Definições guardadas. A atualizar…':'Settings saved. Refreshing…');
-    setTimeout(()=>window.location.reload(),600);
+  const $ = s => document.querySelector(s);
+  const theme = $('#theme'), language = $('#language'), motion = $('#reduced-motion'), clear = $('#clear-data'), save = $('#save-settings'), message = $('#settings-message');
+  if (!theme && !language && !motion) return;
+
+  const KEYS = { language: 'nexauren_language', theme: 'nexauren_theme', motion: 'nexauren_reduce_motion' };
+  const languages = ['en', 'zh', 'hi', 'es', 'fr', 'pt'];
+  const read = (key, fallback) => { try { const value = localStorage.getItem(key); return value === null ? fallback : value; } catch { return fallback; } };
+  const write = (key, value) => {
+    try {
+      const normalized = String(value);
+      localStorage.setItem(key, normalized);
+      return localStorage.getItem(key) === normalized;
+    } catch { return false; }
+  };
+  const show = (text, type = 'success') => {
+    if (!message) return;
+    message.hidden = false;
+    message.className = `alert alert-${type}`;
+    message.textContent = text;
+    clearTimeout(show.timer);
+    show.timer = setTimeout(() => { message.hidden = true; }, 3000);
+  };
+  const applyTheme = value => { document.documentElement.dataset.theme = value; };
+  const applyMotion = value => {
+    document.documentElement.dataset.reduceMotion = value ? 'true' : 'false';
+    document.documentElement.classList.toggle('reduce-motion', !!value);
+  };
+  const applyLanguage = value => {
+    document.documentElement.lang = value;
+    if (window.Nexauren?.i18n?.setLanguage) window.Nexauren.i18n.setLanguage(value);
+    window.dispatchEvent(new CustomEvent('nexauren:languagechange', { detail: { language: value } }));
+  };
+
+  const savedLanguage = read(KEYS.language, 'en');
+  const savedTheme = read(KEYS.theme, 'system');
+  const savedMotion = read(KEYS.motion, 'false') === 'true';
+  if (language) language.value = languages.includes(savedLanguage) ? savedLanguage : 'en';
+  if (theme) theme.value = ['system', 'light', 'dark'].includes(savedTheme) ? savedTheme : 'system';
+  if (motion) motion.checked = savedMotion;
+  applyTheme(theme?.value || 'system');
+  applyMotion(!!motion?.checked);
+  applyLanguage(language?.value || 'en');
+
+  save?.addEventListener('click', () => {
+    const nextLanguage = language?.value || 'en';
+    const nextTheme = theme?.value || 'system';
+    const nextMotion = !!motion?.checked;
+    const saved = [
+      write(KEYS.language, nextLanguage),
+      write(KEYS.theme, nextTheme),
+      write(KEYS.motion, nextMotion ? 'true' : 'false')
+    ].every(Boolean);
+    if (!saved) {
+      show('Não foi possível guardar as definições neste navegador.', 'error');
+      return;
+    }
+    applyTheme(nextTheme);
+    applyMotion(nextMotion);
+    applyLanguage(nextLanguage);
+    show(nextLanguage === 'pt' ? 'Definições guardadas com sucesso.' : 'Settings saved successfully.');
   });
-  clear?.addEventListener('click',()=>{if(!confirm('Clear Nexauren history, usage and activity stored on this device?'))return;['nexauren_history','nexauren_usage','nexauren_activity'].forEach(k=>{try{localStorage.removeItem(k)}catch{}});show('Local history, usage and activity were cleared.')});
+
+  clear?.addEventListener('click', () => {
+    if (!confirm('Clear Nexauren history, usage and activity stored on this device?')) return;
+    ['nexauren_history', 'nexauren_usage', 'nexauren_activity'].forEach(key => { try { localStorage.removeItem(key); } catch {} });
+    show('Local history, usage and activity were cleared.');
+  });
 })();
