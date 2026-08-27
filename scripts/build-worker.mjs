@@ -71,6 +71,33 @@ async function adminNotificationDelete(r, e) {
   return json({ success: true }, 200, cors(r));
 }
 
+async function adminUserDetails(r, e) {
+  if (!await isAdmin(r, e)) return json({ error: 'Forbidden' }, 403, cors(r));
+  const parts = new URL(r.url).pathname.split('/');
+  const id = clean(parts[parts.length - 1]);
+  if (!id) return json({ error: 'User id required.' }, 400, cors(r));
+  const user = await e.DB.prepare(
+    'SELECT id,email,username,created_at,updated_at FROM users WHERE id=?1 LIMIT 1'
+  ).bind(id).first();
+  if (!user) return json({ error: 'User not found.' }, 404, cors(r));
+  const [progress, sessions] = await Promise.all([
+    e.DB.prepare(
+      'SELECT xp,level,updated_at FROM user_progress WHERE user_id=?1 LIMIT 1'
+    ).bind(id).first(),
+    e.DB.prepare(
+      'SELECT COUNT(*) AS total,MAX(created_at) AS last_access FROM sessions WHERE user_id=?1 AND expires_at>?2'
+    ).bind(id, Math.floor(Date.now() / 1000)).first(),
+  ]);
+  return json({
+    user,
+    progress: progress || { xp: 0, level: 1 },
+    sessions: {
+      active: Number(sessions?.total || 0),
+      last_access: sessions?.last_access || null,
+    },
+  }, 200, cors(r));
+}
+
 async function adminUserRevokeSessions(r, e) {
   if (!await isAdmin(r, e)) return json({ error: 'Forbidden' }, 403, cors(r));
   const id = clean(new URL(r.url).pathname.split('/').slice(-2, -1)[0]);
@@ -133,6 +160,9 @@ if (!sourceCode.includes("u.pathname === '/api/admin/notifications'")) {
 
 if (!sourceCode.includes('adminUserRevokeSessions(')) {
   const userRouteBlock = `
+        if (u.pathname.startsWith('/api/admin/users/') && u.pathname.endsWith('/details') && r.method === 'GET') {
+          return adminUserDetails(r, e);
+        }
         if (u.pathname.startsWith('/api/admin/users/') && u.pathname.endsWith('/revoke-sessions') && r.method === 'POST') {
           return adminUserRevokeSessions(r, e);
         }
