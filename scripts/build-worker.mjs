@@ -5,19 +5,141 @@ const source = new URL('../worker.js', import.meta.url);
 const outputDir = new URL('../.worker-build/', import.meta.url);
 const output = new URL('../.worker-build/worker.js', import.meta.url);
 
-const sourceCode = await readFile(source, 'utf8');
+let sourceCode = await readFile(source, 'utf8');
 
 if (!sourceCode.trim()) {
   throw new Error('[worker-check] worker.js is empty. Deployment stopped.');
 }
 
-// Keep the production source untouched. The build step only copies the
-// current Worker into the deployment artifact and validates its syntax.
-// Do not guess, rewrite, or replace Worker routes during CI.
-const buildCode = sourceCode;
+// Build-time additive patch for the Admin Notifications API.
+// The production source remains untouched; this only adds the missing API
+// to the deployment artifact. Existing Worker code/routes are preserved.
+const notificationFunctions = `
+
+async function adminNotifications(r, e) {
+  if (!await isAdmin(r, e)) {
+    return json({ error: 'Forbidden' }, 403, cors(r));
+  }
+
+  const u = new URL(r.url);
+  const page = Math.max(1, Number(u.searchParams.get('page')) || 1);
+  const limit = Math.max(1, Math.min(100, Number(u.searchParams.get('limit')) || 25));
+  const offset = (page - 1) * limit;
+  const q = clean(u.searchParams.get('q'));
+  const type = clean(u.searchParams.get('type'));
+  const conditions = [];
+  const args = [];
+
+  if (q) {
+    const value = '%' + q + '%';
+    conditions.push('(n.title LIKE ? OR n.body LIKE ? OR n.type LIKE ?)');
+    args.push(value, value, value);
+  }
+  if (type) {
+    conditions.push('n.type = ?');
+    args.push(type);
+  }
+
+  const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+  const total = await e.DB.prepare(
+    'SELECT COUNT(*) AS total FROM notifications n' + where,
+  ).bind(...args).first();
+  const unread = await e.DB.prepare(
+    'SELECT COUNT(*) AS total FROM notifications WHERE read_at IS NULL',
+  ).first();
+  const announcements = await e.DB.prepare(
+    "SELECT COUNT(*) AS total FROM notifications WHERE type='announcement'",
+  ).first();
+
+  const rows = await e.DB.prepare(
+    'SELECT n.id,n.user_id,n.type,n.title,n.body,n.url,n.icon,n.read_at,n.created_at,' +
+      'u.username,u.email FROM notifications n LEFT JOIN users u ON u.id=n.user_id' +
+      where + ' ORDER BY n.created_at DESC LIMIT ? OFFSET ?',
+  ).bind(...args, limit, offset).all();
+
+  return json({
+    page,
+    limit,
+    total: Number(total?.total || 0),
+    unread: Number(unread?.total || 0),
+    announcements: Number(announcements?.total || 0),
+    notifications: rows?.results || [],
+  }, 200, cors(r));
+}
+
+async function adminNotificationUpdate(r, e) {
+  if (!await isAdmin(r, e)) {
+    return json({ error: 'Forbidden' }, 403, cors(r));
+  }
+
+  const id = clean(new URL(r.url).pathname.split('/').pop());
+  if (!id) return json({ error: 'Notification id required.' }, 400, cors(r));
+  const d = await body(r);
+  const sets = [];
+  const args = [];
+
+  if (d?.type !== undefined) { sets.push('type=?'); args.push(clean(d.type).slice(0, 80)); }
+  if (d?.title !== undefined) { sets.push('title=?'); args.push(clean(d.title).slice(0, 160)); }
+  if (d?.body !== undefined) { sets.push('body=?'); args.push(clean(d.body).slice(0, 2000)); }
+  if (d?.url !== undefined) { sets.push('url=?'); args.push(clean(d.url).slice(0, 500)); }
+  if (d?.icon !== undefined) { sets.push('icon=?'); args.push(clean(d.icon).slice(0, 40)); }
+  if (d?.read_at !== undefined) { sets.push('read_at=?'); args.push(d.read_at === null ? null : clean(d.read_at)); }
+
+  if (!sets.length) return json({ error: 'No fields to update.' }, 400, cors(r));
+  args.push(id);
+  await e.DB.prepare('UPDATE notifications SET ' + sets.join(',') + ' WHERE id=?').bind(...args).run();
+  return json({ success: true }, 200, cors(r));
+}
+
+async function adminNotificationDelete(r, e) {
+  if (!await isAdmin(r, e)) {
+    return json({ error: 'Forbidden' }, 403, cors(r));
+  }
+
+  const id = clean(new URL(r.url).pathname.split('/').pop());
+  if (!id) return json({ error: 'Notification id required.' }, 400, cors(r));
+  await e.DB.prepare('DELETE FROM notifications WHERE id=?').bind(id).run();
+  return json({ success: true }, 200, cors(r));
+}
+`;
+
+if (!sourceCode.includes('async function adminNotifications(')) {
+  const marker = 'async function enhanceHTML(response,request){';
+  if (!sourceCode.includes(marker)) {
+    throw new Error('[worker-check] Worker structure changed: enhanceHTML marker not found. Deployment stopped.');
+  }
+  sourceCode = sourceCode.replace(marker, notificationFunctions + '\n' + marker, 1);
+}
+
+// Add the dispatcher routes immediately before the existing HTML fallback.
+if (!sourceCode.includes("u.pathname==='/api/admin/notifications'")) {
+  const routeBlock = `
+  if (u.pathname === '/api/admin/notifications' && r.method === 'GET') {
+    return adminNotifications(r, e);
+  }
+  if (u.pathname.startsWith('/api/admin/notifications/') && r.method === 'PUT') {
+    return adminNotificationUpdate(r, e);
+  }
+  if (u.pathname.startsWith('/api/admin/notifications/') && r.method === 'DELETE') {
+    return adminNotificationDelete(r, e);
+  }
+`;
+
+  const fallbackMarkers = [
+    'return enhanceHTML(response,request);',
+    'return enhanceHTML(response, request);',
+    'return enhanceHTML(response, r);',
+    'return enhanceHTML(response,r);',
+  ];
+  const fallback = fallbackMarkers.find((m) => sourceCode.includes(m));
+  if (!fallback) {
+    throw new Error('[worker-check] Worker structure changed: HTML fallback marker not found. Deployment stopped.');
+  }
+  sourceCode = sourceCode.replace(fallback, routeBlock + '\n  ' + fallback, 1);
+}
 
 await mkdir(outputDir, { recursive: true });
-await writeFile(output, buildCode, 'utf8');
+await writeFile(output, sourceCode, 'utf8');
 
 try {
   execFileSync(process.execPath, ['--check', output.pathname], { stdio: 'inherit' });
@@ -26,6 +148,7 @@ try {
 }
 
 console.log('[worker-check] Source inspected.');
-console.log('[worker-check] No Worker code was rewritten during build.');
+console.log('[worker-check] Admin Notifications API added to deployment artifact.');
+console.log('[worker-check] Existing Worker source/routes preserved.');
 console.log('[worker-check] JavaScript syntax check passed.');
 console.log(`[worker-check] Deploy artifact: ${output.pathname}`);
