@@ -72,7 +72,7 @@ async function adminUserDetails(r, e) {
 }
 
 async function adminUserRevokeSessions(r,e) {
-  if (!await isAdmin(r,e)) return json({error:'Forbidden'},403,cors(r));
+  if(!await isAdmin(r,e))return json({error:'Forbidden'},403,cors(r));
   const id=clean(new URL(r.url).pathname.split('/').slice(-2,-1)[0]); if(!id)return json({error:'User id required.'},400,cors(r));
   const user=await e.DB.prepare('SELECT id,email,username FROM users WHERE id=?1 LIMIT 1').bind(id).first(); if(!user)return json({error:'User not found.'},404,cors(r));
   const admin=await isAdmin(r,e); if(admin&&String(admin.id)===String(id))return json({error:'You cannot revoke your own admin session.'},400,cors(r));
@@ -115,9 +115,17 @@ if(!sourceCode.includes("u.pathname.endsWith('/revoke-sessions')")){
 
 await mkdir(outputDir,{recursive:true});
 await writeFile(output,sourceCode,'utf8');
+
+// The Users edit/block/unblock extension must run as part of every production
+// build. Previously it existed as a separate script but was never invoked by
+// the actual Wrangler build command, so the UI could expose actions whose API
+// routes were absent from the deployed Worker.
+execFileSync(process.execPath,[new URL('./extend-admin-users.mjs', import.meta.url).pathname],{stdio:'inherit'});
+
 try{execFileSync(process.execPath,['--check',output.pathname],{stdio:'inherit'})}catch{throw new Error('[worker-check] Generated worker failed JavaScript syntax validation. Deployment stopped.')}
 console.log('[worker-check] Source inspected.');
 console.log('[worker-check] Admin Notifications and User Actions API added to deployment artifact.');
+console.log('[worker-check] Admin Users edit/block/unblock extension included in deployment artifact.');
 console.log('[worker-check] Existing Worker source/routes preserved.');
 console.log('[worker-check] JavaScript syntax check passed.');
 console.log(`[worker-check] Deploy artifact: ${output.pathname}`);
