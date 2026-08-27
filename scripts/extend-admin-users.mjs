@@ -66,27 +66,35 @@ if (!source.includes('async function ensureAdminUserState(')) {
   source = source.replace(marker, functions + '\n$&', 1);
 }
 
+// These routes must run before the existing generic admin routing. The previous
+// implementation appended them near the admin fallback, which allowed the
+// existing /api/admin/* handler to return "Admin route not found" first.
 const routes = `
-        if (u.pathname.startsWith('/api/admin/users/') && u.pathname.endsWith('/edit') && r.method === 'PUT') {
-          return adminUserEdit(r, e);
+      {
+        const __adminUsersUrl = new URL(r.url);
+        if (__adminUsersUrl.pathname.startsWith('/api/admin/users/')) {
+          if (__adminUsersUrl.pathname.endsWith('/edit') && r.method === 'PUT') {
+            return adminUserEdit(r, e);
+          }
+          if (__adminUsersUrl.pathname.endsWith('/block') && r.method === 'POST') {
+            return adminUserBlock(r, e);
+          }
+          if (__adminUsersUrl.pathname.endsWith('/unblock') && r.method === 'POST') {
+            return adminUserUnblock(r, e);
+          }
         }
-        if (u.pathname.startsWith('/api/admin/users/') && u.pathname.endsWith('/block') && r.method === 'POST') {
-          return adminUserBlock(r, e);
-        }
-        if (u.pathname.startsWith('/api/admin/users/') && u.pathname.endsWith('/unblock') && r.method === 'POST') {
-          return adminUserUnblock(r, e);
-        }
+      }
 `;
-if (!source.includes("u.pathname.endsWith('/edit')")) {
-  const fallback = /\s*return\s+json\(\s*\{\s*error:\s*'Admin route not found\.'\s*\},\s*404,\s*cors\(r\),\s*\);/;
-  if (!fallback.test(source)) throw new Error('[worker-check] Admin route fallback missing.');
-  source = source.replace(fallback, routes + '\n        $&', 1);
+if (!source.includes('__adminUsersUrl')) {
+  const fetchStart = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{/;
+  if (!fetchStart.test(source)) throw new Error('[worker-check] fetch(r, e) marker missing.');
+  source = source.replace(fetchStart, '$&\n' + routes, 1);
 }
 
 if (!source.includes("admin_user_blocks")) throw new Error('[worker-check] Admin user state injection failed.');
 
 const loginMarker = /async\s+function\s+login\(r,\s*e\)\s*\{\n/;
-if (!source.includes('const blocked = await e.DB.prepare')) {
+if (!source.includes('const blocked = u ? await e.DB.prepare')) {
   if (!loginMarker.test(source)) throw new Error('[worker-check] login marker missing.');
   const loginPatch = `async function login(r, e) {\n  await ensureAdminUserState(e);\n`;
   source = source.replace(loginMarker, loginPatch, 1);
@@ -109,9 +117,9 @@ const assetRoute = `
       }
 `;
 if (!source.includes('/admin/users/actions.js?v=1')) {
-  const fetchMarker = /\n    try \{\n/;
+  const fetchMarker = /\n    try \{/;
   if (!fetchMarker.test(source)) throw new Error('[worker-check] fetch marker missing.');
-  source = source.replace(fetchMarker, '\n' + assetRoute + '\n    try {\n', 1);
+  source = source.replace(fetchMarker, '\n' + assetRoute + '\n    try {', 1);
 }
 
 await writeFile(output, source, 'utf8');
