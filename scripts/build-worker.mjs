@@ -73,11 +73,13 @@ async function adminNotificationDelete(r, e) {
 `;
 
 if (!sourceCode.includes('async function adminNotifications(')) {
-  const marker = 'async function enhanceHTML(response,request){';
-  if (!sourceCode.includes(marker)) {
-    throw new Error('[worker-check] Worker structure changed: enhanceHTML marker not found. Deployment stopped.');
+  // Match enhanceHTML regardless of spacing or line breaks so harmless
+  // formatting changes in worker.js do not break deployments.
+  const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
+  if (!marker.test(sourceCode)) {
+    throw new Error('[worker-check] Worker structure changed: enhanceHTML function not found. Deployment stopped.');
   }
-  sourceCode = sourceCode.replace(marker, notificationFunctions + '\n' + marker, 1);
+  sourceCode = sourceCode.replace(marker, notificationFunctions + '\n$&', 1);
 }
 
 if (!sourceCode.includes("u.pathname === '/api/admin/notifications'")) {
