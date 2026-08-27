@@ -1,6 +1,73 @@
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm';
-env.allowLocalModels=false;env.useBrowserCache=true;
-let pipe=null;
-async function load(device){const options={device,dtype:device==='webgpu'?'fp32':'q8',progress_callback:p=>postMessage({type:'model-progress',progress:p?.progress??0,status:p?.status??''})};pipe=await pipeline('background-removal','briaai/RMBG-1.4',options)}
-async function ensurePipe(){if(pipe)return;if(self.navigator?.gpu){try{await load('webgpu');postMessage({type:'ready',device:'webgpu'});return}catch(e){postMessage({type:'fallback',message:'WebGPU unavailable; switching to WASM.'})}}await load('wasm');postMessage({type:'ready',device:'wasm'})}
-self.onmessage=async e=>{const msg=e.data||{};if(msg.type!=='remove'||!msg.image)return;try{await ensurePipe();postMessage({type:'progress',progress:5,status:'Preparing image…'});const out=await pipe(msg.image,{subtask:'foreground-extraction'});const image=Array.isArray(out)?out[0]:out;if(!image?.data||!image.width||!image.height)throw new Error('No foreground image returned.');const data=image.data instanceof Uint8ClampedArray?image.data:new Uint8ClampedArray(image.data);const copy=new Uint8ClampedArray(data);postMessage({type:'result',width:image.width,height:image.height,channels:image.channels||4,data:copy.buffer},[copy.buffer])}catch(err){postMessage({type:'error',message:err?.message||'Background removal failed.'})}};
+
+env.allowLocalModels = false;
+env.useBrowserCache = true;
+let pipe = null;
+let device = 'wasm';
+
+async function createPipeline(preferred) {
+  const options = {
+    device: preferred,
+    dtype: preferred === 'webgpu' ? 'fp32' : 'q8',
+    progress_callback: p => postMessage({
+      type: 'model-progress',
+      progress: Number(p?.progress || 0),
+      status: p?.status || ''
+    })
+  };
+  // Xenova/modnet is explicitly published for Transformers.js background-removal.
+  return pipeline('background-removal', 'Xenova/modnet', options);
+}
+
+async function ensurePipeline() {
+  if (pipe) return;
+  if (self.navigator?.gpu) {
+    try {
+      pipe = await createPipeline('webgpu');
+      device = 'webgpu';
+      postMessage({ type: 'ready', device });
+      return;
+    } catch (err) {
+      postMessage({ type: 'fallback', message: 'WebGPU failed; using WASM instead.' });
+    }
+  }
+  pipe = await createPipeline('wasm');
+  device = 'wasm';
+  postMessage({ type: 'ready', device });
+}
+
+self.onmessage = async event => {
+  const msg = event.data || {};
+  if (msg.type !== 'remove' || !msg.image) return;
+
+  try {
+    await ensurePipeline();
+    postMessage({ type: 'progress', status: 'Preparing image…' });
+
+    // background-removal accepts Blob/URL/string input and returns RawImage RGBA.
+    const output = await pipe(msg.image);
+    const image = Array.isArray(output) ? output[0] : output;
+    if (!image?.data || !image.width || !image.height) {
+      throw new Error('The background-removal model returned no image.');
+    }
+
+    const data = image.data instanceof Uint8ClampedArray
+      ? image.data
+      : new Uint8ClampedArray(image.data);
+    const copy = new Uint8ClampedArray(data);
+
+    postMessage({
+      type: 'result',
+      width: image.width,
+      height: image.height,
+      channels: image.channels || 4,
+      data: copy.buffer
+    }, [copy.buffer]);
+  } catch (err) {
+    console.error(err);
+    postMessage({
+      type: 'error',
+      message: err?.message || 'Background removal failed.'
+    });
+  }
+};
