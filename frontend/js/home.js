@@ -1,1 +1,152 @@
-(()=>{'use strict';const input=document.querySelector('#tool-search'),grid=document.querySelector('#home-tools'),featuredGrid=document.querySelector('#home-featured'),popularGrid=document.querySelector('#home-popular'),count=document.querySelector('#search-result-count');if(!input||!grid)return;let tools=[],selected=-1;const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();const active=()=>tools.filter(t=>String(t.status||'active').toLowerCase()!=='inactive');const searchable=t=>[t.name,t.description,t.category,t.categoryName,t.slug,t.id,...(Array.isArray(t.tags)?t.tags:[])].map(norm).filter(Boolean);const matches=q=>{const n=norm(q);if(!n)return active();const parts=n.split(/\s+/).filter(Boolean);return active().filter(t=>{const values=searchable(t);return parts.every(part=>values.some(value=>value.includes(part)))})};const icon=t=>{const v=String(t.icon||'').trim();return !v||/^(\/|https?:\/\/|assets\/|\.\.\/|\.\/)/i.test(v)?'🔧':v};const card=t=>`<article class="card tool-card-item"><div class="tool-card-content"><span class="tool-category">${esc(t.categoryName||t.category||'Tool')}</span><div class="tool-card-title-row"><span class="tool-card-icon">${esc(icon(t))}</span><h3>${esc(t.name)}</h3></div><p>${esc(t.description)}</p><a class="card-link" href="${esc(t.url)}" data-tool-id="${esc(t.id)}" data-tool-name="${esc(t.name)}">Open tool →</a></div></article>`;let box=document.querySelector('#tool-search-suggestions');if(!box){box=document.createElement('div');box.id='tool-search-suggestions';box.className='tool-search-suggestions';box.setAttribute('role','listbox');input.parentElement.appendChild(box)}const render=q=>{const found=matches(q);selected=-1;box.innerHTML=found.slice(0,8).map((t,i)=>`<a role="option" id="tool-suggestion-${i}" class="tool-suggestion" href="${esc(t.url)}" data-tool-id="${esc(t.id)}" data-tool-name="${esc(t.name)}"><span class="suggestion-icon">${esc(icon(t))}</span><span><strong>${esc(t.name)}</strong><small>${esc(t.categoryName||t.category||'Tool')}</small></span></a>`).join('');box.hidden=!q.trim()||!found.length;if(count)count.textContent=q.trim()?(found.length?`${found.length} result${found.length===1?'':'s'} found`:'No results'):`${active().length} active tools`;grid.innerHTML=q.trim()?(found.length?found.map(card).join(''):'<div class="empty"><strong>No tools found.</strong><br>Try another name, category or tag.</div>'):active().slice(0,8).map(card).join('')};const select=i=>{const a=[...box.querySelectorAll('.tool-suggestion')];a.forEach(x=>x.classList.remove('selected'));if(a[i]){a[i].classList.add('selected');selected=i;input.setAttribute('aria-activedescendant',`tool-suggestion-${i}`)}};input.setAttribute('aria-controls','tool-search-suggestions');input.setAttribute('aria-autocomplete','list');input.addEventListener('input',e=>render(e.target.value));input.addEventListener('focus',()=>render(input.value));input.addEventListener('keydown',e=>{const a=[...box.querySelectorAll('.tool-suggestion')];if(e.key==='ArrowDown'&&a.length){e.preventDefault();select(Math.min(selected+1,a.length-1))}else if(e.key==='ArrowUp'&&a.length){e.preventDefault();select(Math.max(selected-1,0))}else if(e.key==='Enter'){e.preventDefault();if(selected>=0&&a[selected])location.href=a[selected].href;else if(input.value.trim())location.href='/search/?q='+encodeURIComponent(input.value.trim())}else if(e.key==='Escape'){input.value='';render('');box.hidden=true;input.blur()}});document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))box.hidden=true});fetch('/data/tools.json?v='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject(new Error('Tool registry unavailable'))).then(d=>{tools=Array.isArray(d?.tools)?d.tools.filter(Boolean):[];const live=active();if(featuredGrid)featuredGrid.innerHTML=live.filter(t=>t.featured===true).slice(0,6).map(card).join('')||'<div class="empty">No featured tools yet.</div>';if(popularGrid)popularGrid.innerHTML=live.filter(t=>t.popular===true).slice(0,8).map(card).join('')||'<div class="empty">No popular tools yet.</div>';render(input.value)}).catch(()=>{grid.innerHTML='<div class="empty">Unable to load tools right now. Please refresh the page.</div>';if(featuredGrid)featuredGrid.innerHTML='';if(popularGrid)popularGrid.innerHTML=''})})();
+(() => {
+  'use strict';
+
+  const input = document.querySelector('#tool-search');
+  const grid = document.querySelector('#home-tools');
+  const featuredGrid = document.querySelector('#home-featured');
+  const popularGrid = document.querySelector('#home-popular');
+  const count = document.querySelector('#search-result-count');
+
+  if (!input || !grid) return;
+
+  let tools = [];
+  let selected = -1;
+
+  const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  }[char]));
+
+  const normalize = value => String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+  const isDiscoverable = tool => !['disabled', 'inactive'].includes(
+    String(tool?.status || 'active').toLowerCase()
+  );
+  const discoverableTools = () => tools.filter(isDiscoverable);
+
+  const searchableValues = tool => [
+    tool.name, tool.description, tool.category, tool.categoryName,
+    tool.slug, tool.id, ...(Array.isArray(tool.tags) ? tool.tags : [])
+  ].map(normalize).filter(Boolean);
+
+  const matches = query => {
+    const normalizedQuery = normalize(query);
+    if (!normalizedQuery) return discoverableTools();
+    const parts = normalizedQuery.split(/\s+/).filter(Boolean);
+    return discoverableTools().filter(tool => {
+      const values = searchableValues(tool);
+      return parts.every(part => values.some(value => value.includes(part)));
+    });
+  };
+
+  const toolIcon = tool => {
+    const value = String(tool?.icon || '').trim();
+    return !value || /^(\/|https?:\/\/|assets\/|\.\.\/|\.\/)/i.test(value) ? '🔧' : value;
+  };
+
+  const toolCard = tool => `
+    <article class="card tool-card-item">
+      <div class="tool-card-content">
+        <span class="tool-category">${escapeHTML(tool.categoryName || tool.category || 'Tool')}</span>
+        <div class="tool-card-title-row">
+          <span class="tool-card-icon">${escapeHTML(toolIcon(tool))}</span>
+          <h3>${escapeHTML(tool.name)}</h3>
+        </div>
+        <p>${escapeHTML(tool.description)}</p>
+        <a class="card-link" href="${escapeHTML(tool.url)}" data-tool-id="${escapeHTML(tool.id)}" data-tool-name="${escapeHTML(tool.name)}">Open tool →</a>
+      </div>
+    </article>`;
+
+  let suggestions = document.querySelector('#tool-search-suggestions');
+  if (!suggestions) {
+    suggestions = document.createElement('div');
+    suggestions.id = 'tool-search-suggestions';
+    suggestions.className = 'tool-search-suggestions';
+    suggestions.setAttribute('role', 'listbox');
+    input.parentElement.appendChild(suggestions);
+  }
+
+  const renderSuggestions = query => {
+    const found = matches(query);
+    selected = -1;
+    suggestions.innerHTML = found.slice(0, 8).map((tool, index) => `
+      <a role="option" id="tool-suggestion-${index}" class="tool-suggestion"
+         href="${escapeHTML(tool.url)}" data-tool-id="${escapeHTML(tool.id)}" data-tool-name="${escapeHTML(tool.name)}">
+        <span class="suggestion-icon">${escapeHTML(toolIcon(tool))}</span>
+        <span><strong>${escapeHTML(tool.name)}</strong><small>${escapeHTML(tool.categoryName || tool.category || 'Tool')}</small></span>
+      </a>`).join('');
+
+    suggestions.hidden = !query.trim() || !found.length;
+    if (count) {
+      count.textContent = query.trim()
+        ? (found.length ? `${found.length} result${found.length === 1 ? '' : 's'} found` : 'No results')
+        : `${discoverableTools().length} discoverable tools`;
+    }
+
+    grid.innerHTML = query.trim()
+      ? (found.length ? found.map(toolCard).join('') : '<div class="empty"><strong>No tools found.</strong><br>Try another name, category or tag.</div>')
+      : discoverableTools().slice(0, 8).map(toolCard).join('');
+  };
+
+  const selectSuggestion = index => {
+    const items = [...suggestions.querySelectorAll('.tool-suggestion')];
+    items.forEach(item => item.classList.remove('selected'));
+    if (items[index]) {
+      items[index].classList.add('selected');
+      selected = index;
+      input.setAttribute('aria-activedescendant', `tool-suggestion-${index}`);
+    }
+  };
+
+  input.setAttribute('aria-controls', 'tool-search-suggestions');
+  input.setAttribute('aria-autocomplete', 'list');
+  input.addEventListener('input', event => renderSuggestions(event.target.value));
+  input.addEventListener('focus', () => renderSuggestions(input.value));
+  input.addEventListener('keydown', event => {
+    const items = [...suggestions.querySelectorAll('.tool-suggestion')];
+    if (event.key === 'ArrowDown' && items.length) {
+      event.preventDefault(); selectSuggestion(Math.min(selected + 1, items.length - 1));
+    } else if (event.key === 'ArrowUp' && items.length) {
+      event.preventDefault(); selectSuggestion(Math.max(selected - 1, 0));
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (selected >= 0 && items[selected]) window.location.href = items[selected].href;
+      else if (input.value.trim()) window.location.href = `/search/?q=${encodeURIComponent(input.value.trim())}`;
+    } else if (event.key === 'Escape') {
+      input.value = ''; renderSuggestions(''); suggestions.hidden = true; input.blur();
+    }
+  });
+
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.search-wrap')) suggestions.hidden = true;
+  });
+
+  const registry = window.NexaurenRegistry;
+  if (!registry) {
+    grid.innerHTML = '<div class="empty">Tool registry is unavailable. Please refresh the page.</div>';
+    return;
+  }
+
+  registry.loadTools()
+    .then(loadedTools => {
+      tools = loadedTools;
+      const live = discoverableTools();
+      if (featuredGrid) {
+        featuredGrid.innerHTML = live.filter(tool => tool.featured === true).slice(0, 6).map(toolCard).join('')
+          || '<div class="empty">No featured tools yet.</div>';
+      }
+      if (popularGrid) {
+        popularGrid.innerHTML = live.filter(tool => tool.popular === true).slice(0, 8).map(toolCard).join('')
+          || '<div class="empty">No popular tools yet.</div>';
+      }
+      renderSuggestions(input.value);
+    })
+    .catch(() => {
+      grid.innerHTML = '<div class="empty">Unable to load tools right now. Please refresh the page.</div>';
+      if (featuredGrid) featuredGrid.innerHTML = '';
+      if (popularGrid) popularGrid.innerHTML = '';
+    });
+})();
