@@ -26,8 +26,12 @@
     .toLowerCase()
     .trim();
 
-  const isActive = tool => String(tool?.status || 'active').toLowerCase() !== 'inactive';
-  const activeTools = () => tools.filter(isActive);
+  // Disabled/inactive tools remain in the registry for administration and
+  // future restoration, but must not appear in public discovery surfaces.
+  const isDiscoverable = tool => !['disabled', 'inactive'].includes(
+    String(tool?.status || 'active').toLowerCase()
+  );
+  const discoverableTools = () => tools.filter(isDiscoverable);
 
   const searchableValues = tool => [
     tool.name,
@@ -41,10 +45,10 @@
 
   const matches = query => {
     const normalizedQuery = normalize(query);
-    if (!normalizedQuery) return activeTools();
+    if (!normalizedQuery) return discoverableTools();
 
     const parts = normalizedQuery.split(/\s+/).filter(Boolean);
-    return activeTools().filter(tool => {
+    return discoverableTools().filter(tool => {
       const values = searchableValues(tool);
       return parts.every(part => values.some(value => value.includes(part)));
     });
@@ -97,12 +101,12 @@
     if (count) {
       count.textContent = query.trim()
         ? (found.length ? `${found.length} result${found.length === 1 ? '' : 's'} found` : 'No results')
-        : `${activeTools().length} active tools`;
+        : `${discoverableTools().length} discoverable tools`;
     }
 
     grid.innerHTML = query.trim()
       ? (found.length ? found.map(toolCard).join('') : '<div class="empty"><strong>No tools found.</strong><br>Try another name, category or tag.</div>')
-      : activeTools().slice(0, 8).map(toolCard).join('');
+      : discoverableTools().slice(0, 8).map(toolCard).join('');
   };
 
   const selectSuggestion = index => {
@@ -118,7 +122,6 @@
 
   input.setAttribute('aria-controls', 'tool-search-suggestions');
   input.setAttribute('aria-autocomplete', 'list');
-
   input.addEventListener('input', event => renderSuggestions(event.target.value));
   input.addEventListener('focus', () => renderSuggestions(input.value));
 
@@ -159,7 +162,7 @@
   registry.loadTools()
     .then(loadedTools => {
       tools = loadedTools;
-      const live = activeTools();
+      const live = discoverableTools();
 
       if (featuredGrid) {
         featuredGrid.innerHTML = live.filter(tool => tool.featured === true).slice(0, 6).map(toolCard).join('')
