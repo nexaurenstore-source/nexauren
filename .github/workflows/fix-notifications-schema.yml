@@ -1,0 +1,66 @@
+name: Fix Notifications Schema
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'notifications-entry.js'
+      - '.github/workflows/fix-notifications-schema.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch notification schema migration
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('notifications-entry.js')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('async function schema(env) {')
+          end = text.index('\n}\n\nasync function audit', start) + 2
+          replacement = '''async function schema(env) {
+  const existing = (await env.DB.prepare('PRAGMA table_info(notifications)').all()).results || [];
+  const names = new Set(existing.map((c) => c.name));
+  if (!existing.length) {
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS notifications (id TEXT PRIMARY KEY,title TEXT NOT NULL,message TEXT NOT NULL,type TEXT NOT NULL DEFAULT 'information',priority TEXT NOT NULL DEFAULT 'LOW',status TEXT NOT NULL DEFAULT 'DRAFT',created_by TEXT,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,published_at INTEGER,archived_at INTEGER)").run();
+  } else {
+    const additions = [
+      ['message', 'TEXT'],
+      ['priority', "TEXT NOT NULL DEFAULT 'LOW'"],
+      ['status', "TEXT NOT NULL DEFAULT 'SENT'"],
+      ['created_by', 'TEXT'],
+      ['updated_at', 'INTEGER'],
+      ['published_at', 'INTEGER'],
+      ['archived_at', 'INTEGER'],
+    ];
+    for (const [name, type] of additions) {
+      if (!names.has(name)) await env.DB.prepare(`ALTER TABLE notifications ADD COLUMN ${name} ${type}`).run();
+    }
+    if (names.has('body')) {
+      await env.DB.prepare("UPDATE notifications SET message=COALESCE(NULLIF(message,''),body,'') WHERE message IS NULL OR message='' ").run();
+    }
+    await env.DB.prepare("UPDATE notifications SET priority=COALESCE(priority,'LOW'),status=COALESCE(status,'SENT'),updated_at=COALESCE(updated_at,created_at),published_at=COALESCE(published_at,created_at) WHERE priority IS NULL OR status IS NULL OR updated_at IS NULL OR published_at IS NULL").run();
+  }
+  await env.DB.batch([
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS notification_recipients (notification_id TEXT NOT NULL,user_id TEXT NOT NULL,read_at INTEGER,created_at INTEGER NOT NULL,PRIMARY KEY(notification_id,user_id))"),
+    env.DB.prepare("CREATE TABLE IF NOT EXISTS notification_audit_logs (id TEXT PRIMARY KEY,notification_id TEXT NOT NULL,admin_id TEXT,action TEXT NOT NULL,metadata TEXT,created_at INTEGER NOT NULL)"),
+    env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status,created_at DESC)"),
+    env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_notification_recipients_user ON notification_recipients(user_id,read_at,created_at DESC)"),
+  ]);
+}
+'''
+          path.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet -- notifications-entry.js; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add notifications-entry.js
+          git commit -m 'Migrate legacy notifications table for new system'
+          git push
