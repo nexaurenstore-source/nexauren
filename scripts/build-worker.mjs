@@ -158,8 +158,7 @@ if (!sourceCode.includes("u.pathname === '/api/admin/notifications'")) {
   sourceCode = sourceCode.replace(fallbackPattern, routeBlock + '\n  $&', 1);
 }
 
-if (!sourceCode.includes('adminUserRevokeSessions(')) {
-  const userRouteBlock = `
+const userRouteBlock = `
         if (u.pathname.startsWith('/api/admin/users/') && u.pathname.endsWith('/details') && r.method === 'GET') {
           return adminUserDetails(r, e);
         }
@@ -170,6 +169,8 @@ if (!sourceCode.includes('adminUserRevokeSessions(')) {
           return adminUserPasswordReset(r, e);
         }
 `;
+
+if (!sourceCode.includes("u.pathname.endsWith('/revoke-sessions')")) {
   const adminNotFoundPattern = /\s*return\s+json\(\s*\{\s*error:\s*'Admin route not found\.'\s*\},\s*404,\s*cors\(r\),\s*\);/;
   if (!adminNotFoundPattern.test(sourceCode)) {
     throw new Error('[worker-check] Worker structure changed: Admin route fallback not found. Deployment stopped.');
