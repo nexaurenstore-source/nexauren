@@ -31,6 +31,7 @@ await writeFile(output, sourceCode, 'utf8');
 // The Users extension consumes the generated worker artifact, so it must run after
 // the base worker has been written and before Wrangler packages the artifact.
 execFileSync(process.execPath, [new URL('./extend-admin-users.mjs', import.meta.url).pathname], { stdio: 'inherit' });
+execFileSync(process.execPath, [new URL('./extend-blocked-users.mjs', import.meta.url).pathname], { stdio: 'inherit' });
 
 try {
   execFileSync(process.execPath, ['--check', output.pathname], { stdio: 'inherit' });
@@ -40,6 +41,7 @@ try {
 
 console.log('[worker-check] Source inspected.');
 console.log('[worker-check] Admin Users extension included once in deployment artifact.');
+console.log('[worker-check] Blocked Users extension included once in deployment artifact.');
 console.log('[worker-check] Existing Worker source/routes preserved.');
 console.log('[worker-check] JavaScript syntax check passed.');
 console.log(`[worker-check] Deploy artifact: ${output.pathname}`);
