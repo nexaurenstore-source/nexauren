@@ -1,32 +1,14 @@
 (()=>{'use strict';
-/**
- * Nexauren tool availability/status engine.
- *
- * Supported statuses:
- * active      -> tool can be opened
- * scheduled   -> tool is active until maintenanceAt
- * maintenance -> tool is blocked until availableAt
- * disabled    -> tool is blocked until availableAt (or indefinitely when omitted)
- *
- * Timestamps are absolute milliseconds since epoch. The UI countdown is
- * calculated from Date.now(), so refreshing the page never resets it.
- */
 const STATUS={ACTIVE:'active',SCHEDULED:'scheduled',MAINTENANCE:'maintenance',DISABLED:'disabled'};
 const asTime=v=>{const n=Number(v);return Number.isFinite(n)&&n>0?n:null};
-const getStatus=t=>{
-  const status=String(t?.status||STATUS.ACTIVE).toLowerCase();
-  const maintenanceAt=asTime(t?.maintenanceAt);
-  const availableAt=asTime(t?.availableAt);
-  const now=Date.now();
-  if(status===STATUS.SCHEDULED&&maintenanceAt&&now>=maintenanceAt)return availableAt&&now>=availableAt?STATUS.ACTIVE:STATUS.MAINTENANCE;
-  if((status===STATUS.MAINTENANCE||status===STATUS.DISABLED)&&availableAt&&now>=availableAt)return STATUS.ACTIVE;
-  return Object.values(STATUS).includes(status)?status:STATUS.ACTIVE;
-};
-const formatRemaining=ms=>{if(ms<=0)return '0 seconds';const total=Math.ceil(ms/1000),days=Math.floor(total/86400),hours=Math.floor(total%86400/3600),minutes=Math.floor(total%3600/60),seconds=total%60;const parts=[];if(days)parts.push(`${days} day${days===1?'':'s'}`);if(hours)parts.push(`${hours} hour${hours===1?'':'s'}`);if(minutes)parts.push(`${minutes} minute${minutes===1?'':'s'}`);if(!days&&!hours&&!minutes||seconds)parts.push(`${seconds} second${seconds===1?'':'s'}`);return parts.slice(0,2).join(' ')};
+const getStatus=t=>{const status=String(t?.status||STATUS.ACTIVE).toLowerCase(),maintenanceAt=asTime(t?.maintenanceAt),availableAt=asTime(t?.availableAt),now=Date.now();if(status===STATUS.SCHEDULED&&maintenanceAt&&now>=maintenanceAt)return availableAt&&now>=availableAt?STATUS.ACTIVE:STATUS.MAINTENANCE;if((status===STATUS.MAINTENANCE||status===STATUS.DISABLED)&&availableAt&&now>=availableAt)return STATUS.ACTIVE;return Object.values(STATUS).includes(status)?status:STATUS.ACTIVE};
+const formatRemaining=ms=>{if(ms<=0)return '0 seconds';const total=Math.ceil(ms/1000),days=Math.floor(total/86400),hours=Math.floor(total%86400/3600),minutes=Math.floor(total%3600/60),seconds=total%60,parts=[];if(days)parts.push(`${days} day${days===1?'':'s'}`);if(hours)parts.push(`${hours} hour${hours===1?'':'s'}`);if(minutes)parts.push(`${minutes} minute${minutes===1?'':'s'}`);if((!days&&!hours&&!minutes)||seconds)parts.push(`${seconds} second${seconds===1?'':'s'}`);return parts.slice(0,2).join(' ')};
 const getInfo=t=>{const status=getStatus(t),maintenanceAt=asTime(t?.maintenanceAt),availableAt=asTime(t?.availableAt);if(status===STATUS.SCHEDULED&&maintenanceAt)return{status,message:`This tool will be under maintenance in ${formatRemaining(maintenanceAt-Date.now())}.`,blocked:false,target:maintenanceAt};if(status===STATUS.MAINTENANCE)return{status,message:availableAt?`Under maintenance — ${formatRemaining(availableAt-Date.now())} remaining.`:'Under maintenance',blocked:true,target:availableAt};if(status===STATUS.DISABLED)return{status,message:availableAt?`Disabled — ${formatRemaining(availableAt-Date.now())} remaining.`:'Disabled',blocked:true,target:availableAt};return{status:STATUS.ACTIVE,message:'',blocked:false,target:null}};
-const decorate=(root=document)=>{root.querySelectorAll('[data-tool-status]').forEach(el=>{let raw={};try{raw=JSON.parse(el.dataset.toolStatus||'{}')}catch{}const info=getInfo(raw);el.dataset.status=info.status;el.classList.toggle('is-blocked',info.blocked);el.textContent=info.message;el.hidden=!info.message});root.querySelectorAll('[data-tool-open]').forEach(btn=>{let raw={};try{raw=JSON.parse(btn.dataset.toolOpen||'{}')}catch{}const info=getInfo(raw);btn.disabled=info.blocked;btn.dataset.status=info.status;btn.textContent=info.blocked?(info.status===STATUS.MAINTENANCE?'Under maintenance':'Disabled'):'Open Tool';});};
-const canOpen=t=>!getInfo(t).blocked;
-const start=()=>{decorate();setInterval(decorate,1000);document.addEventListener('click',e=>{const link=e.target.closest?.('[data-tool-url]');if(!link)return;let raw={};try{raw=JSON.parse(link.dataset.toolUrl||'{}')}catch{}if(!canOpen(raw)){e.preventDefault();e.stopPropagation();}});};
-window.NexaurenToolStatus={STATUS,getStatus,getInfo,formatRemaining,canOpen,decorate};
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+let registry=[];
+const json=v=>{try{return JSON.parse(v||'{}')}catch{return{}}};
+const infoForLink=link=>{const id=link.dataset.toolId;const href=link.getAttribute('href');return registry.find(t=>(id&&String(t.id)===String(id))||(href&&String(t.url)===href))};
+const decorate=()=>{document.querySelectorAll('a[href],button').forEach(el=>{const t=infoForLink(el);if(!t)return;const info=getInfo(t);el.dataset.toolUrl=JSON.stringify(t);el.dataset.toolStatus=info.status;el.classList.toggle('tool-status-blocked',info.blocked);if(el.tagName==='A'){if(!el.dataset.originalText)el.dataset.originalText=el.textContent.trim();el.setAttribute('aria-disabled',String(info.blocked));if(info.blocked)el.removeAttribute('href');else if(!el.getAttribute('href')&&t.url)el.setAttribute('href',t.url)}if(!el.nextElementSibling?.matches?.('.tool-status-message')){const s=document.createElement('span');s.className='tool-status-message';s.setAttribute('aria-live','polite');el.insertAdjacentElement('afterend',s)}const s=el.nextElementSibling?.matches?.('.tool-status-message')?el.nextElementSibling:null;if(s){s.textContent=info.message;s.hidden=!info.message;s.dataset.status=info.status}})};
+const start=async()=>{try{const r=await fetch('/data/tools.json?v='+Date.now(),{cache:'no-store'});const d=await r.json();registry=Array.isArray(d?.tools)?d.tools:[]}catch{registry=[]}decorate();setInterval(decorate,1000);new MutationObserver(()=>decorate()).observe(document.body,{childList:true,subtree:true});document.addEventListener('click',e=>{const link=e.target.closest?.('[data-tool-url]');if(!link)return;const t=json(link.dataset.toolUrl),info=getInfo(t);if(info.blocked){e.preventDefault();e.stopImmediatePropagation();}} ,true)};
+window.NexaurenToolStatus={STATUS,getStatus,getInfo,formatRemaining,canOpen:t=>!getInfo(t).blocked,decorate};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
