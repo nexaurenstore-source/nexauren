@@ -13,25 +13,28 @@
   };
 
   const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
   }[char]));
+
+  const isDiscoverable = tool => !['disabled', 'inactive'].includes(
+    String(tool?.status || 'active').toLowerCase()
+  );
 
   const render = (categories, tools) => {
     const counts = new Map();
 
     (Array.isArray(tools) ? tools : []).forEach(tool => {
-      if (!tool || String(tool.status || 'active').toLowerCase() === 'inactive') return;
+      if (!tool || !isDiscoverable(tool)) return;
       const id = String(tool.category || '').trim().toLowerCase();
       if (id) counts.set(id, (counts.get(id) || 0) + 1);
     });
 
     const ordered = (Array.isArray(categories) ? categories : [])
       .filter(category => category?.id)
-      .map(category => ({ ...category, count: counts.get(String(category.id).toLowerCase()) || 0 }))
+      .map(category => ({
+        ...category,
+        count: counts.get(String(category.id).toLowerCase()) || 0
+      }))
       .sort((a, b) => (Number(a.order) || 99) - (Number(b.order) || 99));
 
     if (!ordered.length) {
