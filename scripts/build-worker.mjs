@@ -70,11 +70,47 @@ async function adminNotificationDelete(r, e) {
   await e.DB.prepare('DELETE FROM notifications WHERE id=?').bind(id).run();
   return json({ success: true }, 200, cors(r));
 }
+
+async function adminUserRevokeSessions(r, e) {
+  if (!await isAdmin(r, e)) return json({ error: 'Forbidden' }, 403, cors(r));
+  const id = clean(new URL(r.url).pathname.split('/').slice(-2, -1)[0]);
+  if (!id) return json({ error: 'User id required.' }, 400, cors(r));
+  const user = await e.DB.prepare('SELECT id,email,username FROM users WHERE id=?1 LIMIT 1').bind(id).first();
+  if (!user) return json({ error: 'User not found.' }, 404, cors(r));
+  const admin = await isAdmin(r, e);
+  if (admin && String(admin.id) === String(id)) return json({ error: 'You cannot revoke your own admin session.' }, 400, cors(r));
+  await e.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(id).run();
+  return json({ success: true, message: 'All sessions revoked.' }, 200, cors(r));
+}
+
+async function adminUserPasswordReset(r, e) {
+  if (!await isAdmin(r, e)) return json({ error: 'Forbidden' }, 403, cors(r));
+  const id = clean(new URL(r.url).pathname.split('/').slice(-2, -1)[0]);
+  if (!id) return json({ error: 'User id required.' }, 400, cors(r));
+  const admin = await isAdmin(r, e);
+  if (admin && String(admin.id) === String(id)) return json({ error: 'Use the normal password reset for your own account.' }, 400, cors(r));
+  const user = await e.DB.prepare('SELECT id,email,username FROM users WHERE id=?1 LIMIT 1').bind(id).first();
+  if (!user) return json({ error: 'User not found.' }, 404, cors(r));
+  if (typeof ensurePasswordResetSchema !== 'function' || typeof sendPasswordResetEmail !== 'function') return json({ error: 'Password reset service unavailable.' }, 503, cors(r));
+  await ensurePasswordResetSchema(e);
+  const now = Math.floor(Date.now() / 1000);
+  await e.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?1 OR expires_at<=?2').bind(id, now).run();
+  const token = crypto.randomUUID() + crypto.randomUUID();
+  const tokenHash = await sha256(token);
+  await e.DB.prepare('INSERT INTO password_reset_tokens (id,user_id,token_hash,expires_at,created_at,used_at) VALUES (?1,?2,?3,?4,?5,NULL)').bind(uuid(), id, tokenHash, now + 1800, now).run();
+  try {
+    await sendPasswordResetEmail(e, user.email, token);
+  } catch (err) {
+    console.error('Admin password reset email failed', err);
+    await e.DB.prepare('DELETE FROM password_reset_tokens WHERE token_hash=?1').bind(tokenHash).run();
+    return json({ error: 'Unable to send the reset email right now.' }, 503, cors(r));
+  }
+  await e.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(id).run();
+  return json({ success: true, message: 'Password reset email sent.' }, 200, cors(r));
+}
 `;
 
 if (!sourceCode.includes('async function adminNotifications(')) {
-  // Match enhanceHTML regardless of spacing or line breaks so harmless
-  // formatting changes in worker.js do not break deployments.
   const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
   if (!marker.test(sourceCode)) {
     throw new Error('[worker-check] Worker structure changed: enhanceHTML function not found. Deployment stopped.');
@@ -88,15 +124,27 @@ if (!sourceCode.includes("u.pathname === '/api/admin/notifications'")) {
   if (u.pathname.startsWith('/api/admin/notifications/') && r.method === 'PUT') return adminNotificationUpdate(r, e);
   if (u.pathname.startsWith('/api/admin/notifications/') && r.method === 'DELETE') return adminNotificationDelete(r, e);
 `;
-
-  // Insert immediately before the existing HTML response fallback. This is
-  // intentionally pattern-based so unrelated Admin routes do not need to be
-  // rewritten or have a hard-coded Tools signature.
   const fallbackPattern = /\breturn\s+(?:await\s+)?enhanceHTML\s*\([^;]*\)\s*;/;
   if (!fallbackPattern.test(sourceCode)) {
     throw new Error('[worker-check] Worker structure changed: enhanceHTML response fallback not found. Deployment stopped.');
   }
   sourceCode = sourceCode.replace(fallbackPattern, routeBlock + '\n  $&', 1);
+}
+
+if (!sourceCode.includes('adminUserRevokeSessions(')) {
+  const userRouteBlock = `
+        if (u.pathname.startsWith('/api/admin/users/') && u.pathname.endsWith('/revoke-sessions') && r.method === 'POST') {
+          return adminUserRevokeSessions(r, e);
+        }
+        if (u.pathname.startsWith('/api/admin/users/') && u.pathname.endsWith('/reset-password') && r.method === 'POST') {
+          return adminUserPasswordReset(r, e);
+        }
+`;
+  const adminNotFoundPattern = /\s*return\s+json\(\s*\{\s*error:\s*'Admin route not found\.'\s*\},\s*404,\s*cors\(r\),\s*\);/;
+  if (!adminNotFoundPattern.test(sourceCode)) {
+    throw new Error('[worker-check] Worker structure changed: Admin route fallback not found. Deployment stopped.');
+  }
+  sourceCode = sourceCode.replace(adminNotFoundPattern, userRouteBlock + '\n        $&', 1);
 }
 
 await mkdir(outputDir, { recursive: true });
@@ -109,7 +157,7 @@ try {
 }
 
 console.log('[worker-check] Source inspected.');
-console.log('[worker-check] Admin Notifications API added to deployment artifact.');
+console.log('[worker-check] Admin Notifications and User Actions API added to deployment artifact.');
 console.log('[worker-check] Existing Worker source/routes preserved.');
 console.log('[worker-check] JavaScript syntax check passed.');
 console.log(`[worker-check] Deploy artifact: ${output.pathname}`);
