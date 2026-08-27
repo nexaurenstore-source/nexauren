@@ -1,0 +1,4 @@
+.worker-build/
+.wrangler/
+.dev.vars*
+!.dev.vars.example
