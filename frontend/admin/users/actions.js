@@ -1,22 +1,84 @@
 (() => {
   const root = document.getElementById('rows');
   if (!root) return;
+
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const toast = msg => { const el=document.getElementById('toast'); if(!el)return; el.textContent=msg; el.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('show'),3500); };
   const action = async (id,path,options={}) => { const r=await fetch('/api/admin/users/'+encodeURIComponent(id)+'/'+path,{method:options.method||'POST',credentials:'include',cache:'no-store',headers:{'Content-Type':'application/json',Accept:'application/json'},body:options.body?JSON.stringify(options.body):undefined}); const d=await r.json().catch(()=>({})); if(!r.ok)throw new Error(d.error||'Action failed ('+r.status+').'); return d; };
   let currentAdminId = null;
   let currentAdminEmail = null;
-  function injectStyle(){if(document.getElementById('admin-user-actions-style'))return;const s=document.createElement('style');s.id='admin-user-actions-style';s.textContent='.user-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.user-action-btn{display:inline-flex;align-items:center;border:1px solid #33415f;background:#17233b;color:#f7f9ff;border-radius:9px;padding:7px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}.user-action-btn:hover{border-color:#7ea7ff;background:#20304f;color:#fff}.user-action-btn.danger{border-color:rgba(245,107,181,.35)}.self-protected{display:inline-flex;align-items:center;border:1px solid #33415f;background:#121c31;color:#aebbd0;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:800}.user-menu{position:relative}.user-menu-panel{display:none;position:absolute;right:0;top:calc(100% + 6px);min-width:190px;background:#111b31;border:1px solid #33415f;border-radius:12px;box-shadow:0 18px 45px rgba(0,0,0,.35);padding:6px;z-index:30}.user-menu.open .user-menu-panel{display:block}.user-menu-item{display:block;width:100%;border:0;background:transparent;color:#e8eefb;text-align:left;padding:10px 11px;border-radius:8px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.user-menu-item:hover{background:#1d2a46;color:#fff}';document.head.appendChild(s);}
+
+  function injectStyle(){
+    if(document.getElementById('admin-user-actions-style'))return;
+    const s=document.createElement('style');s.id='admin-user-actions-style';
+    s.textContent='.user-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.user-action-btn{display:inline-flex;align-items:center;border:1px solid #33415f;background:#17233b;color:#f7f9ff;border-radius:9px;padding:7px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}.user-action-btn:hover{border-color:#7ea7ff;background:#20304f;color:#fff}.self-protected{display:inline-flex;align-items:center;border:1px solid #33415f;background:#121c31;color:#aebbd0;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:800}.user-menu{position:relative}.user-menu-panel{display:none;position:absolute;right:0;top:calc(100% + 6px);min-width:210px;background:#111b31;border:1px solid #33415f;border-radius:12px;box-shadow:0 18px 45px rgba(0,0,0,.35);padding:6px;z-index:30}.user-menu.open .user-menu-panel{display:block}.user-menu-item{display:block;width:100%;border:0;background:transparent;color:#e8eefb;text-align:left;padding:10px 11px;border-radius:8px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}.user-menu-item:hover{background:#1d2a46;color:#fff}';
+    document.head.appendChild(s);
+  }
+
   function rowId(row){return row?.dataset.userId||row?.querySelector('[data-id]')?.dataset.id||row?.querySelector('small')?.textContent?.trim()||'';}
-  function isOwnRow(row){if(!row)return false;const id=rowId(row);const email=row.cells?.[1]?.textContent?.trim().toLowerCase()||'';return (!!currentAdminId&&id===String(currentAdminId))|| (!!currentAdminEmail&&email===currentAdminEmail);}
+  function isOwnRow(row){
+    if(!row)return false;
+    const id=rowId(row);
+    const email=row.cells?.[1]?.textContent?.trim().toLowerCase()||'';
+    return (!!currentAdminId&&id===String(currentAdminId)) || (!!currentAdminEmail&&email===currentAdminEmail);
+  }
   function rowValues(id){const row=[...root.querySelectorAll('tr')].find(r=>rowId(r)===id);if(!row)return{username:'',xp:0,level:1};const cells=row.querySelectorAll('td');return{username:cells[0]?.querySelector('strong')?.textContent?.trim()||'',xp:Number((cells[3]?.textContent||'0').replace(/[^0-9.-]/g,''))||0,level:Number((cells[4]?.textContent||'1').replace(/[^0-9.-]/g,''))||1};}
-  function protectOwnRow(row){if(!isOwnRow(row))return false;row.dataset.self='1';const cell=row.cells?.[6];if(cell)cell.innerHTML='<span class="self-protected" title="Your administrator account is protected">🔐 Protected</span>';return true;}
-  function addControls(){injectStyle();root.querySelectorAll('tr').forEach(row=>{if(!row.cells||row.cells.length<7)return;if(protectOwnRow(row))return;const cell=row.cells[6];if(!cell||cell.querySelector('[data-user-actions]'))return;const id=rowId(row);if(!id)return;cell.innerHTML='<div class="user-actions" data-user-actions><a class="user-action-btn" href="/admin/users/'+encodeURIComponent(id)+'/">View</a><div class="user-menu"><button class="user-action-btn" type="button" data-user-menu>Actions ▾</button><div class="user-menu-panel"><button class="user-menu-item" type="button" data-extra-action="edit" data-id="'+esc(id)+'">Edit user</button><button class="user-menu-item" type="button" data-extra-action="block" data-id="'+esc(id)+'">Temporary block</button><button class="user-menu-item" type="button" data-extra-action="delete" data-id="'+esc(id)+'">Delete permanently</button></div></div></div>';});}
-  async function loadCurrentAdmin(){try{const r=await fetch('/api/me',{credentials:'include',cache:'no-store',headers:{Accept:'application/json'}});const d=await r.json().catch(()=>({}));const u=d?.user||d;currentAdminId=u?.id||null;currentAdminEmail=String(u?.email||'').trim().toLowerCase()||null;}catch{}addControls();}
-  async function editUser(id){if(currentAdminId&&String(id)===String(currentAdminId)){toast('Your administrator account is protected.');return;}try{const current=rowValues(id);const username=prompt('Username:',current.username);if(username===null)return;const xpValue=prompt('XP:',String(current.xp));if(xpValue===null)return;const levelValue=prompt('Level:',String(current.level));if(levelValue===null)return;const xp=Number(xpValue),level=Number(levelValue);if(!Number.isFinite(xp)||xp<0||!Number.isFinite(level)||level<1){toast('Error: XP or level is invalid.');return;}if(username.trim().length<2){toast('Error: username must contain at least 2 characters.');return;}const result=await action(id,'edit',{method:'PUT',body:{username:username.trim(),xp:Math.floor(xp),level:Math.floor(level)}});toast(result.message||'User updated successfully.');location.reload();}catch(e){toast('Error: '+e.message);}}
-  async function blockUser(id){if(currentAdminId&&String(id)===String(currentAdminId)){toast('Your administrator account is protected.');return;}const choice=prompt('Temporary block duration:\n\n1 = 1 hour\n2 = 24 hours\n3 = 7 days\n4 = 30 days\n\nEnter 1, 2, 3 or 4:','2');if(choice===null)return;const durations={'1':3600,'2':86400,'3':604800,'4':2592000};const duration=durations[choice.trim()];if(!duration){toast('Error: choose 1, 2, 3 or 4.');return;}if(!confirm('Temporarily block this user for '+({1:'1 hour',2:'24 hours',3:'7 days',4:'30 days'}[choice.trim()])+'?\n\nAll current sessions will be revoked.'))return;try{const result=await action(id,'block',{body:{duration_seconds:duration}});toast(result.message||'User temporarily blocked.');location.reload();}catch(e){toast('Error: '+e.message);}}
-  async function deleteUser(id){if(currentAdminId&&String(id)===String(currentAdminId)){toast('Your administrator account is protected.');return;}const current=rowValues(id);const typed=prompt('PERMANENT DELETION\n\nThis cannot be undone. It will remove the account and associated user data.\n\nType the username to confirm:\n'+current.username);if(typed===null)return;if(typed.trim()!==current.username){toast('Deletion cancelled: username did not match.');return;}if(!confirm('Permanently delete this user? This cannot be undone.'))return;try{const result=await action(id,'delete',{method:'DELETE'});toast(result.message||'User permanently deleted.');location.reload();}catch(e){toast('Error: '+e.message);}}
-  document.addEventListener('click',e=>{const menu=e.target.closest('[data-user-menu]');if(menu){e.preventDefault();e.stopPropagation();const wrap=menu.closest('.user-menu');document.querySelectorAll('.user-menu.open').forEach(x=>{if(x!==wrap)x.classList.remove('open')});wrap.classList.toggle('open');return;}const item=e.target.closest('[data-extra-action]');if(item){e.preventDefault();e.stopPropagation();const row=item.closest('tr');if(isOwnRow(row)){protectOwnRow(row);toast('Your administrator account is protected.');return;}document.querySelectorAll('.user-menu.open').forEach(x=>x.classList.remove('open'));const id=item.dataset.id;if(item.dataset.extraAction==='edit')editUser(id);if(item.dataset.extraAction==='block')blockUser(id);if(item.dataset.extraAction==='delete')deleteUser(id);return;}if(!e.target.closest('.user-menu'))document.querySelectorAll('.user-menu.open').forEach(x=>x.classList.remove('open'));});
+
+  function protectOwnRow(row){
+    if(!isOwnRow(row))return false;
+    row.dataset.self='1';
+    const cell=row.cells?.[6];
+    if(cell)cell.innerHTML='<span class="self-protected" title="Your administrator account is protected">🔐 Protected</span>';
+    return true;
+  }
+
+  function addControls(){
+    injectStyle();
+    root.querySelectorAll('tr').forEach(row=>{
+      if(!row.cells||row.cells.length<7)return;
+      if(protectOwnRow(row))return;
+      const cell=row.cells[6];if(!cell)return;
+      const id=rowId(row);if(!id)return;
+      if(cell.querySelector('[data-user-actions]'))return;
+      cell.innerHTML='<div class="user-actions" data-user-actions><a class="user-action-btn" href="/admin/users/'+encodeURIComponent(id)+'/">View</a><div class="user-menu"><button class="user-action-btn" type="button" data-user-menu>Actions ▾</button><div class="user-menu-panel"><button class="user-menu-item" type="button" data-action="view" data-id="'+esc(id)+'">View profile</button><button class="user-menu-item" type="button" data-action="revoke-sessions" data-id="'+esc(id)+'">Sign out all sessions</button><button class="user-menu-item" type="button" data-action="reset-password" data-id="'+esc(id)+'">Reset password</button><button class="user-menu-item" type="button" data-action="edit" data-id="'+esc(id)+'">Edit user</button><button class="user-menu-item" type="button" data-action="block" data-id="'+esc(id)+'">Temporary block</button><button class="user-menu-item" type="button" data-action="delete" data-id="'+esc(id)+'">Delete permanently</button></div></div></div>';
+    });
+  }
+
+  async function loadCurrentAdmin(){
+    try{
+      const r=await fetch('/api/me',{credentials:'include',cache:'no-store',headers:{Accept:'application/json'}});
+      const d=await r.json().catch(()=>({}));
+      const u=d?.user||d;
+      currentAdminId=u?.id||null;
+      currentAdminEmail=String(u?.email||'').trim().toLowerCase()||null;
+    }catch{}
+    addControls();
+  }
+
+  async function viewUser(id){window.location.href='/admin/users/'+encodeURIComponent(id)+'/';}
+  async function revokeSessions(id){try{const result=await action(id,'revoke-sessions');toast(result.message||'All sessions revoked.');}catch(e){toast('Error: '+e.message);}}
+  async function resetPassword(id){try{const result=await action(id,'reset-password');toast(result.message||'Password reset requested.');}catch(e){toast('Error: '+e.message);}}
+  async function editUser(id){
+    if(currentAdminId&&String(id)===String(currentAdminId)){toast('Your administrator account is protected.');return;}
+    try{const current=rowValues(id);const username=prompt('Username:',current.username);if(username===null)return;const xpValue=prompt('XP:',String(current.xp));if(xpValue===null)return;const levelValue=prompt('Level:',String(current.level));if(levelValue===null)return;const xp=Number(xpValue),level=Number(levelValue);if(!Number.isFinite(xp)||xp<0||!Number.isFinite(level)||level<1){toast('Error: XP or level is invalid.');return;}if(username.trim().length<2){toast('Error: username must contain at least 2 characters.');return;}const result=await action(id,'edit',{method:'PUT',body:{username:username.trim(),xp:Math.floor(xp),level:Math.floor(level)}});toast(result.message||'User updated successfully.');location.reload();}catch(e){toast('Error: '+e.message);}
+  }
+  async function blockUser(id){
+    if(currentAdminId&&String(id)===String(currentAdminId)){toast('Your administrator account is protected.');return;}
+    const choice=prompt('Temporary block duration:\n\n1 = 1 hour\n2 = 24 hours\n3 = 7 days\n4 = 30 days\n\nEnter 1, 2, 3 or 4:','2');if(choice===null)return;const durations={'1':3600,'2':86400,'3':604800,'4':2592000};const duration=durations[choice.trim()];if(!duration){toast('Error: choose 1, 2, 3 or 4.');return;}if(!confirm('Temporarily block this user for '+({1:'1 hour',2:'24 hours',3:'7 days',4:'30 days'}[choice.trim()])+'?\n\nAll current sessions will be revoked.'))return;try{const result=await action(id,'block',{body:{duration_seconds:duration}});toast(result.message||'User temporarily blocked.');location.reload();}catch(e){toast('Error: '+e.message);}
+  }
+  async function deleteUser(id){
+    if(currentAdminId&&String(id)===String(currentAdminId)){toast('Your administrator account is protected.');return;}
+    const current=rowValues(id);const typed=prompt('PERMANENT DELETION\n\nThis cannot be undone. It will remove the account and associated user data.\n\nType the username to confirm:\n'+current.username);if(typed===null)return;if(typed.trim()!==current.username){toast('Deletion cancelled: username did not match.');return;}if(!confirm('Permanently delete this user? This cannot be undone.'))return;try{const result=await action(id,'delete',{method:'DELETE'});toast(result.message||'User permanently deleted.');location.reload();}catch(e){toast('Error: '+e.message);}
+  }
+
+  document.addEventListener('click',e=>{
+    const menu=e.target.closest('[data-user-menu]');
+    if(menu){e.preventDefault();e.stopPropagation();const wrap=menu.closest('.user-menu');document.querySelectorAll('.user-menu.open').forEach(x=>{if(x!==wrap)x.classList.remove('open')});wrap.classList.toggle('open');return;}
+    const item=e.target.closest('[data-action]');
+    if(item){e.preventDefault();e.stopPropagation();const row=item.closest('tr');if(isOwnRow(row)){protectOwnRow(row);toast('Your administrator account is protected.');return;}document.querySelectorAll('.user-menu.open').forEach(x=>x.classList.remove('open'));const id=item.dataset.id;const type=item.dataset.action;if(type==='view')viewUser(id);else if(type==='revoke-sessions')revokeSessions(id);else if(type==='reset-password')resetPassword(id);else if(type==='edit')editUser(id);else if(type==='block')blockUser(id);else if(type==='delete')deleteUser(id);return;}
+    if(!e.target.closest('.user-menu'))document.querySelectorAll('.user-menu.open').forEach(x=>x.classList.remove('open'));
+  });
+
   new MutationObserver(addControls).observe(root,{childList:true,subtree:true});
   loadCurrentAdmin();
   addControls();
