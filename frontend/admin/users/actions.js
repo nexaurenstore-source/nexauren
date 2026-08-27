@@ -1,121 +1,14 @@
 (() => {
   const root = document.getElementById('rows');
   if (!root) return;
-
-  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
-
-  const toast = msg => {
-    const el = document.getElementById('toast');
-    if (!el) return;
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(toast.t);
-    toast.t = setTimeout(() => el.classList.remove('show'), 3500);
-  };
-
-  const action = async (id, path, options = {}) => {
-    const r = await fetch('/api/admin/users/' + encodeURIComponent(id) + '/' + path, {
-      method: options.method || 'POST',
-      credentials: 'include',
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-    });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(d.error || 'Action failed (' + r.status + ').');
-    return d;
-  };
-
-  function rowValues(id) {
-    const item = root.querySelector('[data-id="' + CSS.escape(id) + '"]');
-    const row = item?.closest('tr');
-    if (!row) return { username: '', xp: 0, level: 1 };
-    const cells = row.querySelectorAll('td');
-    const userCell = cells[0];
-    const username = userCell?.querySelector('strong')?.textContent?.trim() || '';
-    const xp = Number((cells[3]?.textContent || '0').replace(/[^0-9.-]/g, '')) || 0;
-    const level = Number((cells[4]?.textContent || '1').replace(/[^0-9.-]/g, '')) || 1;
-    return { username, xp, level };
-  }
-
-  function addControls() {
-    root.querySelectorAll('.menu-panel').forEach(panel => {
-      if (panel.querySelector('[data-extra-action]')) return;
-      const item = panel.querySelector('[data-action="view"]');
-      if (!item) return;
-      const id = item.dataset.id;
-      panel.insertAdjacentHTML('beforeend',
-        '<button class="menu-item" type="button" data-extra-action="edit" data-id="' + esc(id) + '">Edit user</button>' +
-        '<button class="menu-item" type="button" data-extra-action="block" data-id="' + esc(id) + '">Block user</button>'
-      );
-    });
-  }
-
-  async function editUser(id) {
-    try {
-      const current = rowValues(id);
-      const username = prompt('Username:', current.username);
-      if (username === null) return;
-      const xpValue = prompt('XP:', String(current.xp));
-      if (xpValue === null) return;
-      const levelValue = prompt('Level:', String(current.level));
-      if (levelValue === null) return;
-
-      const xp = Number(xpValue);
-      const level = Number(levelValue);
-      if (!Number.isFinite(xp) || xp < 0 || !Number.isFinite(level) || level < 1) {
-        toast('Error: XP or level is invalid.');
-        return;
-      }
-      if (username.trim().length < 2) {
-        toast('Error: username must contain at least 2 characters.');
-        return;
-      }
-
-      const result = await action(id, 'edit', {
-        method: 'PUT',
-        body: {
-          username: username.trim(),
-          xp: Math.floor(xp),
-          level: Math.floor(level),
-        },
-      });
-      toast(result.message || 'User updated successfully.');
-      if (typeof window.load === 'function') window.load();
-      else location.reload();
-    } catch (e) {
-      toast('Error: ' + e.message);
-    }
-  }
-
-  async function blockUser(id) {
-    if (!confirm('Block this user?\n\nThe user will be prevented from signing in and all current sessions will be revoked.')) return;
-    try {
-      const result = await action(id, 'block');
-      toast(result.message || 'User blocked successfully.');
-      if (typeof window.load === 'function') window.load();
-      else location.reload();
-    } catch (e) {
-      toast('Error: ' + e.message);
-    }
-  }
-
-  root.addEventListener('click', e => {
-    const item = e.target.closest('[data-extra-action]');
-    if (!item) return;
-    e.preventDefault();
-    e.stopPropagation();
-    document.querySelectorAll('.menu.open').forEach(x => x.classList.remove('open'));
-    const id = item.dataset.id;
-    if (item.dataset.extraAction === 'edit') editUser(id);
-    if (item.dataset.extraAction === 'block') blockUser(id);
-  });
-
-  new MutationObserver(addControls).observe(root, { childList: true, subtree: true });
-  addControls();
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const toast = msg => { const el=document.getElementById('toast'); if(!el)return; el.textContent=msg; el.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('show'),3500); };
+  const action = async (id,path,options={}) => { const r=await fetch('/api/admin/users/'+encodeURIComponent(id)+'/'+path,{method:options.method||'POST',credentials:'include',cache:'no-store',headers:{'Content-Type':'application/json',Accept:'application/json'},body:options.body?JSON.stringify(options.body):undefined}); const d=await r.json().catch(()=>({})); if(!r.ok)throw new Error(d.error||'Action failed ('+r.status+').'); return d; };
+  function rowValues(id){ const item=root.querySelector('[data-id="'+CSS.escape(id)+'"]'); const row=item?.closest('tr'); if(!row)return{username:'',xp:0,level:1}; const cells=row.querySelectorAll('td'); return {username:cells[0]?.querySelector('strong')?.textContent?.trim()||'',xp:Number((cells[3]?.textContent||'0').replace(/[^0-9.-]/g,''))||0,level:Number((cells[4]?.textContent||'1').replace(/[^0-9.-]/g,''))||1}; }
+  function addControls(){ root.querySelectorAll('.menu-panel').forEach(panel=>{if(panel.querySelector('[data-extra-action]'))return;const item=panel.querySelector('[data-action="view"]');if(!item)return;const id=item.dataset.id;panel.insertAdjacentHTML('beforeend','<button class="menu-item" type="button" data-extra-action="edit" data-id="'+esc(id)+'">Edit user</button><button class="menu-item" type="button" data-extra-action="block" data-id="'+esc(id)+'">Temporary block</button><button class="menu-item" type="button" data-extra-action="delete" data-id="'+esc(id)+'">Delete permanently</button>');}); }
+  async function editUser(id){try{const current=rowValues(id);const username=prompt('Username:',current.username);if(username===null)return;const xpValue=prompt('XP:',String(current.xp));if(xpValue===null)return;const levelValue=prompt('Level:',String(current.level));if(levelValue===null)return;const xp=Number(xpValue),level=Number(levelValue);if(!Number.isFinite(xp)||xp<0||!Number.isFinite(level)||level<1){toast('Error: XP or level is invalid.');return;}if(username.trim().length<2){toast('Error: username must contain at least 2 characters.');return;}const result=await action(id,'edit',{method:'PUT',body:{username:username.trim(),xp:Math.floor(xp),level:Math.floor(level)}});toast(result.message||'User updated successfully.');if(typeof window.load==='function')window.load();else location.reload();}catch(e){toast('Error: '+e.message);}}
+  async function blockUser(id){const choice=prompt('Temporary block duration:\n\n1 = 1 hour\n2 = 24 hours\n3 = 7 days\n4 = 30 days\n\nEnter 1, 2, 3 or 4:','2');if(choice===null)return;const durations={'1':3600,'2':86400,'3':604800,'4':2592000};const duration=durations[choice.trim()];if(!duration){toast('Error: choose 1, 2, 3 or 4.');return;}if(!confirm('Temporarily block this user for '+({1:'1 hour',2:'24 hours',3:'7 days',4:'30 days'}[choice.trim()])+'?\n\nAll current sessions will be revoked.'))return;try{const result=await action(id,'block',{body:{duration_seconds:duration}});toast(result.message||'User temporarily blocked.');if(typeof window.load==='function')window.load();else location.reload();}catch(e){toast('Error: '+e.message);}}
+  async function deleteUser(id){const current=rowValues(id);const typed=prompt('PERMANENT DELETION\n\nThis cannot be undone. It will remove the account and associated user data.\n\nType the username to confirm:\n'+current.username);if(typed===null)return;if(typed.trim()!==current.username){toast('Deletion cancelled: username did not match.');return;}if(!confirm('Permanently delete this user? This cannot be undone.'))return;try{const result=await action(id,'delete',{method:'DELETE'});toast(result.message||'User permanently deleted.');if(typeof window.load==='function')window.load();else location.reload();}catch(e){toast('Error: '+e.message);}}
+  root.addEventListener('click',e=>{const item=e.target.closest('[data-extra-action]');if(!item)return;e.preventDefault();e.stopPropagation();document.querySelectorAll('.menu.open').forEach(x=>x.classList.remove('open'));const id=item.dataset.id;if(item.dataset.extraAction==='edit')editUser(id);if(item.dataset.extraAction==='block')blockUser(id);if(item.dataset.extraAction==='delete')deleteUser(id);});
+  new MutationObserver(addControls).observe(root,{childList:true,subtree:true}); addControls();
 })();
