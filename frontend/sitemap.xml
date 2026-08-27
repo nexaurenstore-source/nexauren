@@ -2,12 +2,25 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://nexaurenstory.com/</loc></url>
   <url><loc>https://nexaurenstory.com/tools/</loc></url>
-  <url><loc>https://nexaurenstory.com/tools/image/image-resizer/</loc></url>
-  <url><loc>https://nexaurenstory.com/tools/image/image-compressor/</loc></url>
-  <url><loc>https://nexaurenstory.com/tools/audio/audio-converter/</loc></url>
   <url><loc>https://nexaurenstory.com/categories/</loc></url>
   <url><loc>https://nexaurenstory.com/about.html</loc></url>
   <url><loc>https://nexaurenstory.com/faq.html</loc></url>
   <url><loc>https://nexaurenstory.com/privacy.html</loc></url>
   <url><loc>https://nexaurenstory.com/terms.html</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/image/background-remover/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/video/video-editor/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/audio/vocal-studio/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/image/image-editor/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/image/image-compressor/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/image/image-resizer/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/audio/audio-converter/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/pdf/pdf-to-jpg/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/pdf/pdf-merger/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/image/nexaface/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/text/ai-translate/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/image/favicon-generator/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/audio/sample-generator/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/business/invoice-generator/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/utilities/countdown-timer/</loc></url>
+  <url><loc>https://nexaurenstory.com/tools/productivity/spreadsheet/</loc></url>
 </urlset>
