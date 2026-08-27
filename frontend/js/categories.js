@@ -6,76 +6,66 @@
 
   const overlay = document.querySelector('[data-process-overlay]');
   const finish = () => {
-    if (overlay) {
-      overlay.classList.remove('is-visible');
-      overlay.setAttribute('aria-hidden', 'true');
-      overlay.style.display = 'none';
-    }
+    if (!overlay) return;
+    overlay.classList.remove('is-visible');
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.style.display = 'none';
   };
 
-  const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({
-    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
-  }[c]));
+  const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }[char]));
 
-  const render = tools => {
-    const map = new Map();
+  const render = (categories, tools) => {
+    const counts = new Map();
+
     (Array.isArray(tools) ? tools : []).forEach(tool => {
       if (!tool || String(tool.status || 'active').toLowerCase() === 'inactive') return;
-      const id = String(tool.category || 'other').trim().toLowerCase();
-      const name = String(tool.categoryName || tool.category || 'Other').trim() || 'Other';
-      if (!map.has(id)) map.set(id, { id, name, count: 0 });
-      map.get(id).count += 1;
+      const id = String(tool.category || '').trim().toLowerCase();
+      if (id) counts.set(id, (counts.get(id) || 0) + 1);
     });
 
-    const categories = [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-    if (!categories.length) {
-      grid.innerHTML = '<div class="empty"><strong>No categories available yet</strong><p>There are no active tools registered.</p></div>';
+    const ordered = (Array.isArray(categories) ? categories : [])
+      .filter(category => category?.id)
+      .map(category => ({ ...category, count: counts.get(String(category.id).toLowerCase()) || 0 }))
+      .sort((a, b) => (Number(a.order) || 99) - (Number(b.order) || 99));
+
+    if (!ordered.length) {
+      grid.innerHTML = '<div class="empty"><strong>No categories available yet</strong><p>The category registry is empty.</p></div>';
       finish();
       return;
     }
 
-    grid.innerHTML = categories.map(c => `
+    grid.innerHTML = ordered.map(category => `
       <article class="card category-card">
         <div class="category-card-content">
-          <span class="tool-category">${c.count} ${c.count === 1 ? 'tool' : 'tools'}</span>
-          <h2>${escapeHTML(c.name)}</h2>
-          <p>Explore useful ${escapeHTML(c.name.toLowerCase())} tools.</p>
-          <a class="card-link" href="/tools/?category=${encodeURIComponent(c.id)}">Explore category <span aria-hidden="true">→</span></a>
+          <div class="card-icon blue" aria-hidden="true">${escapeHTML(category.icon || '✦')}</div>
+          <span class="tool-category">${category.count} ${category.count === 1 ? 'tool' : 'tools'}</span>
+          <h2>${escapeHTML(category.name)}</h2>
+          <p>${escapeHTML(category.description || `Explore ${category.name} tools.`)}</p>
+          <a class="card-link" href="/tools/?category=${encodeURIComponent(category.id)}">Explore category <span aria-hidden="true">→</span></a>
         </div>
       </article>`).join('');
 
     finish();
   };
 
-  const fallbackTools = [
-    { category: 'image', categoryName: 'Image', status: 'active' },
-    { category: 'audio', categoryName: 'Audio', status: 'active' },
-    { category: 'pdf', categoryName: 'PDF', status: 'active' }
-  ];
+  const registry = window.NexaurenRegistry;
+  if (!registry) {
+    grid.innerHTML = '<div class="empty"><strong>Registry unavailable</strong><p>Please refresh the page.</p></div>';
+    finish();
+    return;
+  }
 
-  const urls = [
-    '/data/tools.json?v=' + Date.now(),
-    './data/tools.json?v=' + Date.now(),
-    '../data/tools.json?v=' + Date.now()
-  ];
-
-  (async () => {
-    for (const url of urls) {
-      try {
-        const response = await fetch(url, { cache: 'no-store', headers: { Accept: 'application/json' } });
-        if (!response.ok) continue;
-        const data = await response.json();
-        if (Array.isArray(data?.tools)) {
-          render(data.tools);
-          return;
-        }
-      } catch (error) {
-        console.warn('[Nexauren] Categories registry attempt failed:', url, error);
-      }
-    }
-
-    // Categories must never remain stuck on the loading state. If the registry
-    // is temporarily unavailable, show the known categories immediately.
-    render(fallbackTools);
-  })();
+  Promise.all([registry.loadCategories(), registry.loadTools()])
+    .then(([categories, tools]) => render(categories, tools))
+    .catch(error => {
+      console.warn('[Nexauren] Category registry unavailable:', error);
+      grid.innerHTML = '<div class="empty"><strong>Unable to load categories</strong><p>Please refresh the page.</p></div>';
+      finish();
+    });
 })();
