@@ -1,26 +1,25 @@
 const json=(data,status=200,extra={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...extra}});
-const clean=v=>String(v??'').trim();
 
-async function count(db,sql){const row=await db.prepare(sql).first();return Number(row?.total||0)}
+async function scalar(db,sql,...args){const row=await db.prepare(sql).bind(...args).first();return Number(row?.total||0)}
 
 async function dashboard(r,e){
   const now=Math.floor(Date.now()/1000),week=now-604800;
   const [users,newUsers,active,forms,responses,reviews,notifications]=await Promise.all([
-    count(e.DB,'SELECT COUNT(*) AS total FROM users'),
-    count(e.DB,'SELECT COUNT(*) AS total FROM users WHERE created_at>=?1'),
-    count(e.DB,'SELECT COUNT(DISTINCT user_id) AS total FROM sessions WHERE expires_at>?1'),
-    count(e.DB,'SELECT COUNT(*) AS total FROM forms'),
-    count(e.DB,'SELECT COUNT(*) AS total FROM form_responses'),
-    count(e.DB,'SELECT COUNT(*) AS total FROM tool_reviews'),
-    count(e.DB,'SELECT COUNT(*) AS total FROM notifications')
-  ].map((p,i)=>i===1?e.DB.prepare('SELECT COUNT(*) AS total FROM users WHERE created_at>=?1').bind(week).first():i===2?e.DB.prepare('SELECT COUNT(DISTINCT user_id) AS total FROM sessions WHERE expires_at>?1').bind(now).first():p));
+    scalar(e.DB,'SELECT COUNT(*) AS total FROM users'),
+    scalar(e.DB,'SELECT COUNT(*) AS total FROM users WHERE created_at>=?1',week),
+    scalar(e.DB,'SELECT COUNT(DISTINCT user_id) AS total FROM sessions WHERE expires_at>?1',now),
+    scalar(e.DB,'SELECT COUNT(*) AS total FROM forms'),
+    scalar(e.DB,'SELECT COUNT(*) AS total FROM form_responses'),
+    scalar(e.DB,'SELECT COUNT(*) AS total FROM tool_reviews'),
+    scalar(e.DB,'SELECT COUNT(*) AS total FROM notifications')
+  ]);
   return json({users,new_users:newUsers,active_users:active,forms,responses,reviews,notifications},200);
 }
 
 async function users(r,e){
   const u=new URL(r.url),page=Math.max(1,Number(u.searchParams.get('page'))||1),limit=Math.max(1,Math.min(100,Number(u.searchParams.get('limit'))||25)),offset=(page-1)*limit;
   const [total,rows]=await Promise.all([
-    count(e.DB,'SELECT COUNT(*) AS total FROM users'),
+    scalar(e.DB,'SELECT COUNT(*) AS total FROM users'),
     e.DB.prepare('SELECT u.id,u.email,u.username,u.created_at,u.updated_at,COALESCE(p.xp,0) AS xp,COALESCE(p.level,1) AS level FROM users u LEFT JOIN user_progress p ON p.user_id=u.id ORDER BY u.created_at DESC LIMIT ?1 OFFSET ?2').bind(limit,offset).all()
   ]);
   return json({total,page,limit,users:rows?.results||[]},200);
