@@ -6,7 +6,7 @@ let pipe = null;
 let device = 'wasm';
 
 async function createPipeline(preferred) {
-  const options = {
+  return pipeline('background-removal', 'Xenova/modnet', {
     device: preferred,
     dtype: preferred === 'webgpu' ? 'fp32' : 'q8',
     progress_callback: p => postMessage({
@@ -14,9 +14,7 @@ async function createPipeline(preferred) {
       progress: Number(p?.progress || 0),
       status: p?.status || ''
     })
-  };
-  // Xenova/modnet is explicitly published for Transformers.js background-removal.
-  return pipeline('background-removal', 'Xenova/modnet', options);
+  });
 }
 
 async function ensurePipeline() {
@@ -28,7 +26,8 @@ async function ensurePipeline() {
       postMessage({ type: 'ready', device });
       return;
     } catch (err) {
-      postMessage({ type: 'fallback', message: 'WebGPU failed; using WASM instead.' });
+      console.warn('WebGPU unavailable:', err);
+      postMessage({ type: 'fallback', message: 'WebGPU unavailable. Switching to WASM.' });
     }
   }
   pipe = await createPipeline('wasm');
@@ -44,25 +43,24 @@ self.onmessage = async event => {
     await ensurePipeline();
     postMessage({ type: 'progress', status: 'Preparing image…' });
 
-    // background-removal accepts Blob/URL/string input and returns RawImage RGBA.
+    // The documented background-removal pipeline returns a RawImage in RGBA.
     const output = await pipe(msg.image);
     const image = Array.isArray(output) ? output[0] : output;
     if (!image?.data || !image.width || !image.height) {
-      throw new Error('The background-removal model returned no image.');
+      throw new Error('The AI model returned no foreground image.');
     }
 
-    const data = image.data instanceof Uint8ClampedArray
-      ? image.data
-      : new Uint8ClampedArray(image.data);
-    const copy = new Uint8ClampedArray(data);
+    postMessage({ type: 'progress', status: 'Creating transparent PNG…' });
+    const blob = await image.toBlob();
+    if (!blob) throw new Error('Could not create the transparent PNG.');
 
     postMessage({
       type: 'result',
+      blob,
       width: image.width,
       height: image.height,
-      channels: image.channels || 4,
-      data: copy.buffer
-    }, [copy.buffer]);
+      device
+    });
   } catch (err) {
     console.error(err);
     postMessage({
