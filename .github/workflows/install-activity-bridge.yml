@@ -1,4 +1,4 @@
-name: Install activity bridge
+name: Install admin data bridge
 on:
   push:
     branches: [main]
@@ -10,48 +10,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch activity bridge
+      - name: Patch Worker and activity sync
         run: |
           node <<'NODE'
           const fs=require('fs');
-          const workerPath='worker.js';
-          let w=fs.readFileSync(workerPath,'utf8');
-          const marker='/* NEXAUREN ACTIVITY BRIDGE v1 */';
+          let w=fs.readFileSync('worker.js','utf8');
+          const marker='/* NEXAUREN ADMIN DATA BRIDGE v2 */';
           if(!w.includes(marker)){
             const helpers=`${marker}
-async function ensureActivitySchema(e){await e.DB.batch([e.DB.prepare('CREATE TABLE IF NOT EXISTS activity_logs (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,action TEXT NOT NULL,tool_id TEXT,tool_name TEXT,url TEXT,details TEXT,created_at INTEGER NOT NULL)'),e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at DESC)'),e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id,created_at DESC)')])}
-async function postActivity(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));const d=await body(r);const action=clean(d?.type||d?.action).slice(0,80);if(!action)return json({error:'Activity type required.'},400,cors(r));await ensureActivitySchema(e);const now=Math.floor(Date.now()/1000);const rawTime=Date.parse(String(d?.time||''));const createdAt=Number.isFinite(rawTime)?Math.floor(rawTime/1000):now;await e.DB.prepare('INSERT INTO activity_logs (id,user_id,action,tool_id,tool_name,url,details,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)').bind(uuid(),u.id,action,clean(d?.toolId).slice(0,120),clean(d?.name).slice(0,160),clean(d?.url).slice(0,500),clean(d?.details||d?.title).slice(0,500),createdAt).run();return json({success:true},201,cors(r))}
-async function getAdminActivity(r,e){const admin=await isAdmin(r,e);if(!admin)return json({error:'Admin access required.'},admin===null?401:403,cors(r));await ensureActivitySchema(e);const u=new URL(r.url);const page=Math.max(1,Number(u.searchParams.get('page'))||1),limit=Math.max(1,Math.min(100,Number(u.searchParams.get('limit'))||30)),offset=(page-1)*limit,q=clean(u.searchParams.get('q'));const where=q?' WHERE (a.action LIKE ?1 OR a.tool_name LIKE ?1 OR a.details LIKE ?1 OR u.username LIKE ?1 OR u.email LIKE ?1)':'';const bind=q?('%'+q+'%'):null;const count=await e.DB.prepare('SELECT COUNT(*) AS total FROM activity_logs a JOIN users u ON u.id=a.user_id'+where).bind(...(bind?[bind]:[])).first();const rows=await e.DB.prepare('SELECT a.id,a.action,a.tool_id,a.tool_name,a.url,a.details,a.created_at,u.id AS user_id,u.username,u.email FROM activity_logs a JOIN users u ON u.id=a.user_id'+where+' ORDER BY a.created_at DESC LIMIT ?'+(q?'2':'1')+' OFFSET ?'+(q?'3':'2')).bind(...(q?[bind,limit,offset]:[limit,offset])).all();return json({page,limit,total:Number(count?.total||0),activity:rows?.results||[]},200,cors(r))}
+async function ensureActivitySchema(e){await e.DB.batch([e.DB.prepare('CREATE TABLE IF NOT EXISTS activity_logs (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,action TEXT NOT NULL,tool_id TEXT,tool_name TEXT,url TEXT,details TEXT,created_at INTEGER NOT NULL)'),e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at DESC)'),e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id,created_at DESC)'),e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_activity_logs_tool ON activity_logs(tool_id,created_at DESC)')])}
+async function postActivity(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));const d=await body(r),action=clean(d?.type||d?.action).slice(0,80);if(!action)return json({error:'Activity type required.'},400,cors(r));await ensureActivitySchema(e);const parsed=Date.parse(String(d?.time||'')),createdAt=Number.isFinite(parsed)?Math.floor(parsed/1000):Math.floor(Date.now()/1000);await e.DB.prepare('INSERT INTO activity_logs (id,user_id,action,tool_id,tool_name,url,details,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)').bind(uuid(),u.id,action,clean(d?.toolId).slice(0,120),clean(d?.name).slice(0,160),clean(d?.url).slice(0,500),clean(d?.details||d?.title).slice(0,500),createdAt).run();return json({success:true},201,cors(r))}
+async function getAdminActivityReal(r,e){const admin=await isAdmin(r,e);if(!admin)return json({error:'Admin access required.'},admin===null?401:403,cors(r));await ensureActivitySchema(e);const u=new URL(r.url),page=Math.max(1,Number(u.searchParams.get('page'))||1),limit=Math.max(1,Math.min(100,Number(u.searchParams.get('limit'))||25)),offset=(page-1)*limit,q=clean(u.searchParams.get('q'));const where=q?' WHERE (a.action LIKE ?1 OR a.tool_name LIKE ?1 OR a.details LIKE ?1 OR u.username LIKE ?1 OR u.email LIKE ?1)':'';const binds=q?['%'+q+'%']:[];const count=await e.DB.prepare('SELECT COUNT(*) AS total FROM activity_logs a JOIN users u ON u.id=a.user_id'+where).bind(...binds).first();const rows=await e.DB.prepare('SELECT a.id,a.action,a.tool_id,a.tool_name,a.url,a.details,a.created_at,u.id AS user_id,u.username,u.email FROM activity_logs a JOIN users u ON u.id=a.user_id'+where+' ORDER BY a.created_at DESC LIMIT ?'+(q?'2':'1')+' OFFSET ?'+(q?'3':'2')).bind(...(q?[binds[0],limit,offset]:[limit,offset])).all();return json({page,limit,total:Number(count?.total||0),activity:rows?.results||[]},200,cors(r))}
+async function adminToolsReal(r,e){const admin=await isAdmin(r,e);if(!admin)return json({error:'Admin access required.'},admin===null?401:403,cors(r));await ensureActivitySchema(e);const rows=await e.DB.prepare('SELECT tool_id,tool_name,COUNT(*) AS events,MAX(created_at) AS last_activity FROM activity_logs WHERE tool_id IS NOT NULL AND tool_id<>\'\' GROUP BY tool_id,tool_name ORDER BY events DESC,last_activity DESC').all();const total=await e.DB.prepare('SELECT COUNT(*) AS total FROM activity_logs WHERE tool_id IS NOT NULL AND tool_id<>\'\'').first();const week=await e.DB.prepare('SELECT COUNT(*) AS total FROM activity_logs WHERE tool_id IS NOT NULL AND tool_id<>\'\' AND created_at>=?1').bind(Math.floor(Date.now()/1000)-604800).first();return json({tools:rows?.results||[],total_events:Number(total?.total||0),last_7_days:Number(week?.total||0)},200,cors(r))}
+async function adminFormsReal(r,e){const admin=await isAdmin(r,e);if(!admin)return json({error:'Admin access required.'},admin===null?401:403,cors(r));const u=new URL(r.url),page=Math.max(1,Number(u.searchParams.get('page'))||1),limit=Math.max(1,Math.min(100,Number(u.searchParams.get('limit'))||25)),offset=(page-1)*limit,q=clean(u.searchParams.get('q'));const where=q?' WHERE (f.title LIKE ?1 OR u.username LIKE ?1 OR u.email LIKE ?1)':'';const binds=q?['%'+q+'%']:[];const total=await e.DB.prepare('SELECT COUNT(*) AS total FROM forms f JOIN users u ON u.id=f.owner_id'+where).bind(...binds).first();const rows=await e.DB.prepare('SELECT f.id,f.title,f.status,f.created_at,f.updated_at,u.id AS owner_id,u.username,u.email,(SELECT COUNT(*) FROM form_responses fr WHERE fr.form_id=f.id) AS responses FROM forms f JOIN users u ON u.id=f.owner_id'+where+' ORDER BY f.created_at DESC LIMIT ?'+(q?'2':'1')+' OFFSET ?'+(q?'3':'2')).bind(...(q?[binds[0],limit,offset]:[limit,offset])).all();return json({page,limit,total:Number(total?.total||0),forms:rows?.results||[]},200,cors(r))}
 `;
-            const at=w.indexOf('export default');
-            if(at<0) throw new Error('Could not locate export default in worker.js');
+            const insertBefore='async function enhanceHTML(response,request)';
+            const at=w.indexOf(insertBefore); if(at<0) throw new Error('Could not locate enhanceHTML');
             w=w.slice(0,at)+helpers+w.slice(at);
-            const re=/export default\s*\{\s*(?:async\s+)?fetch\s*\([^)]*\)\s*\{/;
-            const m=re.exec(w);
-            if(!m) throw new Error('Could not locate Worker fetch handler');
-            const insertion=`${m[0]}
-    const __activityPath=new URL(r.url).pathname;
-    if(r.method==='POST' && __activityPath==='/api/activity') return postActivity(r,e);
-    if(r.method==='GET' && __activityPath==='/api/admin/activity') return getAdminActivity(r,e);`;
-            w=w.slice(0,m.index)+insertion+w.slice(m.index+m[0].length);
-            fs.writeFileSync(workerPath,w);
+            const needle="if(u.pathname==='/api/admin/activity'&&r.method==='GET')return adminActivity(r,e);";
+            if(!w.includes(needle)) throw new Error('Could not locate admin activity route');
+            w=w.replace(needle,"if(u.pathname==='/api/admin/activity'&&r.method==='GET')return getAdminActivityReal(r,e);if(u.pathname==='/api/admin/tools'&&r.method==='GET')return adminToolsReal(r,e);if(u.pathname==='/api/admin/forms'&&r.method==='GET')return adminFormsReal(r,e);");
+            const fetchNeedle="const u=new URL(r.url);try{";
+            if(!w.includes(fetchNeedle)) throw new Error('Could not locate fetch routing');
+            w=w.replace(fetchNeedle,fetchNeedle+"if(r.method==='POST'&&u.pathname==='/api/activity')return postActivity(r,e);");
+            fs.writeFileSync('worker.js',w);
           }
-          const appPath='frontend/js/app.js';
-          let a=fs.readFileSync(appPath,'utf8');
-          const amarker='/* NEXAUREN ACTIVITY SYNC v1 */';
-          if(!a.includes(amarker)){
-            const old=`const recordActivity=(type,tool,extra={})=>{const a=read('nexauren_activity');a.push({type,title:extra.title||activityTitle(type,tool),toolId:tool?.id||extra.toolId||'',name:tool?.name||extra.name||'',url:tool?.url||extra.url||'',time:now()});write('nexauren_activity',a.slice(-200))};`;
-            const neu=`${amarker} const recordActivity=(type,tool,extra={})=>{const item={type,title:extra.title||activityTitle(type,tool),toolId:tool?.id||extra.toolId||'',name:tool?.name||extra.name||'',url:tool?.url||extra.url||'',time:now()};const a=read('nexauren_activity');a.push(item);write('nexauren_activity',a.slice(-200));fetch('/api/activity',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(item),keepalive:true}).catch(()=>{})};`;
-            if(!a.includes(old)) throw new Error('Could not locate recordActivity in app.js');
-            a=a.replace(old,neu);
-            fs.writeFileSync(appPath,a);
-          }
+          let a=fs.readFileSync('frontend/js/app.js','utf8');
+          const old="const recordActivity=(type,tool,extra={})=>{const a=read('nexauren_activity');a.push({type,title:extra.title||activityTitle(type,tool),toolId:tool?.id||extra.toolId||'',name:tool?.name||extra.name||'',url:tool?.url||extra.url||'',time:now()});write('nexauren_activity',a.slice(-200))};";
+          const neu="const recordActivity=(type,tool,extra={})=>{const item={type,title:extra.title||activityTitle(type,tool),toolId:tool?.id||extra.toolId||'',name:tool?.name||extra.name||'',url:tool?.url||extra.url||'',time:now()};const a=read('nexauren_activity');a.push(item);write('nexauren_activity',a.slice(-200));fetch('/api/activity',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(item),keepalive:true}).catch(()=>{})};";
+          if(!a.includes('fetch(\'/api/activity\'')){if(!a.includes(old)) throw new Error('Could not locate recordActivity in app.js');a=a.replace(old,neu);fs.writeFileSync('frontend/js/app.js',a)}
           NODE
       - name: Commit bridge
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add worker.js frontend/js/app.js
-          if git diff --cached --quiet; then echo 'Activity bridge already installed'; exit 0; fi
-          git commit -m 'Integrate server-side activity tracking'
+          if git diff --cached --quiet; then echo 'No bridge changes needed'; exit 0; fi
+          git commit -m 'Add server-side admin activity tools and forms data'
           git push
