@@ -1,59 +1,2332 @@
-const json=(data,status=200,extra={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...extra}});
-const uuid=()=>crypto.randomUUID();
-const bytesToHex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
-const sha256=async v=>bytesToHex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v)));
-const passwordHash=async p=>{const s=crypto.randomUUID(),d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`${s}:${p}`));return`sha256:${s}:${bytesToHex(d)}`};
-const passwordVerify=async(p,stored)=>{const a=String(stored).split(':');if(a.length!==3||a[0]!=='sha256')return false;const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`${a[1]}:${p}`));return bytesToHex(d)===a[2]};
-const cookie=(n,v,m)=>`${n}=${encodeURIComponent(v)}; Max-Age=${m}; Path=/; HttpOnly; Secure; SameSite=Lax`;
-const clearCookie=n=>`${n}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`;
-const getSessionToken=r=>{const v=r.headers.get('Cookie')||'',m=v.match(/(?:^|;\s*)nexauren_session=([^;]+)/);return m?decodeURIComponent(m[1]):null};
-const cors=r=>({'access-control-allow-origin':r.headers.get('Origin')||'*','access-control-allow-credentials':'true','access-control-allow-headers':'Content-Type, Accept','access-control-allow-methods':'GET,POST,PUT,DELETE,OPTIONS'});
-const body=async r=>{try{return await r.json()}catch{return null}};
-const clean=v=>String(v??'').trim();
+const json = (data, status = 200, extra = {}) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+      ...extra,
+    },
+  });
 
-async function currentUser(r,e){const raw=getSessionToken(r);if(!raw)return null;return e.DB.prepare('SELECT u.id,u.email,u.username,u.created_at,u.updated_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=?1 AND s.expires_at>?2').bind(await sha256(raw),Math.floor(Date.now()/1000)).first()}
+const uuid = () => crypto.randomUUID();
 
-async function isAdmin(r,e){const user=await currentUser(r,e);if(!user)return null;return String(user.email||'').toLowerCase()===String(e.ADMIN_EMAIL||'').trim().toLowerCase()?user:null}
+const bytesToHex = (b) =>
+  [...new Uint8Array(b)]
+    .map((x) => x.toString(16).padStart(2, '0'))
+    .join('');
 
-async function register(r,e){const d=await body(r),email=clean(d?.email).toLowerCase(),username=clean(d?.username),password=String(d?.password??'');if(!email||!username||password.length<8)return json({error:'Use email, username e uma senha com pelo menos 8 caracteres.'},400);if(!/^\S+@\S+\.\S+$/.test(email))return json({error:'Email inválido.'},400);if(!/^[A-Za-z0-9_.-]{3,32}$/.test(username))return json({error:'Username deve ter 3–32 caracteres.'},400);if(await e.DB.prepare('SELECT id FROM users WHERE email=?1 OR username=?2 LIMIT 1').bind(email,username).first())return json({error:'Email ou username já está em uso.'},409);const id=uuid(),now=Math.floor(Date.now()/1000),session=uuid();await e.DB.batch([e.DB.prepare('INSERT INTO users (id,email,username,password_hash,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?5)').bind(id,email,username,await passwordHash(password),now),e.DB.prepare("INSERT INTO user_settings (user_id,language,theme,reduce_motion,updated_at) VALUES (?1,'en','system',0,?2)").bind(id,now),e.DB.prepare('INSERT INTO user_progress (user_id,xp,level,updated_at) VALUES (?1,0,1,?2)').bind(id,now),e.DB.prepare('INSERT INTO sessions (id,user_id,token_hash,expires_at,created_at) VALUES (?1,?2,?3,?4,?5)').bind(uuid(),id,await sha256(session),now+2592000,now)]);return json({user:{id,email,username},authenticated:true},201,{...cors(r),'set-cookie':cookie('nexauren_session',session,2592000)})}
-async function login(r,e){const d=await body(r),email=clean(d?.email).toLowerCase(),password=String(d?.password??''),u=await e.DB.prepare('SELECT id,email,username,password_hash FROM users WHERE email=?1 LIMIT 1').bind(email).first();if(!u||!(await passwordVerify(password,u.password_hash)))return json({error:'Email ou senha incorretos.'},401,cors(r));const now=Math.floor(Date.now()/1000),session=uuid();await e.DB.prepare('INSERT INTO sessions (id,user_id,token_hash,expires_at,created_at) VALUES (?1,?2,?3,?4,?5)').bind(uuid(),u.id,await sha256(session),now+2592000,now).run();return json({user:{id:u.id,email:u.email,username:u.username},authenticated:true},200,{...cors(r),'set-cookie':cookie('nexauren_session',session,2592000)})}
-async function ensurePasswordResetSchema(e){await e.DB.batch([e.DB.prepare('CREATE TABLE IF NOT EXISTS password_reset_tokens (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE, expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL, used_at INTEGER)'),e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id,created_at DESC)'),e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expiry ON password_reset_tokens(expires_at)')])}
-async function sendPasswordResetEmail(e,email,token){if(!e.RESEND_API_KEY)throw new Error('RESEND_API_KEY is not configured');const link=`https://nexaurenstory.com/auth/reset-password.html?token=${encodeURIComponent(token)}`;const html=`<!doctype html><html><body><div><h1>Reset your Nexauren password</h1><p><a href="${link}">Reset password</a></p></div></body></html>`;const res=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${e.RESEND_API_KEY}`,'Content-Type':'application/json','User-Agent':'Nexauren/1.0 (password-reset)'},body:JSON.stringify({from:'Nexauren <noreply@mail.nexaurenstory.com>',to:[email],subject:'Reset your Nexauren password',html})});if(!res.ok){const text=await res.text();throw new Error(`Resend ${res.status}: ${text.slice(0,500)}`)}}
-async function forgotPassword(r,e){const d=await body(r),email=clean(d?.email).toLowerCase();if(!/^\S+@\S+\.\S+$/.test(email))return json({error:'Enter a valid email address.'},400,cors(r));await ensurePasswordResetSchema(e);const generic={message:'If an account exists for that email, a password reset link has been sent.'};const u=await e.DB.prepare('SELECT id,email FROM users WHERE email=?1 LIMIT 1').bind(email).first();if(!u)return json(generic,200,cors(r));const now=Math.floor(Date.now()/1000);const recent=await e.DB.prepare('SELECT COUNT(*) AS total FROM password_reset_tokens WHERE user_id=?1 AND created_at>?2').bind(u.id,now-3600).first();if(Number(recent?.total||0)>=3)return json(generic,200,cors(r));await e.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?1 OR expires_at<=?2').bind(u.id,now).run();const token=crypto.randomUUID()+crypto.randomUUID(),tokenHash=await sha256(token),expires=now+1800;await e.DB.prepare('INSERT INTO password_reset_tokens (id,user_id,token_hash,expires_at,created_at,used_at) VALUES (?1,?2,?3,?4,?5,NULL)').bind(uuid(),u.id,tokenHash,expires,now).run();try{await sendPasswordResetEmail(e,u.email,token)}catch(err){console.error('Password reset email failed',err);await e.DB.prepare('DELETE FROM password_reset_tokens WHERE token_hash=?1').bind(tokenHash).run();return json({error:'Unable to send the reset email right now. Please try again later.'},503,cors(r))}return json(generic,200,cors(r))}
-async function resetPassword(r,e){const d=await body(r),token=clean(d?.token),password=String(d?.password??'');if(!token||password.length<8)return json({error:'Invalid reset request or password too short.'},400,cors(r));await ensurePasswordResetSchema(e);const now=Math.floor(Date.now()/1000),tokenHash=await sha256(token);const row=await e.DB.prepare('SELECT id,user_id,expires_at,used_at FROM password_reset_tokens WHERE token_hash=?1 LIMIT 1').bind(tokenHash).first();if(!row||row.used_at||Number(row.expires_at)<=now)return json({error:'This reset link is invalid or has expired.'},400,cors(r));const newHash=await passwordHash(password);await e.DB.batch([e.DB.prepare('UPDATE users SET password_hash=?1,updated_at=?2 WHERE id=?3').bind(newHash,now,row.user_id),e.DB.prepare('UPDATE password_reset_tokens SET used_at=?1 WHERE id=?2').bind(now,row.id),e.DB.prepare('DELETE FROM sessions WHERE user_id=?1').bind(row.user_id)]);return json({success:true,message:'Password updated successfully. Please log in again.'},200,cors(r))}
-async function logout(r,e){const raw=getSessionToken(r);if(raw)await e.DB.prepare('DELETE FROM sessions WHERE token_hash=?1').bind(await sha256(raw)).run();return json({authenticated:false},200,{...cors(r),'set-cookie':clearCookie('nexauren_session')})}
-async function me(r,e){const u=await currentUser(r,e);if(!u)return json({authenticated:false},401,cors(r));const [s,p]=await Promise.all([e.DB.prepare('SELECT language,theme,reduce_motion,updated_at FROM user_settings WHERE user_id=?1').bind(u.id).first(),e.DB.prepare('SELECT xp,level,updated_at FROM user_progress WHERE user_id=?1').bind(u.id).first()]);return json({authenticated:true,user:u,settings:s,progress:p},200,cors(r))}
-async function updateSettings(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));const d=await body(r);await e.DB.prepare('UPDATE user_settings SET language=?1,theme=?2,reduce_motion=?3,updated_at=?4 WHERE user_id=?5').bind(clean(d?.language)||'en',clean(d?.theme)||'system',d?.reduce_motion?1:0,Math.floor(Date.now()/1000),u.id).run();return json({success:true},200,cors(r))}
-async function progress(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));const d=await body(r),xp=Math.max(0,Number(d?.xp)||0),level=Math.max(1,Number(d?.level)||1);await e.DB.prepare('UPDATE user_progress SET xp=?1,level=?2,updated_at=?3 WHERE user_id=?4').bind(xp,level,Math.floor(Date.now()/1000),u.id).run();return json({success:true},200,cors(r))}
-async function ensureCommunitySchema(e){await e.DB.batch([e.DB.prepare('CREATE TABLE IF NOT EXISTS tool_reviews (id TEXT PRIMARY KEY,tool_id TEXT NOT NULL,tool_name TEXT NOT NULL,user_id TEXT NOT NULL,display_name TEXT NOT NULL,rating INTEGER NOT NULL,review TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,UNIQUE(tool_id,user_id))'),e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_tool_reviews_tool ON tool_reviews(tool_id,created_at DESC)'),e.DB.prepare('CREATE TABLE IF NOT EXISTS tool_favorites (user_id TEXT NOT NULL,tool_id TEXT NOT NULL,tool_name TEXT NOT NULL,url TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(user_id,tool_id))')])}
-async function getReviews(r,e){await ensureCommunitySchema(e);const u=new URL(r.url),toolId=clean(u.searchParams.get('tool_id'));if(!toolId)return json({error:'tool_id required'},400,cors(r));const page=Math.max(1,Number(u.searchParams.get('page'))||1),limit=Math.max(1,Math.min(20,Number(u.searchParams.get('limit'))||10)),offset=(page-1)*limit;const [summary,rows]=await Promise.all([e.DB.prepare('SELECT COUNT(*) AS total,COALESCE(AVG(rating),0) AS average FROM tool_reviews WHERE tool_id=?1').bind(toolId).first(),e.DB.prepare('SELECT display_name,rating,review,created_at FROM tool_reviews WHERE tool_id=?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3').bind(toolId,limit,offset).all()]);return json({tool_id:toolId,total:Number(summary?.total||0),average:Number(summary?.average||0),reviews:rows?.results||[]},200,cors(r))}
-async function getAllReviews(r,e){await ensureCommunitySchema(e);const u=new URL(r.url),page=Math.max(1,Number(u.searchParams.get('page'))||1),limit=Math.max(1,Math.min(50,Number(u.searchParams.get('limit'))||15)),offset=(page-1)*limit;const [count,rows]=await Promise.all([e.DB.prepare('SELECT COUNT(*) AS total FROM tool_reviews').first(),e.DB.prepare('SELECT tool_id,tool_name,display_name,rating,review,created_at FROM tool_reviews ORDER BY created_at DESC LIMIT ?1 OFFSET ?2').bind(limit,offset).all()]);return json({total:Number(count?.total||0),reviews:rows?.results||[]},200,cors(r))}
-async function postReview(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));await ensureCommunitySchema(e);const d=await body(r),toolId=clean(d?.tool_id),toolName=clean(d?.tool_name).slice(0,120),displayName=clean(d?.display_name).slice(0,50),review=clean(d?.review).slice(0,1000),rating=Math.floor(Number(d?.rating));if(!toolId||!toolName||!displayName||!review||rating<1||rating>5)return json({error:'Provide a name, rating from 1 to 5, and a review.'},400,cors(r));const now=Math.floor(Date.now()/1000),id=uuid();await e.DB.prepare('INSERT INTO tool_reviews (id,tool_id,tool_name,user_id,display_name,rating,review,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?8) ON CONFLICT(tool_id,user_id) DO UPDATE SET tool_name=excluded.tool_name,display_name=excluded.display_name,rating=excluded.rating,review=excluded.review,updated_at=excluded.updated_at').bind(id,toolId,toolName,u.id,displayName,rating,review,now).run();return json({success:true},201,cors(r))}
-async function favoriteState(r,e){const u=await currentUser(r,e);if(!u)return json({favorite:false,authenticated:false},200,cors(r));await ensureCommunitySchema(e);const toolId=clean(new URL(r.url).pathname.split('/').pop());const row=await e.DB.prepare('SELECT 1 FROM tool_favorites WHERE user_id=?1 AND tool_id=?2 LIMIT 1').bind(u.id,toolId).first();return json({favorite:!!row,authenticated:true},200,cors(r))}
-async function getFavorites(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));await ensureCommunitySchema(e);const rows=await e.DB.prepare('SELECT tool_id,tool_name,url,created_at FROM tool_favorites WHERE user_id=?1 ORDER BY created_at DESC').bind(u.id).all();return json({favorites:rows?.results||[]},200,cors(r))}
-async function addFavorite(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));await ensureCommunitySchema(e);const d=await body(r),toolId=clean(new URL(r.url).pathname.split('/').pop()),toolName=clean(d?.tool_name).slice(0,120),url=clean(d?.url).slice(0,500);if(!toolId||!toolName||!url)return json({error:'Invalid favorite.'},400,cors(r));await e.DB.prepare('INSERT OR REPLACE INTO tool_favorites (user_id,tool_id,tool_name,url,created_at) VALUES (?1,?2,?3,?4,?5)').bind(u.id,toolId,toolName,url,Math.floor(Date.now()/1000)).run();return json({favorite:true},201,cors(r))}
-async function removeFavorite(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));await e.DB.prepare('DELETE FROM tool_favorites WHERE user_id=?1 AND tool_id=?2').bind(u.id,clean(new URL(r.url).pathname.split('/').pop())).run();return json({favorite:false},200,cors(r))}
-function parseFields(value){let fields;try{fields=typeof value==='string'?JSON.parse(value):value}catch{return null}if(!Array.isArray(fields)||fields.length>50)return null;const allowed=new Set(['text','textarea','email','number','radio','checkbox','select']);return fields.map((f,i)=>{if(!f||typeof f!=='object')return null;const id=clean(f.id)||`field_${i+1}`,type=clean(f.type),label=clean(f.label).slice(0,200);if(!allowed.has(type)||!label)return null;const options=Array.isArray(f.options)?f.options.map(x=>clean(x).slice(0,100)).filter(Boolean).slice(0,30):[];return{id,type,label,required:!!f.required,placeholder:clean(f.placeholder).slice(0,200),options}}).every(Boolean)?fields.map((f,i)=>{const id=clean(f.id)||`field_${i+1}`,type=clean(f.type),label=clean(f.label).slice(0,200),options=Array.isArray(f.options)?f.options.map(x=>clean(x).slice(0,100)).filter(Boolean).slice(0,30):[];return{id,type,label,required:!!f.required,placeholder:clean(f.placeholder).slice(0,200),options}}):null}
-function parseAnswers(value,fields){let answers;try{answers=typeof value==='string'?JSON.parse(value):value}catch{return null}if(!answers||typeof answers!=='object'||Array.isArray(answers))return null;const allowed=new Set(fields.map(f=>f.id)),out={};for(const [key,val] of Object.entries(answers)){if(!allowed.has(key))continue;if(Array.isArray(val))out[key]=val.slice(0,30).map(x=>clean(x).slice(0,500));else out[key]=clean(val).slice(0,2000)}for(const f of fields){if(f.required&&(out[f.id]===undefined||out[f.id]===''||(Array.isArray(out[f.id])&&!out[f.id].length)))return null}return out}
-async function createForm(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));const d=await body(r),title=clean(d?.title).slice(0,160),description=clean(d?.description).slice(0,1000),fields=parseFields(d?.fields);if(!title||!fields)return json({error:'Título e campos válidos são obrigatórios.'},400,cors(r));const now=Math.floor(Date.now()/1000),id=uuid();await e.DB.prepare('INSERT INTO forms (id,owner_id,title,description,fields,status,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?7)').bind(id,u.id,title,description,JSON.stringify(fields),'draft',now).run();return json({success:true,form:{id,title,description,fields,status:'draft',created_at:now,updated_at:now}},201,cors(r))}
-async function listForms(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));const rows=await e.DB.prepare('SELECT id,title,description,fields,status,created_at,updated_at FROM forms WHERE owner_id=?1 ORDER BY created_at DESC').bind(u.id).all();return json({forms:(rows?.results||[]).map(x=>({...x,fields:JSON.parse(x.fields||'[]')}))},200,cors(r))}
-async function getForm(r,e){const id=clean(new URL(r.url).searchParams.get('id'));if(!id)return json({error:'Form id required.'},400,cors(r));const row=await e.DB.prepare('SELECT id,title,description,fields,status,created_at,updated_at FROM forms WHERE id=?1 LIMIT 1').bind(id).first();if(!row||row.status!=='published')return json({error:'Form not found or not published.'},404,cors(r));return json({form:{...row,fields:JSON.parse(row.fields||'[]')}},200,cors(r))}
-async function updateForm(r,e){const u=await currentUser(r,e),id=clean(new URL(r.url).pathname.split('/').pop());if(!u)return json({error:'Authentication required.'},401,cors(r));if(!id)return json({error:'Form id required.'},400,cors(r));const current=await e.DB.prepare('SELECT id,title,description,fields,status FROM forms WHERE id=?1 AND owner_id=?2 LIMIT 1').bind(id,u.id).first();if(!current)return json({error:'Form not found.'},404,cors(r));const d=await body(r),title=d?.title===undefined?current.title:clean(d.title).slice(0,160),description=d?.description===undefined?current.description:clean(d.description).slice(0,1000),fields=d?.fields===undefined?JSON.parse(current.fields||'[]'):parseFields(d.fields),status=d?.status===undefined?current.status:clean(d.status);if(!title||!fields||!['draft','published','closed'].includes(status))return json({error:'Dados inválidos.'},400,cors(r));const now=Math.floor(Date.now()/1000);await e.DB.prepare('UPDATE forms SET title=?1,description=?2,fields=?3,status=?4,updated_at=?5 WHERE id=?6 AND owner_id=?7').bind(title,description,JSON.stringify(fields),status,now,id,u.id).run();return json({success:true,form:{id,title,description,fields,status,updated_at:now}},200,cors(r))}
-async function createNotification(e,{userId,type,title,body,url='',icon='🔔'}){if(!userId||!type||!title)return null;const id=uuid(),now=Math.floor(Date.now()/1000);await e.DB.prepare('INSERT INTO notifications (id,user_id,type,title,body,url,icon,read_at,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,NULL,?8)').bind(id,userId,type,clean(title).slice(0,160),clean(body).slice(0,1000),clean(url).slice(0,500),clean(icon).slice(0,20),now).run();return id}
-async function submitForm(r,e){const parts=new URL(r.url).pathname.split('/').filter(Boolean);const id=clean(parts[2]);if(!id)return json({error:'Form id required.'},400,cors(r));const form=await e.DB.prepare('SELECT id,owner_id,title,fields,status FROM forms WHERE id=?1 LIMIT 1').bind(id).first();if(!form||form.status!=='published')return json({error:'Form not found or closed.'},404,cors(r));const fields=parseFields(form.fields),d=await body(r),answers=parseAnswers(d?.answers,fields||[]);if(!answers)return json({error:'Respostas inválidas ou campos obrigatórios ausentes.'},400,cors(r));const now=Math.floor(Date.now()/1000),responseId=uuid();await e.DB.prepare('INSERT INTO form_responses (id,form_id,answers,submitted_at) VALUES (?1,?2,?3,?4)').bind(responseId,id,JSON.stringify(answers),now).run();await createNotification(e,{userId:form.owner_id,type:'form_response',title:'New form response',body:`Someone submitted a response to “${form.title.slice(0,120)}”.`,url:`/forms/responses/?form=${encodeURIComponent(id)}`,icon:'📝'});return json({success:true,response_id:responseId},201,cors(r))}
-async function getResponses(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));const id=clean(new URL(r.url).searchParams.get('form'));if(!id)return json({error:'Form id required.'},400,cors(r));const form=await e.DB.prepare('SELECT id,title FROM forms WHERE id=?1 AND owner_id=?2 LIMIT 1').bind(id,u.id).first();if(!form)return json({error:'Form not found.'},404,cors(r));const rows=await e.DB.prepare('SELECT id,answers,submitted_at FROM form_responses WHERE form_id=?1 ORDER BY submitted_at DESC').bind(id).all();return json({form, responses:(rows?.results||[]).map(x=>({...x,answers:JSON.parse(x.answers||'{}')}))},200,cors(r))}
-async function getNotifications(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));const url=new URL(r.url),limit=Math.max(1,Math.min(50,Number(url.searchParams.get('limit'))||20));const rows=await e.DB.prepare('SELECT id,type,title,body,url,icon,read_at,created_at FROM notifications WHERE user_id=?1 ORDER BY created_at DESC LIMIT ?2').bind(u.id,limit).all();const unread=await e.DB.prepare('SELECT COUNT(*) AS total FROM notifications WHERE user_id=?1 AND read_at IS NULL').bind(u.id).first();return json({notifications:rows?.results||[],unread_count:Number(unread?.total||0)},200,cors(r))}
-async function markNotificationRead(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));const id=clean(new URL(r.url).pathname.split('/').pop());if(!id)return json({error:'Notification id required.'},400,cors(r));await e.DB.prepare('UPDATE notifications SET read_at=?1 WHERE id=?2 AND user_id=?3').bind(Math.floor(Date.now()/1000),id,u.id).run();return json({success:true},200,cors(r))}
-async function markAllNotificationsRead(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));await e.DB.prepare('UPDATE notifications SET read_at=?1 WHERE user_id=?2 AND read_at IS NULL').bind(Math.floor(Date.now()/1000),u.id).run();return json({success:true},200,cors(r))}
+const sha256 = async (v) =>
+  bytesToHex(
+    await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(v),
+    ),
+  );
 
-async function adminDashboard(r,e){await ensureCommunitySchema(e);const now=Math.floor(Date.now()/1000),week=now-604800;const [users,newUsers,active,forms,responses,reviews,notifications]=await Promise.all([e.DB.prepare('SELECT COUNT(*) AS total FROM users').first(),e.DB.prepare('SELECT COUNT(*) AS total FROM users WHERE created_at>=?1').bind(week).first(),e.DB.prepare('SELECT COUNT(DISTINCT user_id) AS total FROM sessions WHERE expires_at>?1').bind(now).first(),e.DB.prepare('SELECT COUNT(*) AS total FROM forms').first(),e.DB.prepare('SELECT COUNT(*) AS total FROM form_responses').first(),e.DB.prepare('SELECT COUNT(*) AS total FROM tool_reviews').first(),e.DB.prepare('SELECT COUNT(*) AS total FROM notifications').first()]);return json({users:Number(users?.total||0),new_users:Number(newUsers?.total||0),active_users:Number(active?.total||0),forms:Number(forms?.total||0),responses:Number(responses?.total||0),reviews:Number(reviews?.total||0),notifications:Number(notifications?.total||0)},200,cors(r))}
-async function adminUsers(r,e){const url=new URL(r.url),page=Math.max(1,Number(url.searchParams.get('page'))||1),limit=Math.max(1,Math.min(100,Number(url.searchParams.get('limit'))||25)),offset=(page-1)*limit;const [total,rows]=await Promise.all([e.DB.prepare('SELECT COUNT(*) AS total FROM users').first(),e.DB.prepare('SELECT u.id,u.email,u.username,u.created_at,u.updated_at,COALESCE(p.xp,0) AS xp,COALESCE(p.level,1) AS level FROM users u LEFT JOIN user_progress p ON p.user_id=u.id ORDER BY u.created_at DESC LIMIT ?1 OFFSET ?2').bind(limit,offset).all()]);return json({total:Number(total?.total||0),page,limit,users:rows?.results||[]},200,cors(r))}
-async function adminActivity(r,e){const url=new URL(r.url),limit=Math.max(1,Math.min(100,Number(url.searchParams.get('limit'))||25));const rows=await e.DB.prepare('SELECT s.created_at,s.expires_at,u.id AS user_id,u.email,u.username FROM sessions s JOIN users u ON u.id=s.user_id ORDER BY s.created_at DESC LIMIT ?1').bind(limit).all();return json({activity:rows?.results||[]},200,cors(r))}
+const passwordHash = async (p) => {
+  const s = crypto.randomUUID();
+  const d = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(`${s}:${p}`),
+  );
+
+  return `sha256:${s}:${bytesToHex(d)}`;
+};
+
+const passwordVerify = async (p, stored) => {
+  const a = String(stored).split(':');
+
+  if (a.length !== 3 || a[0] !== 'sha256') {
+    return false;
+  }
+
+  const d = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(`${a[1]}:${p}`),
+  );
+
+  return bytesToHex(d) === a[2];
+};
+
+const cookie = (n, v, m) =>
+  `${n}=${encodeURIComponent(v)}; Max-Age=${m}; Path=/; HttpOnly; Secure; SameSite=Lax`;
+
+const clearCookie = (n) =>
+  `${n}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`;
+
+const getSessionToken = (r) => {
+  const v = r.headers.get('Cookie') || '';
+  const m = v.match(/(?:^|;\s*)nexauren_session=([^;]+)/);
+
+  return m ? decodeURIComponent(m[1]) : null;
+};
+
+const cors = (r) => ({
+  'access-control-allow-origin': r.headers.get('Origin') || '*',
+  'access-control-allow-credentials': 'true',
+  'access-control-allow-headers': 'Content-Type, Accept',
+  'access-control-allow-methods': 'GET,POST,PUT,DELETE,OPTIONS',
+});
+
+const body = async (r) => {
+  try {
+    return await r.json();
+  } catch {
+    return null;
+  }
+};
+
+const clean = (v) => String(v ?? '').trim();
+
+async function currentUser(r, e) {
+  const raw = getSessionToken(r);
+
+  if (!raw) {
+    return null;
+  }
+
+  return e.DB
+    .prepare(
+      'SELECT u.id,u.email,u.username,u.created_at,u.updated_at ' +
+        'FROM sessions s JOIN users u ON u.id=s.user_id ' +
+        'WHERE s.token_hash=?1 AND s.expires_at>?2',
+    )
+    .bind(
+      await sha256(raw),
+      Math.floor(Date.now() / 1000),
+    )
+    .first();
+}
+
+async function isAdmin(r, e) {
+  const user = await currentUser(r, e);
+
+  if (!user) {
+    return null;
+  }
+
+  return String(user.email || '').toLowerCase() ===
+    String(e.ADMIN_EMAIL || '').trim().toLowerCase()
+    ? user
+    : null;
+}
+
+async function register(r, e) {
+  const d = await body(r);
+  const email = clean(d?.email).toLowerCase();
+  const username = clean(d?.username);
+  const password = String(d?.password ?? '');
+
+  if (!email || !username || password.length < 8) {
+    return json(
+      {
+        error:
+          'Use email, username e uma senha com pelo menos 8 caracteres.',
+      },
+      400,
+    );
+  }
+
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    return json({ error: 'Email inválido.' }, 400);
+  }
+
+  if (!/^[A-Za-z0-9_.-]{3,32}$/.test(username)) {
+    return json(
+      { error: 'Username deve ter 3–32 caracteres.' },
+      400,
+    );
+  }
+
+  const existing = await e.DB
+    .prepare(
+      'SELECT id FROM users WHERE email=?1 OR username=?2 LIMIT 1',
+    )
+    .bind(email, username)
+    .first();
+
+  if (existing) {
+    return json(
+      { error: 'Email ou username já está em uso.' },
+      409,
+    );
+  }
+
+  const id = uuid();
+  const now = Math.floor(Date.now() / 1000);
+  const session = uuid();
+
+  await e.DB.batch([
+    e.DB
+      .prepare(
+        'INSERT INTO users ' +
+          '(id,email,username,password_hash,created_at,updated_at) ' +
+          'VALUES (?1,?2,?3,?4,?5,?5)',
+      )
+      .bind(
+        id,
+        email,
+        username,
+        await passwordHash(password),
+        now,
+      ),
+    e.DB
+      .prepare(
+        "INSERT INTO user_settings " +
+          "(user_id,language,theme,reduce_motion,updated_at) " +
+          "VALUES (?1,'en','system',0,?2)",
+      )
+      .bind(id, now),
+    e.DB
+      .prepare(
+        'INSERT INTO user_progress ' +
+          '(user_id,xp,level,updated_at) VALUES (?1,0,1,?2)',
+      )
+      .bind(id, now),
+    e.DB
+      .prepare(
+        'INSERT INTO sessions ' +
+          '(id,user_id,token_hash,expires_at,created_at) ' +
+          'VALUES (?1,?2,?3,?4,?5)',
+      )
+      .bind(
+        uuid(),
+        id,
+        await sha256(session),
+        now + 2592000,
+        now,
+      ),
+  ]);
+
+  return json(
+    {
+      user: { id, email, username },
+      authenticated: true,
+    },
+    201,
+    {
+      ...cors(r),
+      'set-cookie': cookie(
+        'nexauren_session',
+        session,
+        2592000,
+      ),
+    },
+  );
+}
+
+async function login(r, e) {
+  const d = await body(r);
+  const email = clean(d?.email).toLowerCase();
+  const password = String(d?.password ?? '');
+  const u = await e.DB
+    .prepare(
+      'SELECT id,email,username,password_hash FROM users ' +
+        'WHERE email=?1 LIMIT 1',
+    )
+    .bind(email)
+    .first();
+
+  if (!u || !(await passwordVerify(password, u.password_hash))) {
+    return json(
+      { error: 'Email ou senha incorretos.' },
+      401,
+      cors(r),
+    );
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const session = uuid();
+
+  await e.DB
+    .prepare(
+      'INSERT INTO sessions ' +
+        '(id,user_id,token_hash,expires_at,created_at) ' +
+        'VALUES (?1,?2,?3,?4,?5)',
+    )
+    .bind(
+      uuid(),
+      u.id,
+      await sha256(session),
+      now + 2592000,
+      now,
+    )
+    .run();
+
+  return json(
+    {
+      user: {
+        id: u.id,
+        email: u.email,
+        username: u.username,
+      },
+      authenticated: true,
+    },
+    200,
+    {
+      ...cors(r),
+      'set-cookie': cookie(
+        'nexauren_session',
+        session,
+        2592000,
+      ),
+    },
+  );
+}
+
+async function ensurePasswordResetSchema(e) {
+  await e.DB.batch([
+    e.DB.prepare(
+      'CREATE TABLE IF NOT EXISTS password_reset_tokens ' +
+        '(id TEXT PRIMARY KEY, user_id TEXT NOT NULL, ' +
+        'token_hash TEXT NOT NULL UNIQUE, expires_at INTEGER NOT NULL, ' +
+        'created_at INTEGER NOT NULL, used_at INTEGER)',
+    ),
+    e.DB.prepare(
+      'CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ' +
+        'ON password_reset_tokens(user_id,created_at DESC)',
+    ),
+    e.DB.prepare(
+      'CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expiry ' +
+        'ON password_reset_tokens(expires_at)',
+    ),
+  ]);
+}
+
+async function sendPasswordResetEmail(e, email, token) {
+  if (!e.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not configured');
+  }
+
+  const link =
+    `https://nexaurenstory.com/auth/reset-password.html?token=${encodeURIComponent(token)}`;
+
+  const html = `<!doctype html><html><body><div>` +
+    `<h1>Reset your Nexauren password</h1>` +
+    `<p><a href="${link}">Reset password</a></p>` +
+    `</div></body></html>`;
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${e.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'Nexauren/1.0 (password-reset)',
+    },
+    body: JSON.stringify({
+      from: 'Nexauren <noreply@mail.nexaurenstory.com>',
+      to: [email],
+      subject: 'Reset your Nexauren password',
+      html,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Resend ${res.status}: ${text.slice(0, 500)}`,
+    );
+  }
+}
+
+async function forgotPassword(r, e) {
+  const d = await body(r);
+  const email = clean(d?.email).toLowerCase();
+
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    return json(
+      { error: 'Enter a valid email address.' },
+      400,
+      cors(r),
+    );
+  }
+
+  await ensurePasswordResetSchema(e);
+
+  const generic = {
+    message:
+      'If an account exists for that email, a password reset link has been sent.',
+  };
+
+  const u = await e.DB
+    .prepare('SELECT id,email FROM users WHERE email=?1 LIMIT 1')
+    .bind(email)
+    .first();
+
+  if (!u) {
+    return json(generic, 200, cors(r));
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const recent = await e.DB
+    .prepare(
+      'SELECT COUNT(*) AS total FROM password_reset_tokens ' +
+        'WHERE user_id=?1 AND created_at>?2',
+    )
+    .bind(u.id, now - 3600)
+    .first();
+
+  if (Number(recent?.total || 0) >= 3) {
+    return json(generic, 200, cors(r));
+  }
+
+  await e.DB
+    .prepare(
+      'DELETE FROM password_reset_tokens ' +
+        'WHERE user_id=?1 OR expires_at<=?2',
+    )
+    .bind(u.id, now)
+    .run();
+
+  const token = crypto.randomUUID() + crypto.randomUUID();
+  const tokenHash = await sha256(token);
+  const expires = now + 1800;
+
+  await e.DB
+    .prepare(
+      'INSERT INTO password_reset_tokens ' +
+        '(id,user_id,token_hash,expires_at,created_at,used_at) ' +
+        'VALUES (?1,?2,?3,?4,?5,NULL)',
+    )
+    .bind(uuid(), u.id, tokenHash, expires, now)
+    .run();
+
+  try {
+    await sendPasswordResetEmail(e, u.email, token);
+  } catch (err) {
+    console.error('Password reset email failed', err);
+
+    await e.DB
+      .prepare(
+        'DELETE FROM password_reset_tokens WHERE token_hash=?1',
+      )
+      .bind(tokenHash)
+      .run();
+
+    return json(
+      {
+        error:
+          'Unable to send the reset email right now. Please try again later.',
+      },
+      503,
+      cors(r),
+    );
+  }
+
+  return json(generic, 200, cors(r));
+}
+
+async function resetPassword(r, e) {
+  const d = await body(r);
+  const token = clean(d?.token);
+  const password = String(d?.password ?? '');
+
+  if (!token || password.length < 8) {
+    return json(
+      { error: 'Invalid reset request or password too short.' },
+      400,
+      cors(r),
+    );
+  }
+
+  await ensurePasswordResetSchema(e);
+
+  const now = Math.floor(Date.now() / 1000);
+  const tokenHash = await sha256(token);
+  const row = await e.DB
+    .prepare(
+      'SELECT id,user_id,expires_at,used_at FROM password_reset_tokens ' +
+        'WHERE token_hash=?1 LIMIT 1',
+    )
+    .bind(tokenHash)
+    .first();
+
+  if (!row || row.used_at || Number(row.expires_at) <= now) {
+    return json(
+      { error: 'This reset link is invalid or has expired.' },
+      400,
+      cors(r),
+    );
+  }
+
+  const newHash = await passwordHash(password);
+
+  await e.DB.batch([
+    e.DB
+      .prepare(
+        'UPDATE users SET password_hash=?1,updated_at=?2 ' +
+          'WHERE id=?3',
+      )
+      .bind(newHash, now, row.user_id),
+    e.DB
+      .prepare(
+        'UPDATE password_reset_tokens SET used_at=?1 WHERE id=?2',
+      )
+      .bind(now, row.id),
+    e.DB
+      .prepare('DELETE FROM sessions WHERE user_id=?1')
+      .bind(row.user_id),
+  ]);
+
+  return json(
+    {
+      success: true,
+      message: 'Password updated successfully. Please log in again.',
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function logout(r, e) {
+  const raw = getSessionToken(r);
+
+  if (raw) {
+    await e.DB
+      .prepare('DELETE FROM sessions WHERE token_hash=?1')
+      .bind(await sha256(raw))
+      .run();
+  }
+
+  return json(
+    { authenticated: false },
+    200,
+    {
+      ...cors(r),
+      'set-cookie': clearCookie('nexauren_session'),
+    },
+  );
+}
+
+async function me(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { authenticated: false },
+      401,
+      cors(r),
+    );
+  }
+
+  const [s, p] = await Promise.all([
+    e.DB
+      .prepare(
+        'SELECT language,theme,reduce_motion,updated_at ' +
+          'FROM user_settings WHERE user_id=?1',
+      )
+      .bind(u.id)
+      .first(),
+    e.DB
+      .prepare(
+        'SELECT xp,level,updated_at FROM user_progress WHERE user_id=?1',
+      )
+      .bind(u.id)
+      .first(),
+  ]);
+
+  return json(
+    {
+      authenticated: true,
+      user: u,
+      settings: s,
+      progress: p,
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function updateSettings(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  const d = await body(r);
+
+  await e.DB
+    .prepare(
+      'UPDATE user_settings SET language=?1,theme=?2,' +
+        'reduce_motion=?3,updated_at=?4 WHERE user_id=?5',
+    )
+    .bind(
+      clean(d?.language) || 'en',
+      clean(d?.theme) || 'system',
+      d?.reduce_motion ? 1 : 0,
+      Math.floor(Date.now() / 1000),
+      u.id,
+    )
+    .run();
+
+  return json({ success: true }, 200, cors(r));
+}
+
+async function progress(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  const d = await body(r);
+  const xp = Math.max(0, Number(d?.xp) || 0);
+  const level = Math.max(1, Number(d?.level) || 1);
+
+  await e.DB
+    .prepare(
+      'UPDATE user_progress SET xp=?1,level=?2,updated_at=?3 ' +
+        'WHERE user_id=?4',
+    )
+    .bind(
+      xp,
+      level,
+      Math.floor(Date.now() / 1000),
+      u.id,
+    )
+    .run();
+
+  return json({ success: true }, 200, cors(r));
+}
+
+async function ensureCommunitySchema(e) {
+  await e.DB.batch([
+    e.DB.prepare(
+      'CREATE TABLE IF NOT EXISTS tool_reviews ' +
+        '(id TEXT PRIMARY KEY,tool_id TEXT NOT NULL,tool_name TEXT NOT NULL,' +
+        'user_id TEXT NOT NULL,display_name TEXT NOT NULL,rating INTEGER NOT NULL,' +
+        'review TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,' +
+        'UNIQUE(tool_id,user_id))',
+    ),
+    e.DB.prepare(
+      'CREATE INDEX IF NOT EXISTS idx_tool_reviews_tool ' +
+        'ON tool_reviews(tool_id,created_at DESC)',
+    ),
+    e.DB.prepare(
+      'CREATE TABLE IF NOT EXISTS tool_favorites ' +
+        '(user_id TEXT NOT NULL,tool_id TEXT NOT NULL,tool_name TEXT NOT NULL,' +
+        'url TEXT NOT NULL,created_at INTEGER NOT NULL,' +
+        'PRIMARY KEY(user_id,tool_id))',
+    ),
+  ]);
+}
+
+async function getReviews(r, e) {
+  await ensureCommunitySchema(e);
+
+  const u = new URL(r.url);
+  const toolId = clean(u.searchParams.get('tool_id'));
+
+  if (!toolId) {
+    return json(
+      { error: 'tool_id required' },
+      400,
+      cors(r),
+    );
+  }
+
+  const page = Math.max(
+    1,
+    Number(u.searchParams.get('page')) || 1,
+  );
+  const limit = Math.max(
+    1,
+    Math.min(
+      20,
+      Number(u.searchParams.get('limit')) || 10,
+    ),
+  );
+  const offset = (page - 1) * limit;
+
+  const [summary, rows] = await Promise.all([
+    e.DB
+      .prepare(
+        'SELECT COUNT(*) AS total,COALESCE(AVG(rating),0) AS average ' +
+          'FROM tool_reviews WHERE tool_id=?1',
+      )
+      .bind(toolId)
+      .first(),
+    e.DB
+      .prepare(
+        'SELECT display_name,rating,review,created_at FROM tool_reviews ' +
+          'WHERE tool_id=?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3',
+      )
+      .bind(toolId, limit, offset)
+      .all(),
+  ]);
+
+  return json(
+    {
+      tool_id: toolId,
+      total: Number(summary?.total || 0),
+      average: Number(summary?.average || 0),
+      reviews: rows?.results || [],
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function getAllReviews(r, e) {
+  await ensureCommunitySchema(e);
+
+  const u = new URL(r.url);
+  const page = Math.max(
+    1,
+    Number(u.searchParams.get('page')) || 1,
+  );
+  const limit = Math.max(
+    1,
+    Math.min(
+      50,
+      Number(u.searchParams.get('limit')) || 15,
+    ),
+  );
+  const offset = (page - 1) * limit;
+
+  const [count, rows] = await Promise.all([
+    e.DB.prepare('SELECT COUNT(*) AS total FROM tool_reviews').first(),
+    e.DB
+      .prepare(
+        'SELECT tool_id,tool_name,display_name,rating,review,created_at ' +
+          'FROM tool_reviews ORDER BY created_at DESC LIMIT ?1 OFFSET ?2',
+      )
+      .bind(limit, offset)
+      .all(),
+  ]);
+
+  return json(
+    {
+      total: Number(count?.total || 0),
+      reviews: rows?.results || [],
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function postReview(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  await ensureCommunitySchema(e);
+
+  const d = await body(r);
+  const toolId = clean(d?.tool_id);
+  const toolName = clean(d?.tool_name).slice(0, 120);
+  const displayName = clean(d?.display_name).slice(0, 50);
+  const review = clean(d?.review).slice(0, 1000);
+  const rating = Math.floor(Number(d?.rating));
+
+  if (
+    !toolId ||
+    !toolName ||
+    !displayName ||
+    !review ||
+    rating < 1 ||
+    rating > 5
+  ) {
+    return json(
+      {
+        error:
+          'Provide a name, rating from 1 to 5, and a review.',
+      },
+      400,
+      cors(r),
+    );
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const id = uuid();
+
+  await e.DB
+    .prepare(
+      'INSERT INTO tool_reviews ' +
+        '(id,tool_id,tool_name,user_id,display_name,rating,review,' +
+        'created_at,updated_at) VALUES ' +
+        '(?1,?2,?3,?4,?5,?6,?7,?8,?8) ' +
+        'ON CONFLICT(tool_id,user_id) DO UPDATE SET ' +
+        'tool_name=excluded.tool_name,display_name=excluded.display_name,' +
+        'rating=excluded.rating,review=excluded.review,' +
+        'updated_at=excluded.updated_at',
+    )
+    .bind(
+      id,
+      toolId,
+      toolName,
+      u.id,
+      displayName,
+      rating,
+      review,
+      now,
+    )
+    .run();
+
+  return json({ success: true }, 201, cors(r));
+}
+
+async function favoriteState(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { favorite: false, authenticated: false },
+      200,
+      cors(r),
+    );
+  }
+
+  await ensureCommunitySchema(e);
+
+  const toolId = clean(
+    new URL(r.url).pathname.split('/').pop(),
+  );
+  const row = await e.DB
+    .prepare(
+      'SELECT 1 FROM tool_favorites ' +
+        'WHERE user_id=?1 AND tool_id=?2 LIMIT 1',
+    )
+    .bind(u.id, toolId)
+    .first();
+
+  return json(
+    {
+      favorite: !!row,
+      authenticated: true,
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function getFavorites(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  await ensureCommunitySchema(e);
+
+  const rows = await e.DB
+    .prepare(
+      'SELECT tool_id,tool_name,url,created_at FROM tool_favorites ' +
+        'WHERE user_id=?1 ORDER BY created_at DESC',
+    )
+    .bind(u.id)
+    .all();
+
+  return json(
+    { favorites: rows?.results || [] },
+    200,
+    cors(r),
+  );
+}
+
+async function addFavorite(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  await ensureCommunitySchema(e);
+
+  const d = await body(r);
+  const toolId = clean(
+    new URL(r.url).pathname.split('/').pop(),
+  );
+  const toolName = clean(d?.tool_name).slice(0, 120);
+  const url = clean(d?.url).slice(0, 500);
+
+  if (!toolId || !toolName || !url) {
+    return json(
+      { error: 'Invalid favorite.' },
+      400,
+      cors(r),
+    );
+  }
+
+  await e.DB
+    .prepare(
+      'INSERT OR REPLACE INTO tool_favorites ' +
+        '(user_id,tool_id,tool_name,url,created_at) ' +
+        'VALUES (?1,?2,?3,?4,?5)',
+    )
+    .bind(
+      u.id,
+      toolId,
+      toolName,
+      url,
+      Math.floor(Date.now() / 1000),
+    )
+    .run();
+
+  return json({ favorite: true }, 201, cors(r));
+}
+
+async function removeFavorite(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  await ensureCommunitySchema(e);
+
+  await e.DB
+    .prepare(
+      'DELETE FROM tool_favorites ' +
+        'WHERE user_id=?1 AND tool_id=?2',
+    )
+    .bind(
+      u.id,
+      clean(new URL(r.url).pathname.split('/').pop()),
+    )
+    .run();
+
+  return json({ favorite: false }, 200, cors(r));
+}
+
+function parseFields(value) {
+  let fields;
+
+  try {
+    fields = typeof value === 'string' ? JSON.parse(value) : value;
+  } catch {
+    return null;
+  }
+
+  if (!Array.isArray(fields) || fields.length > 50) {
+    return null;
+  }
+
+  const allowed = new Set([
+    'text',
+    'textarea',
+    'email',
+    'number',
+    'radio',
+    'checkbox',
+    'select',
+  ]);
+
+  const normalized = fields.map((f, i) => {
+    if (!f || typeof f !== 'object') {
+      return null;
+    }
+
+    const id = clean(f.id) || `field_${i + 1}`;
+    const type = clean(f.type);
+    const label = clean(f.label).slice(0, 200);
+    const options = Array.isArray(f.options)
+      ? f.options
+          .map((x) => clean(x).slice(0, 100))
+          .filter(Boolean)
+          .slice(0, 30)
+      : [];
+
+    if (!allowed.has(type) || !label) {
+      return null;
+    }
+
+    return {
+      id,
+      type,
+      label,
+      required: !!f.required,
+      placeholder: clean(f.placeholder).slice(0, 200),
+      options,
+    };
+  });
+
+  return normalized.every(Boolean) ? normalized : null;
+}
+
+function parseAnswers(value, fields) {
+  let answers;
+
+  try {
+    answers = typeof value === 'string' ? JSON.parse(value) : value;
+  } catch {
+    return null;
+  }
+
+  if (
+    !answers ||
+    typeof answers !== 'object' ||
+    Array.isArray(answers)
+  ) {
+    return null;
+  }
+
+  const allowed = new Set(fields.map((f) => f.id));
+  const out = {};
+
+  for (const [key, val] of Object.entries(answers)) {
+    if (!allowed.has(key)) {
+      continue;
+    }
+
+    if (Array.isArray(val)) {
+      out[key] = val
+        .slice(0, 30)
+        .map((x) => clean(x).slice(0, 500));
+    } else {
+      out[key] = clean(val).slice(0, 2000);
+    }
+  }
+
+  for (const f of fields) {
+    const value = out[f.id];
+
+    if (
+      f.required &&
+      (value === undefined ||
+        value === '' ||
+        (Array.isArray(value) && !value.length))
+    ) {
+      return null;
+    }
+  }
+
+  return out;
+}
+
+async function createForm(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  const d = await body(r);
+  const title = clean(d?.title).slice(0, 160);
+  const description = clean(d?.description).slice(0, 1000);
+  const fields = parseFields(d?.fields);
+
+  if (!title || !fields) {
+    return json(
+      { error: 'Título e campos válidos são obrigatórios.' },
+      400,
+      cors(r),
+    );
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const id = uuid();
+
+  await e.DB
+    .prepare(
+      'INSERT INTO forms ' +
+        '(id,owner_id,title,description,fields,status,created_at,updated_at) ' +
+        'VALUES (?1,?2,?3,?4,?5,?6,?7,?7)',
+    )
+    .bind(
+      id,
+      u.id,
+      title,
+      description,
+      JSON.stringify(fields),
+      'draft',
+      now,
+    )
+    .run();
+
+  return json(
+    {
+      success: true,
+      form: {
+        id,
+        title,
+        description,
+        fields,
+        status: 'draft',
+        created_at: now,
+        updated_at: now,
+      },
+    },
+    201,
+    cors(r),
+  );
+}
+
+async function listForms(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  const rows = await e.DB
+    .prepare(
+      'SELECT id,title,description,fields,status,created_at,updated_at ' +
+        'FROM forms WHERE owner_id=?1 ORDER BY created_at DESC',
+    )
+    .bind(u.id)
+    .all();
+
+  return json(
+    {
+      forms: (rows?.results || []).map((x) => ({
+        ...x,
+        fields: JSON.parse(x.fields || '[]'),
+      })),
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function getForm(r, e) {
+  const id = clean(new URL(r.url).searchParams.get('id'));
+
+  if (!id) {
+    return json(
+      { error: 'Form id required.' },
+      400,
+      cors(r),
+    );
+  }
+
+  const row = await e.DB
+    .prepare(
+      'SELECT id,title,description,fields,status,created_at,updated_at ' +
+        'FROM forms WHERE id=?1 LIMIT 1',
+    )
+    .bind(id)
+    .first();
+
+  if (!row || row.status !== 'published') {
+    return json(
+      { error: 'Form not found or not published.' },
+      404,
+      cors(r),
+    );
+  }
+
+  return json(
+    {
+      form: {
+        ...row,
+        fields: JSON.parse(row.fields || '[]'),
+      },
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function updateForm(r, e) {
+  const u = await currentUser(r, e);
+  const id = clean(new URL(r.url).pathname.split('/').pop());
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  if (!id) {
+    return json(
+      { error: 'Form id required.' },
+      400,
+      cors(r),
+    );
+  }
+
+  const current = await e.DB
+    .prepare(
+      'SELECT id,title,description,fields,status FROM forms ' +
+        'WHERE id=?1 AND owner_id=?2 LIMIT 1',
+    )
+    .bind(id, u.id)
+    .first();
+
+  if (!current) {
+    return json(
+      { error: 'Form not found.' },
+      404,
+      cors(r),
+    );
+  }
+
+  const d = await body(r);
+  const title =
+    d?.title === undefined
+      ? current.title
+      : clean(d.title).slice(0, 160);
+  const description =
+    d?.description === undefined
+      ? current.description
+      : clean(d.description).slice(0, 1000);
+  const fields =
+    d?.fields === undefined
+      ? JSON.parse(current.fields || '[]')
+      : parseFields(d.fields);
+  const status =
+    d?.status === undefined
+      ? current.status
+      : clean(d.status);
+
+  if (
+    !title ||
+    !fields ||
+    !['draft', 'published', 'closed'].includes(status)
+  ) {
+    return json(
+      { error: 'Dados inválidos.' },
+      400,
+      cors(r),
+    );
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+
+  await e.DB
+    .prepare(
+      'UPDATE forms SET title=?1,description=?2,fields=?3,' +
+        'status=?4,updated_at=?5 WHERE id=?6 AND owner_id=?7',
+    )
+    .bind(
+      title,
+      description,
+      JSON.stringify(fields),
+      status,
+      now,
+      id,
+      u.id,
+    )
+    .run();
+
+  return json(
+    {
+      success: true,
+      form: {
+        id,
+        title,
+        description,
+        fields,
+        status,
+        updated_at: now,
+      },
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function createNotification(
+  e,
+  { userId, type, title, body, url = '', icon = '🔔' },
+) {
+  if (!userId || !type || !title) {
+    return null;
+  }
+
+  const id = uuid();
+  const now = Math.floor(Date.now() / 1000);
+
+  await e.DB
+    .prepare(
+      'INSERT INTO notifications ' +
+        '(id,user_id,type,title,body,url,icon,read_at,created_at) ' +
+        'VALUES (?1,?2,?3,?4,?5,?6,?7,NULL,?8)',
+    )
+    .bind(
+      id,
+      userId,
+      type,
+      clean(title).slice(0, 160),
+      clean(body).slice(0, 1000),
+      clean(url).slice(0, 500),
+      clean(icon).slice(0, 20),
+      now,
+    )
+    .run();
+
+  return id;
+}
+
+async function submitForm(r, e) {
+  const parts = new URL(r.url).pathname
+    .split('/')
+    .filter(Boolean);
+  const id = clean(parts[2]);
+
+  if (!id) {
+    return json(
+      { error: 'Form id required.' },
+      400,
+      cors(r),
+    );
+  }
+
+  const form = await e.DB
+    .prepare(
+      'SELECT id,owner_id,title,fields,status FROM forms ' +
+        'WHERE id=?1 LIMIT 1',
+    )
+    .bind(id)
+    .first();
+
+  if (!form || form.status !== 'published') {
+    return json(
+      { error: 'Form not found or closed.' },
+      404,
+      cors(r),
+    );
+  }
+
+  const fields = parseFields(form.fields);
+  const d = await body(r);
+  const answers = parseAnswers(d?.answers, fields || []);
+
+  if (!answers) {
+    return json(
+      {
+        error:
+          'Respostas inválidas ou campos obrigatórios ausentes.',
+      },
+      400,
+      cors(r),
+    );
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const responseId = uuid();
+
+  await e.DB
+    .prepare(
+      'INSERT INTO form_responses ' +
+        '(id,form_id,answers,submitted_at) VALUES (?1,?2,?3,?4)',
+    )
+    .bind(
+      responseId,
+      id,
+      JSON.stringify(answers),
+      now,
+    )
+    .run();
+
+  await createNotification(e, {
+    userId: form.owner_id,
+    type: 'form_response',
+    title: 'New form response',
+    body:
+      `Someone submitted a response to “${form.title.slice(0, 120)}”.`,
+    url:
+      `/forms/responses/?form=${encodeURIComponent(id)}`,
+    icon: '📝',
+  });
+
+  return json(
+    {
+      success: true,
+      response_id: responseId,
+    },
+    201,
+    cors(r),
+  );
+}
+
+async function getResponses(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  const id = clean(
+    new URL(r.url).searchParams.get('form'),
+  );
+
+  if (!id) {
+    return json(
+      { error: 'Form id required.' },
+      400,
+      cors(r),
+    );
+  }
+
+  const form = await e.DB
+    .prepare(
+      'SELECT id,title FROM forms WHERE id=?1 AND owner_id=?2 LIMIT 1',
+    )
+    .bind(id, u.id)
+    .first();
+
+  if (!form) {
+    return json(
+      { error: 'Form not found.' },
+      404,
+      cors(r),
+    );
+  }
+
+  const rows = await e.DB
+    .prepare(
+      'SELECT id,answers,submitted_at FROM form_responses ' +
+        'WHERE form_id=?1 ORDER BY submitted_at DESC',
+    )
+    .bind(id)
+    .all();
+
+  return json(
+    {
+      form,
+      responses: (rows?.results || []).map((x) => ({
+        ...x,
+        answers: JSON.parse(x.answers || '{}'),
+      })),
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function getNotifications(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  const url = new URL(r.url);
+  const limit = Math.max(
+    1,
+    Math.min(
+      50,
+      Number(url.searchParams.get('limit')) || 20,
+    ),
+  );
+
+  const rows = await e.DB
+    .prepare(
+      'SELECT id,type,title,body,url,icon,read_at,created_at ' +
+        'FROM notifications WHERE user_id=?1 ' +
+        'ORDER BY created_at DESC LIMIT ?2',
+    )
+    .bind(u.id, limit)
+    .all();
+
+  const unread = await e.DB
+    .prepare(
+      'SELECT COUNT(*) AS total FROM notifications ' +
+        'WHERE user_id=?1 AND read_at IS NULL',
+    )
+    .bind(u.id)
+    .first();
+
+  return json(
+    {
+      notifications: rows?.results || [],
+      unread_count: Number(unread?.total || 0),
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function markNotificationRead(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  const id = clean(
+    new URL(r.url).pathname.split('/').pop(),
+  );
+
+  if (!id) {
+    return json(
+      { error: 'Notification id required.' },
+      400,
+      cors(r),
+    );
+  }
+
+  await e.DB
+    .prepare(
+      'UPDATE notifications SET read_at=?1 ' +
+        'WHERE id=?2 AND user_id=?3',
+    )
+    .bind(
+      Math.floor(Date.now() / 1000),
+      id,
+      u.id,
+    )
+    .run();
+
+  return json({ success: true }, 200, cors(r));
+}
+
+async function markAllNotificationsRead(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  await e.DB
+    .prepare(
+      'UPDATE notifications SET read_at=?1 ' +
+        'WHERE user_id=?2 AND read_at IS NULL',
+    )
+    .bind(
+      Math.floor(Date.now() / 1000),
+      u.id,
+    )
+    .run();
+
+  return json({ success: true }, 200, cors(r));
+}
+
+async function adminDashboard(r, e) {
+  await ensureCommunitySchema(e);
+
+  const now = Math.floor(Date.now() / 1000);
+  const week = now - 604800;
+
+  const [users, newUsers, active, forms, responses, reviews, notifications] =
+    await Promise.all([
+      e.DB.prepare('SELECT COUNT(*) AS total FROM users').first(),
+      e.DB
+        .prepare('SELECT COUNT(*) AS total FROM users WHERE created_at>=?1')
+        .bind(week)
+        .first(),
+      e.DB
+        .prepare(
+          'SELECT COUNT(DISTINCT user_id) AS total FROM sessions ' +
+            'WHERE expires_at>?1',
+        )
+        .bind(now)
+        .first(),
+      e.DB.prepare('SELECT COUNT(*) AS total FROM forms').first(),
+      e.DB
+        .prepare('SELECT COUNT(*) AS total FROM form_responses')
+        .first(),
+      e.DB
+        .prepare('SELECT COUNT(*) AS total FROM tool_reviews')
+        .first(),
+      e.DB
+        .prepare('SELECT COUNT(*) AS total FROM notifications')
+        .first(),
+    ]);
+
+  return json(
+    {
+      users: Number(users?.total || 0),
+      new_users: Number(newUsers?.total || 0),
+      active_users: Number(active?.total || 0),
+      forms: Number(forms?.total || 0),
+      responses: Number(responses?.total || 0),
+      reviews: Number(reviews?.total || 0),
+      notifications: Number(notifications?.total || 0),
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function adminUsers(r, e) {
+  const url = new URL(r.url);
+  const page = Math.max(
+    1,
+    Number(url.searchParams.get('page')) || 1,
+  );
+  const limit = Math.max(
+    1,
+    Math.min(
+      100,
+      Number(url.searchParams.get('limit')) || 25,
+    ),
+  );
+  const offset = (page - 1) * limit;
+
+  const [total, rows] = await Promise.all([
+    e.DB.prepare('SELECT COUNT(*) AS total FROM users').first(),
+    e.DB
+      .prepare(
+        'SELECT u.id,u.email,u.username,u.created_at,u.updated_at,' +
+          'COALESCE(p.xp,0) AS xp,COALESCE(p.level,1) AS level ' +
+          'FROM users u LEFT JOIN user_progress p ON p.user_id=u.id ' +
+          'ORDER BY u.created_at DESC LIMIT ?1 OFFSET ?2',
+      )
+      .bind(limit, offset)
+      .all(),
+  ]);
+
+  return json(
+    {
+      total: Number(total?.total || 0),
+      page,
+      limit,
+      users: rows?.results || [],
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function adminActivity(r, e) {
+  const url = new URL(r.url);
+  const limit = Math.max(
+    1,
+    Math.min(
+      100,
+      Number(url.searchParams.get('limit')) || 25,
+    ),
+  );
+
+  const rows = await e.DB
+    .prepare(
+      'SELECT s.created_at,s.expires_at,u.id AS user_id,u.email,u.username ' +
+        'FROM sessions s JOIN users u ON u.id=s.user_id ' +
+        'ORDER BY s.created_at DESC LIMIT ?1',
+    )
+    .bind(limit)
+    .all();
+
+  return json(
+    { activity: rows?.results || [] },
+    200,
+    cors(r),
+  );
+}
 
 /* NEXAUREN ADMIN DATA BRIDGE v3 */
-async function ensureActivitySchema(e){await e.DB.batch([e.DB.prepare('CREATE TABLE IF NOT EXISTS activity_logs (id TEXT PRIMARY KEY,user_id TEXT NOT NULL,action TEXT NOT NULL,tool_id TEXT,tool_name TEXT,url TEXT,details TEXT,created_at INTEGER NOT NULL)'),e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at DESC)'),e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id,created_at DESC)'),e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_activity_logs_tool ON activity_logs(tool_id,created_at DESC)')])}
-async function postActivity(r,e){const u=await currentUser(r,e);if(!u)return json({error:'Authentication required.'},401,cors(r));const d=await body(r),action=clean(d?.type||d?.action).slice(0,80);if(!action)return json({error:'Activity type required.'},400,cors(r));await ensureActivitySchema(e);const parsed=Date.parse(String(d?.time||'')),createdAt=Number.isFinite(parsed)?Math.floor(parsed/1000):Math.floor(Date.now()/1000);await e.DB.prepare('INSERT INTO activity_logs (id,user_id,action,tool_id,tool_name,url,details,created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)').bind(uuid(),u.id,action,clean(d?.toolId).slice(0,120),clean(d?.name).slice(0,160),clean(d?.url).slice(0,500),clean(d?.details||d?.title).slice(0,500),createdAt).run();return json({success:true},201,cors(r))}
-async function getAdminActivityReal(r,e){const u=new URL(r.url),page=Math.max(1,Number(u.searchParams.get('page'))||1),limit=Math.max(1,Math.min(100,Number(u.searchParams.get('limit'))||25)),offset=(page-1)*limit,q=clean(u.searchParams.get('q'));const where=q?' WHERE (a.action LIKE ?1 OR a.tool_name LIKE ?1 OR a.details LIKE ?1 OR u.username LIKE ?1 OR u.email LIKE ?1)':'';const binds=q?['%'+q+'%']:[];const count=await e.DB.prepare('SELECT COUNT(*) AS total FROM activity_logs a JOIN users u ON u.id=a.user_id'+where).bind(...binds).first();const rows=await e.DB.prepare('SELECT a.id,a.action,a.tool_id,a.tool_name,a.url,a.details,a.created_at,u.id AS user_id,u.username,u.email FROM activity_logs a JOIN users u ON u.id=a.user_id'+where+' ORDER BY a.created_at DESC LIMIT ?'+(q?'2':'1')+' OFFSET ?'+(q?'3':'2')).bind(...(q?[binds[0],limit,offset]:[limit,offset])).all();return json({page,limit,total:Number(count?.total||0),activity:rows?.results||[]},200,cors(r))}
-async function adminToolsReal(r,e){const url=new URL(r.url),page=Math.max(1,Number(url.searchParams.get('page'))||1),limit=Math.max(1,Math.min(100,Number(url.searchParams.get('limit'))||50)),offset=(page-1)*limit,q=clean(url.searchParams.get('q')).toLowerCase();await ensureActivitySchema(e);let registry=[];try{const asset=await e.ASSETS.fetch(new Request(new URL('/data/tools.json',r.url)));if(asset.ok){const data=await asset.json();registry=Array.isArray(data?.tools)?data.tools:[]}}catch{}const rows=await e.DB.prepare('SELECT tool_id,MAX(tool_name) AS tool_name,COUNT(*) AS events,MAX(created_at) AS last_activity,SUM(CASE WHEN created_at>=?1 THEN 1 ELSE 0 END) AS last_7_days,SUM(CASE WHEN created_at>=?2 THEN 1 ELSE 0 END) AS last_30_days FROM activity_logs WHERE tool_id IS NOT NULL AND tool_id<>'' GROUP BY tool_id ORDER BY events DESC,last_activity DESC').bind(Math.floor(Date.now()/1000)-604800,Math.floor(Date.now()/1000)-2592000).all();const stats=new Map((rows?.results||[]).map(x=>[String(x.tool_id),x]));const merged=registry.map(t=>{const id=clean(t?.id),s=stats.get(id)||{};return{tool_id:id,tool_name:clean(t?.name)||clean(s.tool_name)||id,events:Number(s.events||0),today:Number(s.last_7_days||0),last_7_days:Number(s.last_7_days||0),last_30_days:Number(s.last_30_days||0),last_activity:Number(s.last_activity||0),url:clean(t?.url)}}).filter(t=>!q||t.tool_id.toLowerCase().includes(q)||t.tool_name.toLowerCase().includes(q));const known=new Set(merged.map(t=>t.tool_id));for(const s of stats.values()){const id=clean(s.tool_id);if(!known.has(id)&&(!q||id.toLowerCase().includes(q)||clean(s.tool_name).toLowerCase().includes(q)))merged.push({tool_id:id,tool_name:clean(s.tool_name)||id,events:Number(s.events||0),today:Number(s.last_7_days||0),last_7_days:Number(s.last_7_days||0),last_30_days:Number(s.last_30_days||0),last_activity:Number(s.last_activity||0),url:''})}merged.sort((a,b)=>b.events-a.events||b.last_activity-a.last_activity);const totalEvents=merged.reduce((n,t)=>n+t.events,0);return json({page,limit,total:merged.length,total_events:totalEvents,last_7_days:merged.reduce((n,t)=>n+t.last_7_days,0),tools:merged.slice(offset,offset+limit)},200,cors(r))}
-async function enhanceHTML(response,request){const type=response.headers.get('content-type')||'';if(!type.includes('text/html'))return response;const url=new URL(request.url),path=url.pathname.replace(/\/$/,'')||'/';const titleMap={'/':'Nexauren — Free Online Tools','/about.html':'About — Nexauren','/faq.html':'FAQ — Nexauren','/complaints.html':'Report a Problem — Nexauren','/suggestions.html':'Suggestions — Nexauren','/contact.html':'Contact — Nexauren','/levels.html':'Nexauren Levels','/account':'My Account — Nexauren','/reviews':'Community Reviews — Nexauren','/favorites':'Favorites — Nexauren'};const title=titleMap[path]||'Nexauren — Online Tools',description=path.startsWith('/tools/')?'Free online tool from Nexauren. Fast, simple and practical.':'Nexauren provides free online tools for images, PDF, audio, video, text and AI.';let hasTitle=false,hasDescription=false,hasCanonical=false,hasFavicon=false,hasGA=false,hasAds=false;const rewriter=new HTMLRewriter();rewriter.on('head',{element(el){el.onEnd(()=>{if(!hasTitle)el.append(`<title>${title}</title>`,{html:true});if(!hasDescription)el.append(`<meta name="description" content="${description}">`,{html:true});if(!hasCanonical)el.append(`<link rel="canonical" href="https://nexaurenstory.com${path}">`,{html:true});if(!hasFavicon)el.append('<link rel="icon" type="image/png" href="/favicon.png?v=1"><link rel="apple-touch-icon" href="/favicon.png?v=1">',{html:true});if(!hasGA)el.append('<script async src="https://www.googletagmanager.com/gtag/js?id=G-5QFVE1W7D7"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){gtag("js",new Date());gtag("config","G-5QFVE1W7D7")</script>',{html:true});if(!hasAds)el.append(`<script src="/js/ads.js" defer></script>`,{html:true})})}});rewriter.on('title',{text(){hasTitle=true}});rewriter.on('meta',{element(el){if((el.getAttribute('name')||'').toLowerCase()==='description')hasDescription=true}});rewriter.on('link',{element(el){const rel=(el.getAttribute('rel')||'').toLowerCase();if(rel==='canonical')hasCanonical=true;if(rel==='icon'||rel==='shortcut icon'||rel==='apple-touch-icon')hasFavicon=true}});rewriter.on('script',{element(el){const src=el.getAttribute('src')||'';if(src.includes('googletagmanager.com/gtag/js'))hasGA=true;if(src.includes('/js/ads.js'))hasAds=true}});if(path.startsWith('/tools/')&&path!=='/tools')rewriter.on('body',{element(el){el.append('<script src="/js/community.js?v=2" defer></script>',{html:true})}});return rewriter.transform(response)}
-export default{async fetch(r,e){const h=cors(r);if(r.method==='OPTIONS')return new Response(null,{status:204,headers:h});const u=new URL(r.url);try{if(r.method==='POST'&&u.pathname==='/api/activity')return postActivity(r,e);if(u.pathname.startsWith('/api/admin/')){const admin=await isAdmin(r,e);if(!admin)return json({error:'Admin access required.'},403,cors(r));if(u.pathname==='/api/admin/dashboard'&&r.method==='GET')return adminDashboard(r,e);if(u.pathname==='/api/admin/users'&&r.method==='GET')return adminUsers(r,e);if(u.pathname==='/api/admin/activity'&&r.method==='GET')return getAdminActivityReal(r,e);if(u.pathname==='/api/admin/tools'&&r.method==='GET')return adminToolsReal(r,e);return json({error:'Admin route not found.'},404,cors(r))}if(u.pathname==='/api/auth/register'&&r.method==='POST')return register(r,e);if(u.pathname==='/api/auth/login'&&r.method==='POST')return login(r,e);if(u.pathname==='/api/auth/forgot-password'&&r.method==='POST')return forgotPassword(r,e);if(u.pathname==='/api/auth/reset-password'&&r.method==='POST')return resetPassword(r,e);if(u.pathname==='/api/auth/logout'&&r.method==='POST')return logout(r,e);if(u.pathname==='/api/auth/me'&&r.method==='GET')return me(r,e);if(u.pathname==='/api/settings'&&r.method==='PUT')return updateSettings(r,e);if(u.pathname==='/api/progress'&&r.method==='POST')return progress(r,e);if((u.pathname==='/api/reviews'||u.pathname==='/api/reviews/')&&r.method==='GET')return getReviews(r,e);if((u.pathname==='/api/reviews'||u.pathname==='/api/reviews/')&&r.method==='POST')return postReview(r,e);if(u.pathname==='/api/reviews/all'&&r.method==='GET')return getAllReviews(r,e);if(u.pathname==='/api/favorites'&&r.method==='GET')return getFavorites(r,e);if(u.pathname.startsWith('/api/favorites/')&&r.method==='GET')return favoriteState(r,e);if(u.pathname.startsWith('/api/favorites/')&&r.method==='POST')return addFavorite(r,e);if(u.pathname.startsWith('/api/favorites/')&&r.method==='DELETE')return removeFavorite(r,e);if(u.pathname==='/api/forms'&&r.method==='POST')return createForm(r,e);if(u.pathname==='/api/forms'&&r.method==='GET')return listForms(r,e);if(u.pathname==='/api/forms/public'&&r.method==='GET')return getForm(r,e);if(u.pathname==='/api/forms/responses'&&r.method==='GET')return getResponses(r,e);if(u.pathname.startsWith('/api/forms/')&&u.pathname.endsWith('/responses')&&r.method==='POST')return submitForm(r,e);if(u.pathname.startsWith('/api/forms/')&&u.pathname.endsWith('/responses')&&r.method==='GET')return getResponses(r,e);if(u.pathname.startsWith('/api/forms/')&&r.method==='PUT')return updateForm(r,e);if(u.pathname==='/api/notifications'&&r.method==='GET')return getNotifications(r,e);if(u.pathname==='/api/notifications/read-all'&&r.method==='POST')return markAllNotificationsRead(r,e);if(u.pathname.startsWith('/api/notifications/')&&r.method==='POST')return markNotificationRead(r,e);if(u.pathname==='/favicon.png')return e.ASSETS.fetch(new Request(new URL('/favicon.png',r.url),r));const response=await e.ASSETS.fetch(r);return enhanceHTML(response,r)}catch(err){console.error(err);return json({error:'Erro interno do servidor.'},500,h)}}};
+
+async function ensureActivitySchema(e) {
+  await e.DB.batch([
+    e.DB.prepare(
+      'CREATE TABLE IF NOT EXISTS activity_logs ' +
+        '(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,action TEXT NOT NULL,' +
+        'tool_id TEXT,tool_name TEXT,url TEXT,details TEXT,' +
+        'created_at INTEGER NOT NULL)',
+    ),
+    e.DB.prepare(
+      'CREATE INDEX IF NOT EXISTS idx_activity_logs_created ' +
+        'ON activity_logs(created_at DESC)',
+    ),
+    e.DB.prepare(
+      'CREATE INDEX IF NOT EXISTS idx_activity_logs_user ' +
+        'ON activity_logs(user_id,created_at DESC)',
+    ),
+    e.DB.prepare(
+      'CREATE INDEX IF NOT EXISTS idx_activity_logs_tool ' +
+        'ON activity_logs(tool_id,created_at DESC)',
+    ),
+  ]);
+}
+
+async function postActivity(r, e) {
+  const u = await currentUser(r, e);
+
+  if (!u) {
+    return json(
+      { error: 'Authentication required.' },
+      401,
+      cors(r),
+    );
+  }
+
+  const d = await body(r);
+  const action = clean(d?.type || d?.action).slice(0, 80);
+
+  if (!action) {
+    return json(
+      { error: 'Activity type required.' },
+      400,
+      cors(r),
+    );
+  }
+
+  await ensureActivitySchema(e);
+
+  const parsed = Date.parse(String(d?.time || ''));
+  const createdAt = Number.isFinite(parsed)
+    ? Math.floor(parsed / 1000)
+    : Math.floor(Date.now() / 1000);
+
+  await e.DB
+    .prepare(
+      'INSERT INTO activity_logs ' +
+        '(id,user_id,action,tool_id,tool_name,url,details,created_at) ' +
+        'VALUES (?1,?2,?3,?4,?5,?6,?7,?8)',
+    )
+    .bind(
+      uuid(),
+      u.id,
+      action,
+      clean(d?.toolId).slice(0, 120),
+      clean(d?.name).slice(0, 160),
+      clean(d?.url).slice(0, 500),
+      clean(d?.details || d?.title).slice(0, 500),
+      createdAt,
+    )
+    .run();
+
+  return json({ success: true }, 201, cors(r));
+}
+
+async function getAdminActivityReal(r, e) {
+  const u = new URL(r.url);
+  const page = Math.max(
+    1,
+    Number(u.searchParams.get('page')) || 1,
+  );
+  const limit = Math.max(
+    1,
+    Math.min(
+      100,
+      Number(u.searchParams.get('limit')) || 25,
+    ),
+  );
+  const offset = (page - 1) * limit;
+  const q = clean(u.searchParams.get('q'));
+  const where = q
+    ? ' WHERE (a.action LIKE ?1 OR a.tool_name LIKE ?1 ' +
+      'OR a.details LIKE ?1 OR u.username LIKE ?1 OR u.email LIKE ?1)'
+    : '';
+  const binds = q ? ['%' + q + '%'] : [];
+
+  const count = await e.DB
+    .prepare(
+      'SELECT COUNT(*) AS total FROM activity_logs a ' +
+        'JOIN users u ON u.id=a.user_id' +
+        where,
+    )
+    .bind(...binds)
+    .first();
+
+  const rows = await e.DB
+    .prepare(
+      'SELECT a.id,a.action,a.tool_id,a.tool_name,a.url,a.details,' +
+        'a.created_at,u.id AS user_id,u.username,u.email ' +
+        'FROM activity_logs a JOIN users u ON u.id=a.user_id' +
+        where +
+        ' ORDER BY a.created_at DESC LIMIT ?' +
+        (q ? '2' : '1') +
+        ' OFFSET ?' +
+        (q ? '3' : '2'),
+    )
+    .bind(
+      ...(q
+        ? [binds[0], limit, offset]
+        : [limit, offset]),
+    )
+    .all();
+
+  return json(
+    {
+      page,
+      limit,
+      total: Number(count?.total || 0),
+      activity: rows?.results || [],
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function adminToolsReal(r, e) {
+  const url = new URL(r.url);
+  const page = Math.max(
+    1,
+    Number(url.searchParams.get('page')) || 1,
+  );
+  const limit = Math.max(
+    1,
+    Math.min(
+      100,
+      Number(url.searchParams.get('limit')) || 50,
+    ),
+  );
+  const offset = (page - 1) * limit;
+  const q = clean(url.searchParams.get('q')).toLowerCase();
+
+  await ensureActivitySchema(e);
+
+  let registry = [];
+
+  try {
+    const asset = await e.ASSETS.fetch(
+      new Request(
+        new URL('/data/tools.json', r.url),
+      ),
+    );
+
+    if (asset.ok) {
+      const data = await asset.json();
+      registry = Array.isArray(data?.tools)
+        ? data.tools
+        : [];
+    }
+  } catch {}
+
+  const rows = await e.DB
+    .prepare(
+      `SELECT tool_id,MAX(tool_name) AS tool_name,
+        COUNT(*) AS events,MAX(created_at) AS last_activity,
+        SUM(CASE WHEN created_at>=?1 THEN 1 ELSE 0 END) AS last_7_days,
+        SUM(CASE WHEN created_at>=?2 THEN 1 ELSE 0 END) AS last_30_days
+        FROM activity_logs
+        WHERE tool_id IS NOT NULL AND tool_id<>''
+        GROUP BY tool_id
+        ORDER BY events DESC,last_activity DESC`,
+    )
+    .bind(
+      Math.floor(Date.now() / 1000) - 604800,
+      Math.floor(Date.now() / 1000) - 2592000,
+    )
+    .all();
+
+  const stats = new Map(
+    (rows?.results || []).map((x) => [String(x.tool_id), x]),
+  );
+
+  const merged = registry
+    .map((t) => {
+      const id = clean(t?.id);
+      const s = stats.get(id) || {};
+
+      return {
+        tool_id: id,
+        tool_name:
+          clean(t?.name) || clean(s.tool_name) || id,
+        events: Number(s.events || 0),
+        today: Number(s.last_7_days || 0),
+        last_7_days: Number(s.last_7_days || 0),
+        last_30_days: Number(s.last_30_days || 0),
+        last_activity: Number(s.last_activity || 0),
+        url: clean(t?.url),
+      };
+    })
+    .filter(
+      (t) =>
+        !q ||
+        t.tool_id.toLowerCase().includes(q) ||
+        t.tool_name.toLowerCase().includes(q),
+    );
+
+  const known = new Set(merged.map((t) => t.tool_id));
+
+  for (const s of stats.values()) {
+    const id = clean(s.tool_id);
+
+    if (
+      !known.has(id) &&
+      (!q ||
+        id.toLowerCase().includes(q) ||
+        clean(s.tool_name).toLowerCase().includes(q))
+    ) {
+      merged.push({
+        tool_id: id,
+        tool_name: clean(s.tool_name) || id,
+        events: Number(s.events || 0),
+        today: Number(s.last_7_days || 0),
+        last_7_days: Number(s.last_7_days || 0),
+        last_30_days: Number(s.last_30_days || 0),
+        last_activity: Number(s.last_activity || 0),
+        url: '',
+      });
+    }
+  }
+
+  merged.sort(
+    (a, b) =>
+      b.events - a.events ||
+      b.last_activity - a.last_activity,
+  );
+
+  const totalEvents = merged.reduce(
+    (n, t) => n + t.events,
+    0,
+  );
+
+  return json(
+    {
+      page,
+      limit,
+      total: merged.length,
+      total_events: totalEvents,
+      last_7_days: merged.reduce(
+        (n, t) => n + t.last_7_days,
+        0,
+      ),
+      tools: merged.slice(offset, offset + limit),
+    },
+    200,
+    cors(r),
+  );
+}
+
+async function enhanceHTML(response, request) {
+  const type = response.headers.get('content-type') || '';
+
+  if (!type.includes('text/html')) {
+    return response;
+  }
+
+  const url = new URL(request.url);
+  const path = url.pathname.replace(/\/$/, '') || '/';
+  const titleMap = {
+    '/': 'Nexauren — Free Online Tools',
+    '/about.html': 'About — Nexauren',
+    '/faq.html': 'FAQ — Nexauren',
+    '/complaints.html': 'Report a Problem — Nexauren',
+    '/suggestions.html': 'Suggestions — Nexauren',
+    '/contact.html': 'Contact — Nexauren',
+    '/levels.html': 'Nexauren Levels',
+    '/account': 'My Account — Nexauren',
+    '/reviews': 'Community Reviews — Nexauren',
+    '/favorites': 'Favorites — Nexauren',
+  };
+  const title = titleMap[path] || 'Nexauren — Online Tools';
+  const description = path.startsWith('/tools/')
+    ? 'Free online tool from Nexauren. Fast, simple and practical.'
+    : 'Nexauren provides free online tools for images, PDF, audio, video, text and AI.';
+
+  let hasTitle = false;
+  let hasDescription = false;
+  let hasCanonical = false;
+  let hasFavicon = false;
+  let hasGA = false;
+  let hasAds = false;
+
+  const rewriter = new HTMLRewriter();
+
+  rewriter.on('head', {
+    element(el) {
+      el.onEnd(() => {
+        if (!hasTitle) {
+          el.append(`<title>${title}</title>`, { html: true });
+        }
+
+        if (!hasDescription) {
+          el.append(
+            `<meta name="description" content="${description}">`,
+            { html: true },
+          );
+        }
+
+        if (!hasCanonical) {
+          el.append(
+            `<link rel="canonical" href="https://nexaurenstory.com${path}">`,
+            { html: true },
+          );
+        }
+
+        if (!hasFavicon) {
+          el.append(
+            '<link rel="icon" type="image/png" href="/favicon.png?v=1">' +
+              '<link rel="apple-touch-icon" href="/favicon.png?v=1">',
+            { html: true },
+          );
+        }
+
+        if (!hasGA) {
+          el.append(
+            '<script async src="https://www.googletagmanager.com/gtag/js?id=G-5QFVE1W7D7"></script>' +
+              '<script>window.dataLayer=window.dataLayer||[];function gtag(){gtag("js",new Date());gtag("config","G-5QFVE1W7D7")</script>',
+            { html: true },
+          );
+        }
+
+        if (!hasAds) {
+          el.append(
+            '<script src="/js/ads.js" defer></script>',
+            { html: true },
+          );
+        }
+      });
+    },
+  });
+
+  rewriter.on('title', {
+    text() {
+      hasTitle = true;
+    },
+  });
+
+  rewriter.on('meta', {
+    element(el) {
+      if (
+        (el.getAttribute('name') || '').toLowerCase() ===
+        'description'
+      ) {
+        hasDescription = true;
+      }
+    },
+  });
+
+  rewriter.on('link', {
+    element(el) {
+      const rel = (el.getAttribute('rel') || '').toLowerCase();
+
+      if (rel === 'canonical') {
+        hasCanonical = true;
+      }
+
+      if (
+        rel === 'icon' ||
+        rel === 'shortcut icon' ||
+        rel === 'apple-touch-icon'
+      ) {
+        hasFavicon = true;
+      }
+    },
+  });
+
+  rewriter.on('script', {
+    element(el) {
+      const src = el.getAttribute('src') || '';
+
+      if (src.includes('googletagmanager.com/gtag/js')) {
+        hasGA = true;
+      }
+
+      if (src.includes('/js/ads.js')) {
+        hasAds = true;
+      }
+    },
+  });
+
+  if (path.startsWith('/tools/') && path !== '/tools') {
+    rewriter.on('body', {
+      element(el) {
+        el.append(
+          '<script src="/js/community.js?v=2" defer></script>',
+          { html: true },
+        );
+      },
+    });
+  }
+
+  return rewriter.transform(response);
+}
+
+export default {
+  async fetch(r, e) {
+    const h = cors(r);
+
+    if (r.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: h,
+      });
+    }
+
+    const u = new URL(r.url);
+
+    try {
+      if (
+        r.method === 'POST' &&
+        u.pathname === '/api/activity'
+      ) {
+        return postActivity(r, e);
+      }
+
+      if (u.pathname.startsWith('/api/admin/')) {
+        const admin = await isAdmin(r, e);
+
+        if (!admin) {
+          return json(
+            { error: 'Admin access required.' },
+            403,
+            cors(r),
+          );
+        }
+
+        if (
+          u.pathname === '/api/admin/dashboard' &&
+          r.method === 'GET'
+        ) {
+          return adminDashboard(r, e);
+        }
+
+        if (
+          u.pathname === '/api/admin/users' &&
+          r.method === 'GET'
+        ) {
+          return adminUsers(r, e);
+        }
+
+        if (
+          u.pathname === '/api/admin/activity' &&
+          r.method === 'GET'
+        ) {
+          return getAdminActivityReal(r, e);
+        }
+
+        if (
+          u.pathname === '/api/admin/tools' &&
+          r.method === 'GET'
+        ) {
+          return adminToolsReal(r, e);
+        }
+
+        return json(
+          { error: 'Admin route not found.' },
+          404,
+          cors(r),
+        );
+      }
+
+      if (
+        u.pathname === '/api/auth/register' &&
+        r.method === 'POST'
+      ) {
+        return register(r, e);
+      }
+
+      if (
+        u.pathname === '/api/auth/login' &&
+        r.method === 'POST'
+      ) {
+        return login(r, e);
+      }
+
+      if (
+        u.pathname === '/api/auth/forgot-password' &&
+        r.method === 'POST'
+      ) {
+        return forgotPassword(r, e);
+      }
+
+      if (
+        u.pathname === '/api/auth/reset-password' &&
+        r.method === 'POST'
+      ) {
+        return resetPassword(r, e);
+      }
+
+      if (
+        u.pathname === '/api/auth/logout' &&
+        r.method === 'POST'
+      ) {
+        return logout(r, e);
+      }
+
+      if (
+        u.pathname === '/api/auth/me' &&
+        r.method === 'GET'
+      ) {
+        return me(r, e);
+      }
+
+      if (
+        u.pathname === '/api/settings' &&
+        r.method === 'PUT'
+      ) {
+        return updateSettings(r, e);
+      }
+
+      if (
+        u.pathname === '/api/progress' &&
+        r.method === 'POST'
+      ) {
+        return progress(r, e);
+      }
+
+      if (
+        (u.pathname === '/api/reviews' ||
+          u.pathname === '/api/reviews/') &&
+        r.method === 'GET'
+      ) {
+        return getReviews(r, e);
+      }
+
+      if (
+        (u.pathname === '/api/reviews' ||
+          u.pathname === '/api/reviews/') &&
+        r.method === 'POST'
+      ) {
+        return postReview(r, e);
+      }
+
+      if (
+        u.pathname === '/api/reviews/all' &&
+        r.method === 'GET'
+      ) {
+        return getAllReviews(r, e);
+      }
+
+      if (
+        u.pathname === '/api/favorites' &&
+        r.method === 'GET'
+      ) {
+        return getFavorites(r, e);
+      }
+
+      if (
+        u.pathname.startsWith('/api/favorites/') &&
+        r.method === 'GET'
+      ) {
+        return favoriteState(r, e);
+      }
+
+      if (
+        u.pathname.startsWith('/api/favorites/') &&
+        r.method === 'POST'
+      ) {
+        return addFavorite(r, e);
+      }
+
+      if (
+        u.pathname.startsWith('/api/favorites/') &&
+        r.method === 'DELETE'
+      ) {
+        return removeFavorite(r, e);
+      }
+
+      if (
+        u.pathname === '/api/forms' &&
+        r.method === 'POST'
+      ) {
+        return createForm(r, e);
+      }
+
+      if (
+        u.pathname === '/api/forms' &&
+        r.method === 'GET'
+      ) {
+        return listForms(r, e);
+      }
+
+      if (
+        u.pathname === '/api/forms/public' &&
+        r.method === 'GET'
+      ) {
+        return getForm(r, e);
+      }
+
+      if (
+        u.pathname === '/api/forms/responses' &&
+        r.method === 'GET'
+      ) {
+        return getResponses(r, e);
+      }
+
+      if (
+        u.pathname.startsWith('/api/forms/') &&
+        u.pathname.endsWith('/responses') &&
+        r.method === 'POST'
+      ) {
+        return submitForm(r, e);
+      }
+
+      if (
+        u.pathname.startsWith('/api/forms/') &&
+        u.pathname.endsWith('/responses') &&
+        r.method === 'GET'
+      ) {
+        return getResponses(r, e);
+      }
+
+      if (
+        u.pathname.startsWith('/api/forms/') &&
+        r.method === 'PUT'
+      ) {
+        return updateForm(r, e);
+      }
+
+      if (
+        u.pathname === '/api/notifications' &&
+        r.method === 'GET'
+      ) {
+        return getNotifications(r, e);
+      }
+
+      if (
+        u.pathname === '/api/notifications/read-all' &&
+        r.method === 'POST'
+      ) {
+        return markAllNotificationsRead(r, e);
+      }
+
+      if (
+        u.pathname.startsWith('/api/notifications/') &&
+        r.method === 'POST'
+      ) {
+        return markNotificationRead(r, e);
+      }
+
+      if (u.pathname === '/favicon.png') {
+        return e.ASSETS.fetch(
+          new Request(
+            new URL('/favicon.png', r.url),
+            r,
+          ),
+        );
+      }
+
+      const response = await e.ASSETS.fetch(r);
+      return enhanceHTML(response, r);
+    } catch (err) {
+      console.error(err);
+
+      return json(
+        { error: 'Erro interno do servidor.' },
+        500,
+        h,
+      );
+    }
+  },
+};
