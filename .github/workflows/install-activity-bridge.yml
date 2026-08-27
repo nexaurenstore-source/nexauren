@@ -48,3 +48,4 @@ async function adminFormsReal(r,e){const admin=await isAdmin(r,e);if(!admin)retu
           if git diff --cached --quiet; then echo 'No bridge changes needed'; exit 0; fi
           git commit -m 'Add server-side admin activity tools and forms data'
           git push
+# Triggered deliberately to install the existing server-side activity bridge.
