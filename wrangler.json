@@ -4,7 +4,7 @@
   "main": ".worker-build/worker.js",
   "compatibility_date": "2026-08-25",
   "build": {
-    "command": "node scripts/build-worker.mjs",
+    "command": "node scripts/build-worker.mjs && node scripts/extend-admin-users.mjs",
     "watch_dir": ["worker.js", "scripts", "frontend"]
   },
   "assets": {
