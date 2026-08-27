@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Users — Nexauren Admin</title>
+<link rel="stylesheet" href="/admin/users/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/admin/">NEXAUREN <span>Admin</span></a>
+  <a class="back" href="/admin/">← Dashboard</a>
+</header>
+<main>
+  <section class="hero">
+    <p class="eyebrow">ADMINISTRATION</p>
+    <h1>Users</h1>
+    <p id="status">Loading users…</p>
+  </section>
+
+  <section class="panel toolbar">
+    <div class="search-wrap">
+      <label for="search">Search users</label>
+      <input id="search" type="search" placeholder="Email or username…" autocomplete="off">
+    </div>
+    <button id="refresh" class="button primary">Refresh</button>
+  </section>
+
+  <section class="panel">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>User</th><th>XP</th><th>Level</th><th>Created</th><th>Updated</th></tr>
+        </thead>
+        <tbody id="users"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <button id="prev" class="button" disabled>← Previous</button>
+      <span id="page">Page 1</span>
+      <button id="next" class="button" disabled>Next →</button>
+    </div>
+  </section>
+</main>
+<script src="/admin/users/script.js"></script>
+</body>
+</html>
