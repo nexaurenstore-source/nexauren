@@ -1,0 +1,102 @@
+name: Install Admin Notifications API
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'worker.js'
+      - '.github/workflows/install-admin-notifications.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch Worker without replacing existing code
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('worker.js')
+          text = path.read_text(encoding='utf-8')
+
+          if 'async function getAdminNotifications(' not in text:
+              marker = 'async function enhanceHTML(response,request){'
+              if marker not in text:
+                  raise SystemExit('Worker structure changed: enhanceHTML marker not found')
+
+              code = r'''async function getAdminNotifications(r,e){
+            const u=new URL(r.url);
+            const page=Math.max(1,Number(u.searchParams.get('page'))||1);
+            const limit=Math.max(1,Math.min(100,Number(u.searchParams.get('limit'))||25));
+            const offset=(page-1)*limit;
+            const q=clean(u.searchParams.get('q'));
+            const type=clean(u.searchParams.get('type'));
+            const status=clean(u.searchParams.get('status'));
+            const conditions=[];
+            const args=[];
+            if(q){conditions.push('(n.title LIKE ? OR n.body LIKE ? OR n.type LIKE ?)');const v='%'+q+'%';args.push(v,v,v)}
+            if(type){conditions.push('n.type=?');args.push(type)}
+            if(status==='read')conditions.push('n.read_at IS NOT NULL');
+            if(status==='unread')conditions.push('n.read_at IS NULL');
+            const where=conditions.length?' WHERE '+conditions.join(' AND '):'';
+            const totalRow=await e.DB.prepare('SELECT COUNT(*) AS total FROM notifications n'+where).bind(...args).first();
+            const unreadRow=await e.DB.prepare('SELECT COUNT(*) AS total FROM notifications n WHERE n.read_at IS NULL').first();
+            const announcementRow=await e.DB.prepare("SELECT COUNT(*) AS total FROM notifications n WHERE n.type='announcement'").first();
+            const sql='SELECT n.id,n.user_id,n.type,n.title,n.body,n.url,n.icon,n.read_at,n.created_at,u.username,u.email FROM notifications n LEFT JOIN users u ON u.id=n.user_id'+where+' ORDER BY n.created_at DESC LIMIT ? OFFSET ?';
+            const rows=await e.DB.prepare(sql).bind(...args,limit,offset).all();
+            return json({page,limit,total:Number(totalRow?.total||0),unread:Number(unreadRow?.total||0),announcements:Number(announcementRow?.total||0),notifications:rows?.results||[]},200,cors(r))
+          }
+
+          async function updateAdminNotification(r,e){
+            const id=clean(new URL(r.url).pathname.split('/').pop());
+            if(!id)return json({error:'Notification id required.'},400,cors(r));
+            const d=await body(r);
+            const sets=[];
+            const args=[];
+            if(d?.type!==undefined){sets.push('type=?');args.push(clean(d.type).slice(0,80))}
+            if(d?.title!==undefined){sets.push('title=?');args.push(clean(d.title).slice(0,160))}
+            if(d?.body!==undefined){sets.push('body=?');args.push(clean(d.body).slice(0,1000))}
+            if(d?.url!==undefined){sets.push('url=?');args.push(clean(d.url).slice(0,500))}
+            if(d?.icon!==undefined){sets.push('icon=?');args.push(clean(d.icon).slice(0,20))}
+            if(!sets.length)return json({error:'No fields to update.'},400,cors(r));
+            args.push(id);
+            await e.DB.prepare('UPDATE notifications SET '+sets.join(',')+' WHERE id=?').bind(...args).run();
+            return json({success:true},200,cors(r))
+          }
+
+          async function deleteAdminNotification(r,e){
+            const id=clean(new URL(r.url).pathname.split('/').pop());
+            if(!id)return json({error:'Notification id required.'},400,cors(r));
+            await e.DB.prepare('DELETE FROM notifications WHERE id=?').bind(id).run();
+            return json({success:true},200,cors(r))
+          }
+
+          '''
+              text = text.replace(marker, code + marker, 1)
+
+          route_marker = "if(u.pathname==='/api/admin/tools'&&r.method==='GET')return adminToolsReal(r,e);"
+          if route_marker not in text:
+              raise SystemExit('Worker structure changed: admin tools route marker not found')
+
+          routes = route_marker + "if(u.pathname==='/api/admin/notifications'&&r.method==='GET')return getAdminNotifications(r,e);if(u.pathname.startsWith('/api/admin/notifications/')&&r.method==='PUT')return updateAdminNotification(r,e);if(u.pathname.startsWith('/api/admin/notifications/')&&r.method==='DELETE')return deleteAdminNotification(r,e);"
+          text = text.replace(route_marker, routes, 1)
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit patch if needed
+        shell: bash
+        run: |
+          if git diff --quiet -- worker.js; then
+            echo "Admin notifications API already installed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add worker.js
+          git commit -m "Add protected admin notifications API"
+          git push
