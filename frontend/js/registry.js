@@ -3,8 +3,8 @@
 
   const cache = new Map();
 
-  const fetchJSON = async (path) => {
-    const response = await fetch(`${path}?v=20260827`, {
+  const fetchJSON = async path => {
+    const response = await fetch(path, {
       cache: 'no-store',
       headers: { Accept: 'application/json' }
     });
