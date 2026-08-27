@@ -1,2 +1,49 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexauren Admin</title><link rel="stylesheet" href="/admin/style.css"></head><body><header class="topbar"><div><strong>NEXAUREN</strong><span>Admin</span></div><button id="refresh">Refresh</button></header><main><section class="hero"><p class="eyebrow">ADMINISTRATION</p><h1>Dashboard</h1><p id="status">Checking administrator access…</p></section><section class="cards"><article><span>Users</span><strong id="users">—</strong></article><article><span>New users · 7d</span><strong id="new_users">—</strong></article><article><span>Active users</span><strong id="active_users">—</strong></article><article><span>Forms</span><strong id="forms">—</strong></article><article><span>Responses</span><strong id="responses">—</strong></article><article><span>Reviews</span><strong id="reviews">—</strong></article><article><span>Notifications</span><strong id="notifications">—</strong></article></section><section class="panel"><h2>Admin sections</h2><nav class="grid-nav"><a href="#">Users</a><a href="#">Activity</a><a href="#">Tools</a><a href="#">Forms</a><a href="#">Responses</a><a href="#">Reviews</a><a href="#">Notifications</a><a href="#">Announcements</a><a href="#">Statistics</a><a href="#">Settings</a></nav></section></main><script src="/admin/script.js"></script></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nexauren Admin</title>
+<link rel="stylesheet" href="/admin/style.css">
+</head>
+<body>
+<div class="app-shell">
+<header class="topbar">
+  <a class="brand" href="/admin/" aria-label="Nexauren Admin home"><span class="brand-mark">N</span><span><strong>NEXAUREN</strong><small>ADMIN CONSOLE</small></span></a>
+  <div class="top-actions"><span class="secure-pill">● Secure</span><button id="refresh" class="refresh">↻ Refresh</button></div>
+</header>
+<main>
+<section class="hero">
+  <div><p class="eyebrow">ADMINISTRATION</p><h1>Command Center</h1><p id="status">Checking administrator access…</p></div>
+  <div class="hero-glow" aria-hidden="true"></div>
+</section>
+<section class="cards">
+  <article class="stat-card accent-blue"><div class="stat-icon">👥</div><span>Users</span><strong id="users">—</strong><small>Total registered</small></article>
+  <article class="stat-card accent-purple"><div class="stat-icon">✦</div><span>New users · 7d</span><strong id="new_users">—</strong><small>Last seven days</small></article>
+  <article class="stat-card accent-cyan"><div class="stat-icon">◉</div><span>Active users</span><strong id="active_users">—</strong><small>Recent activity</small></article>
+  <article class="stat-card accent-green"><div class="stat-icon">▣</div><span>Forms</span><strong id="forms">—</strong><small>Created forms</small></article>
+  <article class="stat-card accent-orange"><div class="stat-icon">↗</div><span>Responses</span><strong id="responses">—</strong><small>Form submissions</small></article>
+  <article class="stat-card accent-pink"><div class="stat-icon">★</div><span>Reviews</span><strong id="reviews">—</strong><small>Community reviews</small></article>
+  <article class="stat-card accent-violet"><div class="stat-icon">🔔</div><span>Notifications</span><strong id="notifications">—</strong><small>Central notifications</small></article>
+</section>
+<section class="panel">
+  <div class="panel-heading"><div><p class="eyebrow">CONTROL CENTER</p><h2>Admin sections</h2></div><span class="coming">More modules coming</span></div>
+  <nav class="grid-nav" id="admin-nav">
+    <button data-section="Users"><b>👥</b><span>Users</span><small>Accounts & XP</small></button>
+    <button data-section="Activity"><b>◷</b><span>Activity</span><small>Recent events</small></button>
+    <button data-section="Tools"><b>⚙</b><span>Tools</span><small>Usage & tools</small></button>
+    <button data-section="Forms"><b>▣</b><span>Forms</span><small>Created forms</small></button>
+    <button data-section="Responses"><b>↗</b><span>Responses</span><small>Form answers</small></button>
+    <button data-section="Reviews"><b>★</b><span>Reviews</span><small>Community</small></button>
+    <button data-section="Notifications"><b>🔔</b><span>Notifications</span><small>Central inbox</small></button>
+    <button data-section="Announcements"><b>📣</b><span>Announcements</span><small>Publish news</small></button>
+    <button data-section="Statistics"><b>▥</b><span>Statistics</span><small>Analytics</small></button>
+    <button data-section="Settings"><b>⚙</b><span>Settings</span><small>Admin settings</small></button>
+  </nav>
+</section>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+</main>
+</div>
+<script src="/admin/script.js"></script>
+</body>
+</html>
