@@ -8,6 +8,13 @@ const output = new URL('../.worker-build/worker.js', import.meta.url);
 let sourceCode = await readFile(source, 'utf8');
 if (!sourceCode.trim()) throw new Error('[worker-check] worker.js is empty. Deployment stopped.');
 
+// The legacy Worker already defines these two user-notification handlers.
+// Rename only the legacy source references before injecting the newer
+// notification system so the generated ES module has no duplicate symbols.
+sourceCode = sourceCode
+  .replace(/\bmarkNotificationRead\b/g, 'legacyMarkNotificationRead')
+  .replace(/\bmarkAllNotificationsRead\b/g, 'legacyMarkAllNotificationsRead');
+
 const notificationFunctions = `
 
 async function ensureNotificationsSchema(e) {
