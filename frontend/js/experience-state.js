@@ -1,38 +1,50 @@
 (()=>{
   'use strict';
-  const normalizePath = () => {
-    const value = location.pathname.replace(/\/+$/, '') || '/';
-    return value;
-  };
-  const namespace = `nexauren:experience:${encodeURIComponent(normalizePath())}`;
+  const normalizePath = () => location.pathname.replace(/\/+$/, '') || '/';
+  const path = normalizePath();
+  const isExperience = /^\/studios\/[^/]+\/[^/]+$/.test(path);
+  const namespace = `nexauren:experience:${encodeURIComponent(path)}`;
   const key = name => `${namespace}:${String(name || 'state')}`;
+  const globalKeys = new Set(['nexauren_history','nexauren_activity','nexauren_usage','nexauren_theme','nexauren_language']);
+  const shouldIsolate = name => isExperience && !globalKeys.has(String(name)) && !String(name).startsWith('nexauren:experience:');
+  const rawGet = Storage.prototype.getItem;
+  const rawSet = Storage.prototype.setItem;
+  const rawRemove = Storage.prototype.removeItem;
+  const scopedKey = name => shouldIsolate(name) ? key(name) : String(name);
+
+  if (!Storage.prototype.__nexaurenExperienceIsolation) {
+    Object.defineProperty(Storage.prototype, '__nexaurenExperienceIsolation', { value: true, configurable: false });
+    Storage.prototype.getItem = function(name) { return rawGet.call(this, scopedKey(name)); };
+    Storage.prototype.setItem = function(name, value) { return rawSet.call(this, scopedKey(name), value); };
+    Storage.prototype.removeItem = function(name) { return rawRemove.call(this, scopedKey(name)); };
+  }
+
   const read = (name, fallback = null) => {
     try {
-      const raw = localStorage.getItem(key(name));
+      const raw = rawGet.call(localStorage, key(name));
       return raw === null ? fallback : JSON.parse(raw);
     } catch { return fallback; }
   };
   const write = (name, value) => {
-    try { localStorage.setItem(key(name), JSON.stringify(value)); return true; } catch { return false; }
+    try { rawSet.call(localStorage, key(name), JSON.stringify(value)); return true; } catch { return false; }
   };
-  const remove = name => { try { localStorage.removeItem(key(name)); } catch {} };
+  const remove = name => { try { rawRemove.call(localStorage, key(name)); } catch {} };
   const reset = () => {
     try {
       const prefix = `${namespace}:`;
       for (let i = localStorage.length - 1; i >= 0; i -= 1) {
         const k = localStorage.key(i);
-        if (k && k.startsWith(prefix)) localStorage.removeItem(k);
+        if (k && k.startsWith(prefix)) rawRemove.call(localStorage, k);
       }
     } catch {}
-    window.dispatchEvent(new CustomEvent('nexauren:experience-reset', { detail: { path: normalizePath() } }));
+    window.dispatchEvent(new CustomEvent('nexauren:experience-reset', { detail: { path } }));
   };
   const back = fallback => {
     if (history.length > 1 && document.referrer && new URL(document.referrer, location.href).origin === location.origin) history.back();
     else location.href = fallback || '/studios/';
   };
 
-  window.NexaurenExperience = { path: normalizePath(), key, get: read, set: write, remove, reset, back };
-
+  window.NexaurenExperience = { path, isolated: isExperience, key, get: read, set: write, remove, reset, back };
   document.addEventListener('click', event => {
     const resetButton = event.target.closest?.('[data-experience-reset]');
     if (resetButton) { event.preventDefault(); reset(); return; }
