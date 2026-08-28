@@ -76,7 +76,15 @@ async function enforceToolAvailability(r, e) {
 if (!source.includes('async function enforceToolAvailability(')) {
   const fetchStart = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{/;
   if (!fetchStart.test(source)) throw new Error('[worker-check] fetch(r, e) marker missing for tool availability guard.');
-  source = source.replace(fetchStart, toolGuard + '\n$&', 1);
+
+  // The Worker fetch method is normally inside `export default { ... }`.
+  // Insert declarations before the object literal, not before the method,
+  // otherwise the generated module becomes invalid JavaScript.
+  const exportMarker = 'export default {';
+  const exportIndex = source.indexOf(exportMarker);
+  if (exportIndex < 0) throw new Error('[worker-check] export default marker missing for tool availability guard.');
+  source = source.slice(0, exportIndex) + toolGuard + '\n' + source.slice(exportIndex);
+
   source = source.replace(fetchStart, '$&\n      const __toolAvailabilityResponse = await enforceToolAvailability(r, e);\n      if (__toolAvailabilityResponse) return __toolAvailabilityResponse;\n', 1);
 }
 
