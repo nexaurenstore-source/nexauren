@@ -26,10 +26,10 @@ if (!source.includes("protected from administrative actions.")) {
 const toolGuard = `
 
 function toolIdFromRequestPath(pathname) {
-  const p = String(pathname || '');
-  if (p === '/forms/' || p === '/forms') return 'form-builder';
-  const m = p.match(/^\\/tools\\/[^/]+\\/([^/]+)\\/?$/);
-  return m ? decodeURIComponent(m[1]) : null;
+  const parts = String(pathname || '').split('/').filter(Boolean);
+  if (parts.length === 1 && parts[0] === 'forms') return 'form-builder';
+  if (parts.length === 3 && parts[0] === 'tools') return decodeURIComponent(parts[2]);
+  return null;
 }
 
 async function enforceToolAvailability(r, e) {
