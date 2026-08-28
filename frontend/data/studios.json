@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "architecture": "studios",
   "studios": [
     {
@@ -11,8 +11,8 @@
       "status": "active",
       "tools": ["vocal-studio", "audio-recorder", "audio-editor", "audio-cutter", "audio-converter", "audio-enhancer", "audio-merger", "audio-compressor", "audio-trimmer", "audio-speed-pitch"]
     },
-    {"id":"image-studio","name":"Image Studio","slug":"image","description":"A future workspace for editing, converting, optimizing and creating with images.","icon":"image","status":"active","tools":[]},
-    {"id":"pdf-studio","name":"PDF Studio","slug":"pdf","description":"A future workspace for merging, splitting, converting and preparing PDF documents.","icon":"file","status":"active","tools":[]},
-    {"id":"text-studio","name":"Text Studio","slug":"text","description":"A future workspace for cleaning, formatting, comparing and transforming text.","icon":"text","status":"active","tools":[]}
+    {"id":"image-studio","name":"Image Studio","slug":"image","description":"A future workspace for editing, converting, optimizing and creating with images.","icon":"image","status":"planned","tools":[]},
+    {"id":"pdf-studio","name":"PDF Studio","slug":"pdf","description":"A future workspace for merging, splitting, converting and preparing PDF documents.","icon":"file","status":"planned","tools":[]},
+    {"id":"text-studio","name":"Text Studio","slug":"text","description":"A future workspace for cleaning, formatting, comparing and transforming text.","icon":"text","status":"planned","tools":[]}
   ]
 }
