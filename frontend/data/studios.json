@@ -6,6 +6,6 @@
     {"id":"image-studio","name":"Image Studio","slug":"image","description":"A focused workspace for converting, compressing, resizing, cropping and editing images.","icon":"image","status":"active","tools":["image-converter","image-compressor","image-resizer","image-cropper","image-editor"]},
     {"id":"pdf-studio","name":"PDF Studio","slug":"pdf","description":"A focused workspace for merging, splitting, converting, compressing and editing PDF documents.","icon":"file","status":"active","tools":["pdf-converter","pdf-merger","pdf-splitter","pdf-compressor","pdf-editor"]},
     {"id":"video-studio","name":"Video Studio","slug":"video","description":"A focused workspace for converting, compressing, cutting, merging and resizing videos.","icon":"video","status":"active","tools":["video-converter","video-compressor","video-cutter","video-merger","video-resizer"]},
-    {"id":"text-studio","name":"Text Studio","slug":"text","description":"A future workspace for cleaning, formatting, comparing and transforming text.","icon":"text","status":"planned","tools":[]}
+    {"id":"text-studio","name":"Text Studio","slug":"text","description":"A focused workspace for formatting, cleaning, counting, comparing and transforming text.","icon":"text","status":"active","tools":["text-formatter","text-cleaner","text-counter","text-diff","text-converter"]}
   ]
 }
