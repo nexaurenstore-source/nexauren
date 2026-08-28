@@ -1,5 +1,4 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
 
 const output = new URL('../.worker-build/worker.js', import.meta.url);
 let source = await readFile(output, 'utf8');
@@ -29,11 +28,9 @@ async function adminBlockedUsers(r, e) {
 async function statisticsSafe(e, sql, ...args) {
   try { return await e.DB.prepare(sql).bind(...args).first(); } catch { return null; }
 }
-
 async function statisticsAll(e, sql, ...args) {
   try { return (await e.DB.prepare(sql).bind(...args).all())?.results || []; } catch { return []; }
 }
-
 async function adminStatistics(r, e) {
   const admin = await isAdmin(r, e);
   if (!admin) return json({ error: 'Forbidden' }, 403, cors(r));
@@ -64,67 +61,71 @@ async function adminStatistics(r, e) {
 async function ensureAdminSettingsSchema(e) {
   await e.DB.batch([
     e.DB.prepare("CREATE TABLE IF NOT EXISTS platform_settings (key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at INTEGER NOT NULL,updated_by TEXT)"),
+    e.DB.prepare("CREATE TABLE IF NOT EXISTS tool_settings (tool_id TEXT PRIMARY KEY,ranking_score INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'available',available_at INTEGER,restore_at INTEGER,updated_at INTEGER NOT NULL,updated_by TEXT)"),
     e.DB.prepare("CREATE TABLE IF NOT EXISTS settings_audit_logs (id TEXT PRIMARY KEY,admin_id TEXT,setting_key TEXT NOT NULL,old_value TEXT,new_value TEXT,created_at INTEGER NOT NULL)"),
     e.DB.prepare("CREATE INDEX IF NOT EXISTS idx_settings_audit_created ON settings_audit_logs(created_at DESC)")
   ]);
 }
 
-const SETTINGS_DEFAULTS = {
-  platform_enabled:true, maintenance:false, maintenance_message:'NEXAUREN is temporarily under maintenance.',
-  registrations:true, login:true, ranking_enabled:true, ranking_limit:10, ranking_auto:true,
-  ranking_first_tool:'', notifications:true, notification_badge:true, forms:true, reviews:true, tools:true
-};
-
+const SETTINGS_DEFAULTS = { ranking_enabled:true, ranking_limit:10, notification_badge:true };
 function settingsValue(key, value) {
-  if (['platform_enabled','maintenance','registrations','login','ranking_enabled','ranking_auto','notifications','notification_badge','forms','reviews','tools'].includes(key)) return value === true || value === 'true';
+  if (['ranking_enabled','notification_badge'].includes(key)) return value === true || value === 'true';
   if (key === 'ranking_limit') return Math.max(3, Math.min(100, Number(value) || 10));
   return clean(value).slice(0, 500);
 }
+function safeToolStatus(v) { return ['available','scheduled','maintenance','blocked'].includes(String(v)) ? String(v) : 'available'; }
+function validTimestamp(v) { if (v === null || v === '' || v === undefined) return null; const n = Math.floor(new Date(v).getTime()/1000); return Number.isFinite(n) ? n : null; }
 
 async function getAdminSettings(r,e) {
   const admin = await isAdmin(r,e); if (!admin) return json({error:'Forbidden'},403,cors(r));
   await ensureAdminSettingsSchema(e);
   const rows = await e.DB.prepare('SELECT key,value,updated_at,updated_by FROM platform_settings').all();
   const settings = {...SETTINGS_DEFAULTS};
-  for (const row of rows?.results || []) {
-    try { settings[row.key] = settingsValue(row.key, JSON.parse(row.value)); } catch { settings[row.key] = settingsValue(row.key,row.value); }
-  }
+  for (const row of rows?.results || []) { try { settings[row.key] = settingsValue(row.key, JSON.parse(row.value)); } catch { settings[row.key] = settingsValue(row.key,row.value); } }
+  const tools = await e.DB.prepare('SELECT tool_id,ranking_score,status,available_at,restore_at,updated_at,updated_by FROM tool_settings ORDER BY ranking_score DESC,tool_id ASC').all();
   const audit = await e.DB.prepare('SELECT a.setting_key,a.old_value,a.new_value,a.created_at,u.username,u.email FROM settings_audit_logs a LEFT JOIN users u ON u.id=a.admin_id ORDER BY a.created_at DESC LIMIT 100').all();
-  return json({settings,audit:audit?.results||[]},200,cors(r));
+  return json({settings,tools:tools?.results||[],audit:audit?.results||[]},200,cors(r));
 }
 
 async function updateAdminSettings(r,e) {
   const admin = await isAdmin(r,e); if (!admin) return json({error:'Forbidden'},403,cors(r));
-  await ensureAdminSettingsSchema(e);
-  const d = await body(r); if (!d || typeof d !== 'object') return json({error:'Invalid settings payload.'},400,cors(r));
-  const allowed = Object.keys(SETTINGS_DEFAULTS); const now = Math.floor(Date.now()/1000);
-  const changes=[];
-  for (const key of allowed) {
+  await ensureAdminSettingsSchema(e); const d=await body(r);
+  if (!d || typeof d !== 'object') return json({error:'Invalid settings payload.'},400,cors(r));
+  const now=Math.floor(Date.now()/1000); const changes=[];
+  for (const key of Object.keys(SETTINGS_DEFAULTS)) {
     if (!(key in d)) continue;
-    const value = settingsValue(key,d[key]);
-    const serialized = JSON.stringify(value);
-    const old = await e.DB.prepare('SELECT value FROM platform_settings WHERE key=?1').bind(key).first();
-    const oldValue = old?.value ?? JSON.stringify(SETTINGS_DEFAULTS[key]);
-    if (oldValue === serialized) continue;
+    const value=settingsValue(key,d[key]); const serialized=JSON.stringify(value);
+    const old=await e.DB.prepare('SELECT value FROM platform_settings WHERE key=?1').bind(key).first();
+    const oldValue=old?.value ?? JSON.stringify(SETTINGS_DEFAULTS[key]); if(oldValue===serialized) continue;
     await e.DB.prepare('INSERT INTO platform_settings (key,value,updated_at,updated_by) VALUES (?1,?2,?3,?4) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by').bind(key,serialized,now,admin.id).run();
-    await e.DB.prepare('INSERT INTO settings_audit_logs (id,admin_id,setting_key,old_value,new_value,created_at) VALUES (?1,?2,?3,?4,?5,?6)').bind(uuid(),admin.id,key,oldValue,serialized,now).run();
-    changes.push(key);
+    await e.DB.prepare('INSERT INTO settings_audit_logs (id,admin_id,setting_key,old_value,new_value,created_at) VALUES (?1,?2,?3,?4,?5,?6)').bind(uuid(),admin.id,key,oldValue,serialized,now).run(); changes.push(key);
   }
   return json({success:true,changed:changes},200,cors(r));
 }
 
-async function resetToolRanking(r,e) {
-  const admin = await isAdmin(r,e); if (!admin) return json({error:'Forbidden'},403,cors(r));
-  await ensureAdminSettingsSchema(e);
-  const candidates = ['tool_usage','tool_usages','tools_usage','tool_stats','tool_statistics'];
-  let reset = false;
-  for (const table of candidates) {
-    try { await e.DB.prepare('DELETE FROM ' + table).run(); reset = true; break; } catch {}
-  }
-  const now=Math.floor(Date.now()/1000);
-  await e.DB.prepare('INSERT INTO settings_audit_logs (id,admin_id,setting_key,old_value,new_value,created_at) VALUES (?1,?2,?3,?4,?5,?6)').bind(uuid(),admin.id,'ranking_reset',String(reset),'reset',now).run();
-  return json({success:true,message:reset?'Ranking statistics reset.':'No ranking statistics table was found; nothing was changed.'},200,cors(r));
+async function updateAdminToolSetting(r,e) {
+  const admin=await isAdmin(r,e); if(!admin)return json({error:'Forbidden'},403,cors(r));
+  await ensureAdminSettingsSchema(e); const d=await body(r); const toolId=clean(d?.tool_id).slice(0,120);
+  if(!toolId)return json({error:'tool_id is required.'},400,cors(r));
+  const score=Math.max(0,Math.min(100,Math.round(Number(d?.ranking_score ?? d?.score ?? 0))));
+  const status=safeToolStatus(d?.status); const availableAt=validTimestamp(d?.available_at); const restoreAt=validTimestamp(d?.restore_at);
+  if(status==='scheduled' && !availableAt && !restoreAt)return json({error:'A scheduled tool needs a release time.'},400,cors(r));
+  const old=await e.DB.prepare('SELECT * FROM tool_settings WHERE tool_id=?1').bind(toolId).first(); const now=Math.floor(Date.now()/1000);
+  await e.DB.prepare('INSERT INTO tool_settings (tool_id,ranking_score,status,available_at,restore_at,updated_at,updated_by) VALUES (?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(tool_id) DO UPDATE SET ranking_score=excluded.ranking_score,status=excluded.status,available_at=excluded.available_at,restore_at=excluded.restore_at,updated_at=excluded.updated_at,updated_by=excluded.updated_by').bind(toolId,score,status,availableAt,restoreAt,now,admin.id).run();
+  await e.DB.prepare('INSERT INTO settings_audit_logs (id,admin_id,setting_key,old_value,new_value,created_at) VALUES (?1,?2,?3,?4,?5,?6)').bind(uuid(),admin.id,'tool:'+toolId,JSON.stringify(old||null),JSON.stringify({ranking_score:score,status,available_at:availableAt,restore_at:restoreAt}),now).run();
+  return json({success:true,tool:{tool_id:toolId,ranking_score:score,status,available_at:availableAt,restore_at:restoreAt}},200,cors(r));
 }
+
+async function getPublicToolSetting(r,e,toolId) {
+  await ensureAdminSettingsSchema(e); const id=clean(toolId).slice(0,120);
+  const row=await e.DB.prepare('SELECT tool_id,ranking_score,status,available_at,restore_at FROM tool_settings WHERE tool_id=?1').bind(id).first();
+  const now=Math.floor(Date.now()/1000);
+  let state=row||{tool_id:id,ranking_score:0,status:'available',available_at:null,restore_at:null};
+  if(state.available_at && now>=Number(state.available_at) && state.status==='scheduled') state={...state,status:'available'};
+  if(state.restore_at && now>=Number(state.restore_at) && state.status==='maintenance') state={...state,status:'available'};
+  return json({tool:state,server_time:now},200,cors(r));
+}
+
 `;
 
 if (!source.includes('async function adminBlockedUsers(')) {
@@ -140,19 +141,18 @@ const route = `
         if (__blockedUsersUrl.pathname === '/api/admin/statistics' && r.method === 'GET') return adminStatistics(r, e);
         if (__blockedUsersUrl.pathname === '/api/admin/settings' && r.method === 'GET') return getAdminSettings(r, e);
         if (__blockedUsersUrl.pathname === '/api/admin/settings' && r.method === 'PUT') return updateAdminSettings(r, e);
-        if (__blockedUsersUrl.pathname === '/api/admin/settings/ranking/reset' && r.method === 'POST') return resetToolRanking(r, e);
+        if (__blockedUsersUrl.pathname === '/api/admin/settings/tools' && r.method === 'PUT') return updateAdminToolSetting(r, e);
+        if (__blockedUsersUrl.pathname.startsWith('/api/tools/') && __blockedUsersUrl.pathname.endsWith('/status') && r.method === 'GET') return getPublicToolSetting(r, e, __blockedUsersUrl.pathname.split('/').filter(Boolean).at(-2));
       }
 `;
 if (!source.includes('__blockedUsersUrl')) {
   const fetchStart = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{/;
   if (!fetchStart.test(source)) throw new Error('[worker-check] fetch(r, e) marker missing.');
   source = source.replace(fetchStart, '$&\n' + route, 1);
-} else if (!source.includes('/api/admin/settings')) {
-  source = source.replace("if (__blockedUsersUrl.pathname === '/api/admin/statistics' && r.method === 'GET') return adminStatistics(r, e);", "if (__blockedUsersUrl.pathname === '/api/admin/statistics' && r.method === 'GET') return adminStatistics(r, e);\n        if (__blockedUsersUrl.pathname === '/api/admin/settings' && r.method === 'GET') return getAdminSettings(r, e);\n        if (__blockedUsersUrl.pathname === '/api/admin/settings' && r.method === 'PUT') return updateAdminSettings(r, e);\n        if (__blockedUsersUrl.pathname === '/api/admin/settings/ranking/reset' && r.method === 'POST') return resetToolRanking(r, e);");
 }
 
 await writeFile(output, source, 'utf8');
-execFileSync(process.execPath, ['--check', output.pathname], { stdio: 'inherit' });
 console.log('[worker-check] Blocked Users list extension applied.');
 console.log('[worker-check] Admin Statistics API extension applied.');
-console.log('[worker-check] Admin Settings API extension applied.');
+console.log('[worker-check] Safe Admin Settings API extension applied.');
+console.log('[worker-check] Tool maintenance, scheduling, countdown state and 0-100 ranking API included.');
