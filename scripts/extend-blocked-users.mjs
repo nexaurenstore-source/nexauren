@@ -27,25 +27,16 @@ async function adminBlockedUsers(r, e) {
 }
 
 async function statisticsSafe(e, sql, ...args) {
-  try {
-    return await e.DB.prepare(sql).bind(...args).first();
-  } catch {
-    return null;
-  }
+  try { return await e.DB.prepare(sql).bind(...args).first(); } catch { return null; }
 }
 
 async function statisticsAll(e, sql, ...args) {
-  try {
-    return (await e.DB.prepare(sql).bind(...args).all())?.results || [];
-  } catch {
-    return [];
-  }
+  try { return (await e.DB.prepare(sql).bind(...args).all())?.results || []; } catch { return []; }
 }
 
 async function adminStatistics(r, e) {
   const admin = await isAdmin(r, e);
   if (!admin) return json({ error: 'Forbidden' }, 403, cors(r));
-
   const u = new URL(r.url);
   const days = Math.min(365, Math.max(1, Number.parseInt(u.searchParams.get('days') || '7', 10) || 7));
   const now = Math.floor(Date.now() / 1000);
@@ -54,20 +45,20 @@ async function adminStatistics(r, e) {
   const totalUsers = await statisticsSafe(e, 'SELECT COUNT(*) AS total FROM users');
   const newUsers = await statisticsSafe(e, 'SELECT COUNT(*) AS total FROM users WHERE created_at>=?1', since);
   const activeUsers = await statisticsSafe(e, 'SELECT COUNT(DISTINCT user_id) AS total FROM sessions WHERE expires_at>?1', now);
-
   const notifSent = await statisticsSafe(e, "SELECT COUNT(*) AS total FROM notification_recipients r JOIN notifications n ON n.id=r.notification_id WHERE n.status IN ('SENT','ACTIVE') AND r.created_at>=?1", since);
   const notifRead = await statisticsSafe(e, "SELECT COUNT(*) AS total FROM notification_recipients r JOIN notifications n ON n.id=r.notification_id WHERE n.status IN ('SENT','ACTIVE') AND r.read_at IS NOT NULL AND r.created_at>=?1", since);
-
   const forms = await statisticsSafe(e, 'SELECT COUNT(*) AS total FROM forms WHERE created_at>=?1', since);
   const reviews = await statisticsSafe(e, 'SELECT COUNT(*) AS total FROM reviews WHERE created_at>=?1', since);
 
   let toolsUsed = null;
   let tools = [];
   for (const table of ['tool_usage','tool_usages','tools_usage']) {
-    const count = await statisticsSafe(e, `SELECT COUNT(*) AS total FROM ${table} WHERE created_at>=?1`, since);
+    const sqlCount = 'SELECT COUNT(*) AS total FROM ' + table + ' WHERE created_at>=?1';
+    const count = await statisticsSafe(e, sqlCount, since);
     if (count) {
       toolsUsed = Number(count.total || 0);
-      tools = await statisticsAll(e, `SELECT name AS label,COUNT(*) AS value FROM ${table} WHERE created_at>=?1 GROUP BY name ORDER BY value DESC LIMIT 10`, since);
+      const sqlTools = 'SELECT name AS label,COUNT(*) AS value FROM ' + table + ' WHERE created_at>=?1 GROUP BY name ORDER BY value DESC LIMIT 10';
+      tools = await statisticsAll(e, sqlTools, since);
       break;
     }
   }
@@ -81,7 +72,7 @@ async function adminStatistics(r, e) {
   for (const row of usersSeries) { cumulative += Number(row.value || 0); growth.push({ label: row.label, value: cumulative }); }
 
   return json({
-    range_label: days === 1 ? 'Today' : `Last ${days} days`,
+    range_label: days === 1 ? 'Today' : 'Last ' + days + ' days',
     overview: {
       total_users: Number(totalUsers?.total || 0),
       active_users: Number(activeUsers?.total || 0),
@@ -92,19 +83,8 @@ async function adminStatistics(r, e) {
       reviews: reviews ? Number(reviews.total || 0) : null,
       tools_used: toolsUsed
     },
-    series: {
-      users: usersSeries,
-      notifications: sentSeries,
-      notifications_read: readSeries,
-      growth,
-      activity: usersSeries
-    },
-    top: {
-      tools,
-      users: [],
-      content: [],
-      events: []
-    }
+    series: { users: usersSeries, notifications: sentSeries, notifications_read: readSeries, growth, activity: usersSeries },
+    top: { tools, users: [], content: [], events: [] }
   }, 200, cors(r));
 }
 `;
