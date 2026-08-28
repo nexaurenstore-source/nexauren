@@ -18,7 +18,12 @@ const fixedUrls = [
 const data = JSON.parse(fs.readFileSync(toolsPath, 'utf8'));
 const tools = Array.isArray(data.tools) ? data.tools : [];
 const toolUrls = tools
-  .filter(tool => tool && typeof tool.url === 'string' && tool.url.trim())
+  .filter(tool =>
+    tool &&
+    tool.status === 'active' &&
+    typeof tool.url === 'string' &&
+    tool.url.trim()
+  )
   .map(tool => tool.url.trim());
 
 const urls = [...new Set([...fixedUrls, ...toolUrls])]
