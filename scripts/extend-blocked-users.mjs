@@ -41,7 +41,6 @@ async function adminStatistics(r, e) {
   const days = Math.min(365, Math.max(1, Number.parseInt(u.searchParams.get('days') || '7', 10) || 7));
   const now = Math.floor(Date.now() / 1000);
   const since = now - days * 86400;
-
   const totalUsers = await statisticsSafe(e, 'SELECT COUNT(*) AS total FROM users');
   const newUsers = await statisticsSafe(e, 'SELECT COUNT(*) AS total FROM users WHERE created_at>=?1', since);
   const activeUsers = await statisticsSafe(e, 'SELECT COUNT(DISTINCT user_id) AS total FROM sessions WHERE expires_at>?1', now);
@@ -49,43 +48,82 @@ async function adminStatistics(r, e) {
   const notifRead = await statisticsSafe(e, "SELECT COUNT(*) AS total FROM notification_recipients r JOIN notifications n ON n.id=r.notification_id WHERE n.status IN ('SENT','ACTIVE') AND r.read_at IS NOT NULL AND r.created_at>=?1", since);
   const forms = await statisticsSafe(e, 'SELECT COUNT(*) AS total FROM forms WHERE created_at>=?1', since);
   const reviews = await statisticsSafe(e, 'SELECT COUNT(*) AS total FROM reviews WHERE created_at>=?1', since);
-
-  let toolsUsed = null;
-  let tools = [];
+  let toolsUsed = null; let tools = [];
   for (const table of ['tool_usage','tool_usages','tools_usage']) {
-    const sqlCount = 'SELECT COUNT(*) AS total FROM ' + table + ' WHERE created_at>=?1';
-    const count = await statisticsSafe(e, sqlCount, since);
-    if (count) {
-      toolsUsed = Number(count.total || 0);
-      const sqlTools = 'SELECT name AS label,COUNT(*) AS value FROM ' + table + ' WHERE created_at>=?1 GROUP BY name ORDER BY value DESC LIMIT 10';
-      tools = await statisticsAll(e, sqlTools, since);
-      break;
-    }
+    const count = await statisticsSafe(e, 'SELECT COUNT(*) AS total FROM ' + table + ' WHERE created_at>=?1', since);
+    if (count) { toolsUsed = Number(count.total || 0); tools = await statisticsAll(e, 'SELECT name AS label,COUNT(*) AS value FROM ' + table + ' WHERE created_at>=?1 GROUP BY name ORDER BY value DESC LIMIT 10', since); break; }
   }
-
   const usersSeries = await statisticsAll(e, "SELECT strftime('%Y-%m-%d',datetime(created_at,'unixepoch')) AS label,COUNT(*) AS value FROM users WHERE created_at>=?1 GROUP BY label ORDER BY label", since);
   const sentSeries = await statisticsAll(e, "SELECT strftime('%Y-%m-%d',datetime(r.created_at,'unixepoch')) AS label,COUNT(*) AS value FROM notification_recipients r JOIN notifications n ON n.id=r.notification_id WHERE n.status IN ('SENT','ACTIVE') AND r.created_at>=?1 GROUP BY label ORDER BY label", since);
   const readSeries = await statisticsAll(e, "SELECT strftime('%Y-%m-%d',datetime(r.read_at,'unixepoch')) AS label,COUNT(*) AS value FROM notification_recipients r JOIN notifications n ON n.id=r.notification_id WHERE n.status IN ('SENT','ACTIVE') AND r.read_at IS NOT NULL AND r.read_at>=?1 GROUP BY label ORDER BY label", since);
-
-  const growth = [];
-  let cumulative = Math.max(0, Number(totalUsers?.total || 0) - Number(newUsers?.total || 0));
+  const growth = []; let cumulative = Math.max(0, Number(totalUsers?.total || 0) - Number(newUsers?.total || 0));
   for (const row of usersSeries) { cumulative += Number(row.value || 0); growth.push({ label: row.label, value: cumulative }); }
+  return json({ range_label: days === 1 ? 'Today' : 'Last ' + days + ' days', overview: { total_users:Number(totalUsers?.total||0), active_users:Number(activeUsers?.total||0), new_users:Number(newUsers?.total||0), notifications_sent:Number(notifSent?.total||0), notifications_read:Number(notifRead?.total||0), forms:forms?Number(forms.total||0):null, reviews:reviews?Number(reviews.total||0):null, tools_used:toolsUsed }, series:{users:usersSeries,notifications:sentSeries,notifications_read:readSeries,growth,activity:usersSeries}, top:{tools,users:[],content:[],events:[]} }, 200, cors(r));
+}
 
-  return json({
-    range_label: days === 1 ? 'Today' : 'Last ' + days + ' days',
-    overview: {
-      total_users: Number(totalUsers?.total || 0),
-      active_users: Number(activeUsers?.total || 0),
-      new_users: Number(newUsers?.total || 0),
-      notifications_sent: Number(notifSent?.total || 0),
-      notifications_read: Number(notifRead?.total || 0),
-      forms: forms ? Number(forms.total || 0) : null,
-      reviews: reviews ? Number(reviews.total || 0) : null,
-      tools_used: toolsUsed
-    },
-    series: { users: usersSeries, notifications: sentSeries, notifications_read: readSeries, growth, activity: usersSeries },
-    top: { tools, users: [], content: [], events: [] }
-  }, 200, cors(r));
+async function ensureAdminSettingsSchema(e) {
+  await e.DB.batch([
+    e.DB.prepare("CREATE TABLE IF NOT EXISTS platform_settings (key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at INTEGER NOT NULL,updated_by TEXT)"),
+    e.DB.prepare("CREATE TABLE IF NOT EXISTS settings_audit_logs (id TEXT PRIMARY KEY,admin_id TEXT,setting_key TEXT NOT NULL,old_value TEXT,new_value TEXT,created_at INTEGER NOT NULL)"),
+    e.DB.prepare("CREATE INDEX IF NOT EXISTS idx_settings_audit_created ON settings_audit_logs(created_at DESC)")
+  ]);
+}
+
+const SETTINGS_DEFAULTS = {
+  platform_enabled:true, maintenance:false, maintenance_message:'NEXAUREN is temporarily under maintenance.',
+  registrations:true, login:true, ranking_enabled:true, ranking_limit:10, ranking_auto:true,
+  ranking_first_tool:'', notifications:true, notification_badge:true, forms:true, reviews:true, tools:true
+};
+
+function settingsValue(key, value) {
+  if (['platform_enabled','maintenance','registrations','login','ranking_enabled','ranking_auto','notifications','notification_badge','forms','reviews','tools'].includes(key)) return value === true || value === 'true';
+  if (key === 'ranking_limit') return Math.max(3, Math.min(100, Number(value) || 10));
+  return clean(value).slice(0, 500);
+}
+
+async function getAdminSettings(r,e) {
+  const admin = await isAdmin(r,e); if (!admin) return json({error:'Forbidden'},403,cors(r));
+  await ensureAdminSettingsSchema(e);
+  const rows = await e.DB.prepare('SELECT key,value,updated_at,updated_by FROM platform_settings').all();
+  const settings = {...SETTINGS_DEFAULTS};
+  for (const row of rows?.results || []) {
+    try { settings[row.key] = settingsValue(row.key, JSON.parse(row.value)); } catch { settings[row.key] = settingsValue(row.key,row.value); }
+  }
+  const audit = await e.DB.prepare('SELECT a.setting_key,a.old_value,a.new_value,a.created_at,u.username,u.email FROM settings_audit_logs a LEFT JOIN users u ON u.id=a.admin_id ORDER BY a.created_at DESC LIMIT 100').all();
+  return json({settings,audit:audit?.results||[]},200,cors(r));
+}
+
+async function updateAdminSettings(r,e) {
+  const admin = await isAdmin(r,e); if (!admin) return json({error:'Forbidden'},403,cors(r));
+  await ensureAdminSettingsSchema(e);
+  const d = await body(r); if (!d || typeof d !== 'object') return json({error:'Invalid settings payload.'},400,cors(r));
+  const allowed = Object.keys(SETTINGS_DEFAULTS); const now = Math.floor(Date.now()/1000);
+  const changes=[];
+  for (const key of allowed) {
+    if (!(key in d)) continue;
+    const value = settingsValue(key,d[key]);
+    const serialized = JSON.stringify(value);
+    const old = await e.DB.prepare('SELECT value FROM platform_settings WHERE key=?1').bind(key).first();
+    const oldValue = old?.value ?? JSON.stringify(SETTINGS_DEFAULTS[key]);
+    if (oldValue === serialized) continue;
+    await e.DB.prepare('INSERT INTO platform_settings (key,value,updated_at,updated_by) VALUES (?1,?2,?3,?4) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at,updated_by=excluded.updated_by').bind(key,serialized,now,admin.id).run();
+    await e.DB.prepare('INSERT INTO settings_audit_logs (id,admin_id,setting_key,old_value,new_value,created_at) VALUES (?1,?2,?3,?4,?5,?6)').bind(uuid(),admin.id,key,oldValue,serialized,now).run();
+    changes.push(key);
+  }
+  return json({success:true,changed:changes},200,cors(r));
+}
+
+async function resetToolRanking(r,e) {
+  const admin = await isAdmin(r,e); if (!admin) return json({error:'Forbidden'},403,cors(r));
+  await ensureAdminSettingsSchema(e);
+  const candidates = ['tool_usage','tool_usages','tools_usage','tool_stats','tool_statistics'];
+  let reset = false;
+  for (const table of candidates) {
+    try { await e.DB.prepare('DELETE FROM ' + table).run(); reset = true; break; } catch {}
+  }
+  const now=Math.floor(Date.now()/1000);
+  await e.DB.prepare('INSERT INTO settings_audit_logs (id,admin_id,setting_key,old_value,new_value,created_at) VALUES (?1,?2,?3,?4,?5,?6)').bind(uuid(),admin.id,'ranking_reset',String(reset),'reset',now).run();
+  return json({success:true,message:reset?'Ranking statistics reset.':'No ranking statistics table was found; nothing was changed.'},200,cors(r));
 }
 `;
 
@@ -98,21 +136,23 @@ if (!source.includes('async function adminBlockedUsers(')) {
 const route = `
       {
         const __blockedUsersUrl = new URL(r.url);
-        if (__blockedUsersUrl.pathname === '/api/admin/users/blocked' && r.method === 'GET') {
-          return adminBlockedUsers(r, e);
-        }
-        if (__blockedUsersUrl.pathname === '/api/admin/statistics' && r.method === 'GET') {
-          return adminStatistics(r, e);
-        }
+        if (__blockedUsersUrl.pathname === '/api/admin/users/blocked' && r.method === 'GET') return adminBlockedUsers(r, e);
+        if (__blockedUsersUrl.pathname === '/api/admin/statistics' && r.method === 'GET') return adminStatistics(r, e);
+        if (__blockedUsersUrl.pathname === '/api/admin/settings' && r.method === 'GET') return getAdminSettings(r, e);
+        if (__blockedUsersUrl.pathname === '/api/admin/settings' && r.method === 'PUT') return updateAdminSettings(r, e);
+        if (__blockedUsersUrl.pathname === '/api/admin/settings/ranking/reset' && r.method === 'POST') return resetToolRanking(r, e);
       }
 `;
 if (!source.includes('__blockedUsersUrl')) {
   const fetchStart = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{/;
   if (!fetchStart.test(source)) throw new Error('[worker-check] fetch(r, e) marker missing.');
   source = source.replace(fetchStart, '$&\n' + route, 1);
+} else if (!source.includes('/api/admin/settings')) {
+  source = source.replace("if (__blockedUsersUrl.pathname === '/api/admin/statistics' && r.method === 'GET') return adminStatistics(r, e);", "if (__blockedUsersUrl.pathname === '/api/admin/statistics' && r.method === 'GET') return adminStatistics(r, e);\n        if (__blockedUsersUrl.pathname === '/api/admin/settings' && r.method === 'GET') return getAdminSettings(r, e);\n        if (__blockedUsersUrl.pathname === '/api/admin/settings' && r.method === 'PUT') return updateAdminSettings(r, e);\n        if (__blockedUsersUrl.pathname === '/api/admin/settings/ranking/reset' && r.method === 'POST') return resetToolRanking(r, e);");
 }
 
 await writeFile(output, source, 'utf8');
 execFileSync(process.execPath, ['--check', output.pathname], { stdio: 'inherit' });
 console.log('[worker-check] Blocked Users list extension applied.');
 console.log('[worker-check] Admin Statistics API extension applied.');
+console.log('[worker-check] Admin Settings API extension applied.');
