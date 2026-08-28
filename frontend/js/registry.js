@@ -28,8 +28,11 @@
       Array.isArray(data?.tools) ? data.tools.filter(Boolean) : []
     ),
 
-    loadCategories: () => load('categories', '/data/categories.json', data =>
-      Array.isArray(data?.categories) ? data.categories.filter(Boolean) : []
-    )
+    loadStudios: () => load('studios', '/data/studios.json', data =>
+      Array.isArray(data?.studios) ? data.studios.filter(Boolean) : []
+    ),
+
+    // Compatibility only. Categories are no longer part of the product architecture.
+    loadCategories: () => Promise.resolve([])
   });
 })();
