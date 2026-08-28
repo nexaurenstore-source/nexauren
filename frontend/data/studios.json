@@ -9,7 +9,7 @@
       "description": "A focused workspace for recording, editing, enhancing and converting audio.",
       "icon": "wave",
       "status": "active",
-      "tools": ["vocal-studio", "audio-recorder", "audio-editor", "audio-cutter", "audio-converter", "audio-enhancer"]
+      "tools": ["vocal-studio", "audio-recorder", "audio-editor", "audio-cutter", "audio-converter", "audio-enhancer", "audio-merger", "audio-compressor"]
     },
     {"id":"image-studio","name":"Image Studio","slug":"image","description":"A future workspace for editing, converting, optimizing and creating with images.","icon":"image","status":"active","tools":[]},
     {"id":"pdf-studio","name":"PDF Studio","slug":"pdf","description":"A future workspace for merging, splitting, converting and preparing PDF documents.","icon":"file","status":"active","tools":[]},
