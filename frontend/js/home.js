@@ -22,13 +22,11 @@
     .toLowerCase()
     .trim();
 
-  const isDiscoverable = tool => !['disabled', 'inactive'].includes(
-    String(tool?.status || 'active').toLowerCase()
-  );
+  const isDiscoverable = tool => String(tool?.status || 'active').toLowerCase() === 'active';
   const discoverableTools = () => tools.filter(isDiscoverable);
 
   const searchableValues = tool => [
-    tool.name, tool.description, tool.category, tool.categoryName,
+    tool.name, tool.description, tool.studio, tool.studioName,
     tool.slug, tool.id, ...(Array.isArray(tool.tags) ? tool.tags : [])
   ].map(normalize).filter(Boolean);
 
@@ -47,10 +45,12 @@
     return !value || /^(\/|https?:\/\/|assets\/|\.\.\/|\.\/)/i.test(value) ? '🔧' : value;
   };
 
+  const studioName = tool => tool.studioName || 'Studio';
+
   const toolCard = tool => `
     <article class="card tool-card-item">
       <div class="tool-card-content">
-        <span class="tool-category">${escapeHTML(tool.categoryName || tool.category || 'Tool')}</span>
+        <span class="tool-category">${escapeHTML(studioName(tool))}</span>
         <div class="tool-card-title-row">
           <span class="tool-card-icon">${escapeHTML(toolIcon(tool))}</span>
           <h3>${escapeHTML(tool.name)}</h3>
@@ -76,18 +76,18 @@
       <a role="option" id="tool-suggestion-${index}" class="tool-suggestion"
          href="${escapeHTML(tool.url)}" data-tool-id="${escapeHTML(tool.id)}" data-tool-name="${escapeHTML(tool.name)}">
         <span class="suggestion-icon">${escapeHTML(toolIcon(tool))}</span>
-        <span><strong>${escapeHTML(tool.name)}</strong><small>${escapeHTML(tool.categoryName || tool.category || 'Tool')}</small></span>
+        <span><strong>${escapeHTML(tool.name)}</strong><small>${escapeHTML(studioName(tool))}</small></span>
       </a>`).join('');
 
     suggestions.hidden = !query.trim() || !found.length;
     if (count) {
       count.textContent = query.trim()
         ? (found.length ? `${found.length} result${found.length === 1 ? '' : 's'} found` : 'No results')
-        : `${discoverableTools().length} discoverable tools`;
+        : `${discoverableTools().length} active tools`;
     }
 
     grid.innerHTML = query.trim()
-      ? (found.length ? found.map(toolCard).join('') : '<div class="empty"><strong>No tools found.</strong><br>Try another name, category or tag.</div>')
+      ? (found.length ? found.map(toolCard).join('') : '<div class="empty"><strong>No tools found.</strong><br>Try another name, studio or tag.</div>')
       : discoverableTools().slice(0, 8).map(toolCard).join('');
   };
 
@@ -136,11 +136,11 @@
       const live = discoverableTools();
       if (featuredGrid) {
         featuredGrid.innerHTML = live.filter(tool => tool.featured === true).slice(0, 6).map(toolCard).join('')
-          || '<div class="empty">No featured tools yet.</div>';
+          || '<div class="empty">No studio tools yet.</div>';
       }
       if (popularGrid) {
         popularGrid.innerHTML = live.filter(tool => tool.popular === true).slice(0, 8).map(toolCard).join('')
-          || '<div class="empty">No popular tools yet.</div>';
+          || '<div class="empty">No popular studio tools yet.</div>';
       }
       renderSuggestions(input.value);
     })
