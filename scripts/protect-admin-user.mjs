@@ -58,12 +58,13 @@ async function enforceToolAvailability(r, e) {
     const message = status === 'blocked'
       ? 'Esta ferramenta está temporariamente bloqueada.'
       : status === 'maintenance'
-        ? (remaining ? 'A ferramenta está em manutenção e será restaurada no horário programado.' : 'A ferramenta está em manutenção.')
+        ? 'A ferramenta está em manutenção e será restaurada no horário programado.'
         : 'Esta ferramenta foi programada para ser disponibilizada em um horário específico.';
     const seconds = Math.max(0, remaining);
     const safeTitle = title.replace(/[&<>\"]/g, '');
     const safeMessage = message.replace(/[&<>\"]/g, '');
-    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeTitle} — NEXAUREN</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b0f14;color:#fff;font-family:system-ui,-apple-system,sans-serif}.card{width:min(560px,calc(100% - 40px));box-sizing:border-box;padding:32px;border:1px solid #29313d;border-radius:18px;background:#121821;text-align:center;box-shadow:0 20px 60px #0008}h1{margin:0 0 12px;font-size:28px}p{color:#b8c1cc;line-height:1.6}.count{font-size:30px;font-weight:800;margin:22px 0;color:#fff}.back{display:inline-block;margin-top:8px;padding:10px 16px;border-radius:10px;background:#fff;color:#111;text-decoration:none;font-weight:700}</style></head><body><main class="card"><h1>${safeTitle}</h1><p>${safeMessage}</p><div id="count" class="count">${seconds ? 'Calculando…' : status === 'blocked' ? 'Bloqueada' : 'Indisponível'}</div><a class="back" href="/tools/">← Voltar para ferramentas</a></main><script>let n=${seconds};const el=document.getElementById('count');function tick(){if(!n){el.textContent=${JSON.stringify(status === 'blocked' ? 'Bloqueada' : 'Disponível agora')};return}const d=Math.floor(n/86400),h=Math.floor(n%86400/3600),m=Math.floor(n%3600/60),s=n%60;el.textContent=(d?d+'d ':'')+String(h).padStart(2,'0')+'h '+String(m).padStart(2,'0')+'m '+String(s).padStart(2,'0')+'s';n--;setTimeout(tick,1000)}tick();</script></body></html>`;
+    const initial = seconds ? String(seconds) : (status === 'blocked' ? 'Bloqueada' : 'Indisponível');
+    const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + safeTitle + ' — NEXAUREN</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b0f14;color:#fff;font-family:system-ui,-apple-system,sans-serif}.card{width:min(560px,calc(100% - 40px));box-sizing:border-box;padding:32px;border:1px solid #29313d;border-radius:18px;background:#121821;text-align:center;box-shadow:0 20px 60px #0008}h1{margin:0 0 12px;font-size:28px}p{color:#b8c1cc;line-height:1.6}.count{font-size:30px;font-weight:800;margin:22px 0;color:#fff}.back{display:inline-block;margin-top:8px;padding:10px 16px;border-radius:10px;background:#fff;color:#111;text-decoration:none;font-weight:700}</style></head><body><main class="card"><h1>' + safeTitle + '</h1><p>' + safeMessage + '</p><div id="count" class="count">' + initial + '</div><a class="back" href="/tools/">← Voltar para ferramentas</a></main><script>let n=' + String(seconds) + ';const el=document.getElementById("count");function tick(){if(!n){el.textContent=' + JSON.stringify(status === 'blocked' ? 'Bloqueada' : 'Disponível agora') + ';return}const d=Math.floor(n/86400),h=Math.floor(n%86400/3600),m=Math.floor(n%3600/60),s=n%60;el.textContent=(d?d+"d ":"")+String(h).padStart(2,"0")+"h "+String(m).padStart(2,"0")+"m "+String(s).padStart(2,"0")+"s";n--;setTimeout(tick,1000)}tick();</script></body></html>';
     return new Response(html, { status: status === 'blocked' ? 403 : 503, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
   } catch (err) {
     console.error('[tool-guard] availability check failed', err);
@@ -73,7 +74,7 @@ async function enforceToolAvailability(r, e) {
 `;
 
 if (!source.includes('async function enforceToolAvailability(')) {
-  const fetchStart = /async\\s+fetch\\(\\s*r\\s*,\\s*e\\s*\\)\\s*\\{/;
+  const fetchStart = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{/;
   if (!fetchStart.test(source)) throw new Error('[worker-check] fetch(r, e) marker missing for tool availability guard.');
   source = source.replace(fetchStart, toolGuard + '\n$&', 1);
   source = source.replace(fetchStart, '$&\n      const __toolAvailabilityResponse = await enforceToolAvailability(r, e);\n      if (__toolAvailabilityResponse) return __toolAvailabilityResponse;\n', 1);
