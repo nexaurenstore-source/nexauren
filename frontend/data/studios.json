@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "architecture": "studios",
+  "studios": [
+    {
+      "id": "audio-studio",
+      "name": "Audio Studio",
+      "slug": "audio-studio",
+      "description": "A focused workspace for recording, shaping and creating with voice and audio.",
+      "icon": "🎵",
+      "status": "active",
+      "tools": ["vocal-studio"]
+    }
+  ]
+}
