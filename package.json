@@ -6,9 +6,9 @@
     "check:studios": "node scripts/validate-studios.mjs",
     "check:security": "node scripts/security-audit.mjs",
     "check:seo": "node scripts/validate-seo.mjs",
-    "check:architecture": "npm run check:studios && npm run check:seo && npm run check:security",
-    "check": "npm run check:architecture && npm run check:worker",
-    "build": "npm run check && node scripts/build-worker.mjs",
+    "check:architecture": "npm run check:studios && npm run check:seo && npm run check:worker && npm run check:security",
+    "check": "npm run check:architecture",
+    "build": "npm run check",
     "deploy": "npm run check && npx wrangler deploy"
   }
 }
