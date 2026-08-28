@@ -9,13 +9,7 @@ const sitemapPath = path.join(process.cwd(), 'frontend', 'sitemap.xml');
 const fixedUrls = [
   '/',
   '/studios/',
-  '/studios/audio/',
-  '/studios/image/',
-  '/studios/pdf/',
-  '/studios/text/',
   '/ranking/',
-  '/tools/',
-  '/categories/',
   '/about.html',
   '/faq.html',
   '/privacy.html',
@@ -43,7 +37,7 @@ const escapeXml = value => value
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
+  .replace(/\"/g, '&quot;')
   .replace(/'/g, '&apos;');
 
 const xml = [
