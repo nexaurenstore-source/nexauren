@@ -2,23 +2,13 @@
   "version": 4,
   "architecture": "studios",
   "tools": [
-    {
-      "id":"vocal-studio","name":"Vocal Studio","slug":"vocal-studio","studio":"audio-studio","studioName":"Audio Studio","description":"Record or upload vocals and shape your voice with effects, analysis and browser-based processing.","url":"/tools/audio/vocal-studio/","icon":"🎙️","image":"","socialImage":"","status":"active","featured":true,"popular":true,"rankScore":100,"tags":["audio","vocal","voice","studio","autotune","pitch","reverb","delay","eq","compression","effects"]
-    },
-    {
-      "id":"audio-recorder","name":"Audio Recorder","slug":"audio-recorder","studio":"audio-studio","studioName":"Audio Studio","description":"Record audio from your microphone and prepare a clean WAV recording in your browser.","url":"/studios/audio/audio-recorder/","icon":"mic","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":92,"tags":["audio","recording","microphone","voice","wav"]
-    },
-    {
-      "id":"audio-editor","name":"Audio Editor","slug":"audio-editor","studio":"audio-studio","studioName":"Audio Studio","description":"Edit audio levels and fades with a focused browser-based audio workspace.","url":"/studios/audio/audio-editor/","icon":"edit","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":90,"tags":["audio","editor","fade","volume","waveform"]
-    },
-    {
-      "id":"audio-cutter","name":"Audio Cutter","slug":"audio-cutter","studio":"audio-studio","studioName":"Audio Studio","description":"Cut an audio file to the exact section you need and export a clean WAV clip.","url":"/studios/audio/audio-cutter/","icon":"cut","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":88,"tags":["audio","cutter","trim","clip","wav"]
-    },
-    {
-      "id":"audio-converter","name":"Audio Converter","slug":"audio-converter","studio":"audio-studio","studioName":"Audio Studio","description":"Convert browser-supported audio files into a standard WAV file for further work.","url":"/studios/audio/audio-converter/","icon":"convert","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":86,"tags":["audio","converter","wav","convert"]
-    },
-    {
-      "id":"audio-enhancer","name":"Audio Enhancer","slug":"audio-enhancer","studio":"audio-studio","studioName":"Audio Studio","description":"Improve an audio recording with loudness and low-cut processing directly in your browser.","url":"/studios/audio/audio-enhancer/","icon":"enhance","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":84,"tags":["audio","enhancer","clarity","loudness","noise","cleanup"]
-    }
+    {"id":"vocal-studio","name":"Vocal Studio","slug":"vocal-studio","studio":"audio-studio","studioName":"Audio Studio","description":"Record or upload vocals and shape your voice with effects, analysis and browser-based processing.","url":"/tools/audio/vocal-studio/","icon":"🎙️","image":"","socialImage":"","status":"active","featured":true,"popular":true,"rankScore":100,"tags":["audio","vocal","voice","studio","autotune","pitch","reverb","delay","eq","compression","effects"]},
+    {"id":"audio-recorder","name":"Audio Recorder","slug":"audio-recorder","studio":"audio-studio","studioName":"Audio Studio","description":"Record audio from your microphone and prepare a clean WAV recording in your browser.","url":"/studios/audio/audio-recorder/","icon":"mic","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":92,"tags":["audio","recording","microphone","voice","wav"]},
+    {"id":"audio-editor","name":"Audio Editor","slug":"audio-editor","studio":"audio-studio","studioName":"Audio Studio","description":"Edit audio levels and fades with a focused browser-based audio workspace.","url":"/studios/audio/audio-editor/","icon":"edit","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":90,"tags":["audio","editor","fade","volume","waveform"]},
+    {"id":"audio-cutter","name":"Audio Cutter","slug":"audio-cutter","studio":"audio-studio","studioName":"Audio Studio","description":"Cut an audio file to the exact section you need and export a clean WAV clip.","url":"/studios/audio/audio-cutter/","icon":"cut","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":88,"tags":["audio","cutter","trim","clip","wav"]},
+    {"id":"audio-converter","name":"Audio Converter","slug":"audio-converter","studio":"audio-studio","studioName":"Audio Studio","description":"Convert browser-supported audio files into a standard WAV file for further work.","url":"/studios/audio/audio-converter/","icon":"convert","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":86,"tags":["audio","converter","wav","convert"]},
+    {"id":"audio-enhancer","name":"Audio Enhancer","slug":"audio-enhancer","studio":"audio-studio","studioName":"Audio Studio","description":"Improve an audio recording with loudness and low-cut processing directly in your browser.","url":"/studios/audio/audio-enhancer/","icon":"enhance","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":84,"tags":["audio","enhancer","clarity","loudness","noise","cleanup"]},
+    {"id":"audio-merger","name":"Audio Merger","slug":"audio-merger","studio":"audio-studio","studioName":"Audio Studio","description":"Combine multiple audio files into one continuous track.","url":"/studios/audio/merger/","icon":"merge","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":82,"tags":["audio","merger","combine","wav"]},
+    {"id":"audio-compressor","name":"Audio Compressor","slug":"audio-compressor","studio":"audio-studio","studioName":"Audio Studio","description":"Reduce audio file size while keeping the sound clear with adjustable compression quality.","url":"/studios/audio/compressor/","icon":"compress","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":80,"tags":["audio","compressor","size","quality","wav"]}
   ]
 }
