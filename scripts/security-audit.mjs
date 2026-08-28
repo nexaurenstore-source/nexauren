@@ -46,8 +46,9 @@ const extractFunctionBody = (text, start) => {
 };
 
 const functionPattern = /async function (admin[A-Za-z0-9_]+)\(r, e\)\s*\{/g;
-const hasGlobalAdminGuard = source.includes('async function __nexaurenAdminApiGuard') &&
-  source.includes("pathname.startsWith('/api/admin/')") &&
+const hasGlobalAdminGuard =
+  source.includes('const __nexaurenAdminApiGuard = new URL(r.url)') &&
+  source.includes("__nexaurenAdminApiGuard.pathname.startsWith('/api/admin/')") &&
   source.includes('await isAdmin(r, e)');
 
 for (const match of source.matchAll(functionPattern)) {
@@ -56,8 +57,6 @@ for (const match of source.matchAll(functionPattern)) {
     errors.push(`Could not parse administrator function ${match[1]}.`);
     continue;
   }
-  // Admin handlers may be protected by the single Worker-perimeter guard.
-  // If the perimeter guard is absent, every admin handler must prove authorization locally.
   if (!body.includes('await isAdmin(r, e)') && !hasGlobalAdminGuard) {
     errors.push(`Admin function ${match[1]} does not perform an isAdmin authorization check and no global admin perimeter guard is present.`);
   }
