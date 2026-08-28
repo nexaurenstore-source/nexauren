@@ -2,16 +2,14 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://nexaurenstory.com/</loc></url>
   <url><loc>https://nexaurenstory.com/studios/</loc></url>
-  <url><loc>https://nexaurenstory.com/studios/audio/</loc></url>
-  <url><loc>https://nexaurenstory.com/studios/image/</loc></url>
-  <url><loc>https://nexaurenstory.com/studios/pdf/</loc></url>
-  <url><loc>https://nexaurenstory.com/studios/text/</loc></url>
   <url><loc>https://nexaurenstory.com/ranking/</loc></url>
-  <url><loc>https://nexaurenstory.com/tools/</loc></url>
-  <url><loc>https://nexaurenstory.com/categories/</loc></url>
   <url><loc>https://nexaurenstory.com/about.html</loc></url>
   <url><loc>https://nexaurenstory.com/faq.html</loc></url>
   <url><loc>https://nexaurenstory.com/privacy.html</loc></url>
   <url><loc>https://nexaurenstory.com/terms.html</loc></url>
+  <url><loc>https://nexaurenstory.com/studios/audio/</loc></url>
+  <url><loc>https://nexaurenstory.com/studios/image/</loc></url>
+  <url><loc>https://nexaurenstory.com/studios/pdf/</loc></url>
+  <url><loc>https://nexaurenstory.com/studios/text/</loc></url>
   <url><loc>https://nexaurenstory.com/tools/audio/vocal-studio/</loc></url>
 </urlset>
