@@ -7,7 +7,8 @@
     "check:security": "node scripts/security-audit.mjs",
     "check:runtime": "node scripts/runtime-audit.mjs",
     "check:seo": "node scripts/validate-seo.mjs",
-    "check:architecture": "npm run check:studios && npm run check:worker && npm run check:security && npm run check:runtime && npm run check:seo",
+    "check:final": "node scripts/final-audit.mjs",
+    "check:architecture": "npm run check:studios && npm run check:worker && npm run check:security && npm run check:runtime && npm run check:seo && npm run check:final",
     "check": "npm run check:architecture",
     "build": "npm run check",
     "deploy": "npm run check && npx wrangler deploy"
