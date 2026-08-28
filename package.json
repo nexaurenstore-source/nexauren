@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "check:worker": "node scripts/build-worker.mjs",
+    "check:studios": "node scripts/validate-studios.mjs",
     "build": "node scripts/build-worker.mjs",
     "deploy": "node scripts/build-worker.mjs && npx wrangler deploy"
   }
