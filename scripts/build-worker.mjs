@@ -33,6 +33,7 @@ await mkdir(outputDir, { recursive: true });
 await writeFile(outputUrl, generated, 'utf8');
 
 for (const script of [
+  'worker/inject-design-system.mjs',
   'worker/harden-security.mjs',
   'worker/harden-auth.mjs',
   'extend-admin-users.mjs',
@@ -51,6 +52,7 @@ try {
 console.log('[worker-build] Source inspected.');
 console.log('[worker-build] Notification domain module included once.');
 console.log('[worker-build] Notification routes included once.');
+console.log('[worker-build] Canonical design system injection included once.');
 console.log('[worker-build] Security hardening included once.');
 console.log('[worker-build] Authentication hardening included once.');
 console.log('[worker-build] Admin Users extension included once.');
