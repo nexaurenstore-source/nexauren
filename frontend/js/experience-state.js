@@ -10,13 +10,13 @@
   const rawGet = Storage.prototype.getItem;
   const rawSet = Storage.prototype.setItem;
   const rawRemove = Storage.prototype.removeItem;
-  const scopedKey = name => shouldIsolate(name) ? key(name) : String(name);
+  const scopedKey = (storage, name) => storage === localStorage && shouldIsolate(name) ? key(name) : String(name);
 
   if (!Storage.prototype.__nexaurenExperienceIsolation) {
     Object.defineProperty(Storage.prototype, '__nexaurenExperienceIsolation', { value: true, configurable: false });
-    Storage.prototype.getItem = function(name) { return rawGet.call(this, scopedKey(name)); };
-    Storage.prototype.setItem = function(name, value) { return rawSet.call(this, scopedKey(name), value); };
-    Storage.prototype.removeItem = function(name) { return rawRemove.call(this, scopedKey(name)); };
+    Storage.prototype.getItem = function(name) { return rawGet.call(this, scopedKey(this, name)); };
+    Storage.prototype.setItem = function(name, value) { return rawSet.call(this, scopedKey(this, name), value); };
+    Storage.prototype.removeItem = function(name) { return rawRemove.call(this, scopedKey(this, name)); };
   }
 
   const read = (name, fallback = null) => {
