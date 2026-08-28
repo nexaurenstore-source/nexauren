@@ -2,16 +2,8 @@
   "schemaVersion": 3,
   "architecture": "studios",
   "studios": [
-    {
-      "id": "audio-studio",
-      "name": "Audio Studio",
-      "slug": "audio",
-      "description": "A focused workspace for recording, editing, enhancing and converting audio.",
-      "icon": "wave",
-      "status": "active",
-      "tools": ["vocal-studio", "audio-recorder", "audio-editor", "audio-cutter", "audio-converter", "audio-enhancer", "audio-merger", "audio-compressor", "audio-trimmer", "audio-speed-pitch"]
-    },
-    {"id":"image-studio","name":"Image Studio","slug":"image","description":"A future workspace for editing, converting, optimizing and creating with images.","icon":"image","status":"planned","tools":[]},
+    {"id":"audio-studio","name":"Audio Studio","slug":"audio","description":"A focused workspace for recording, editing, enhancing and converting audio.","icon":"wave","status":"active","tools":["vocal-studio","audio-recorder","audio-editor","audio-cutter","audio-converter","audio-enhancer","audio-merger","audio-compressor","audio-trimmer","audio-speed-pitch"]},
+    {"id":"image-studio","name":"Image Studio","slug":"image","description":"A focused workspace for converting, compressing, resizing, cropping and editing images.","icon":"image","status":"active","tools":["image-converter","image-compressor","image-resizer","image-cropper","image-editor"]},
     {"id":"pdf-studio","name":"PDF Studio","slug":"pdf","description":"A focused workspace for merging, splitting, converting, compressing and editing PDF documents.","icon":"file","status":"active","tools":["pdf-converter","pdf-merger","pdf-splitter","pdf-compressor","pdf-editor"]},
     {"id":"text-studio","name":"Text Studio","slug":"text","description":"A future workspace for cleaning, formatting, comparing and transforming text.","icon":"text","status":"planned","tools":[]}
   ]
