@@ -5,8 +5,9 @@
     "check:worker": "node scripts/build-worker.mjs",
     "check:studios": "node scripts/validate-studios.mjs",
     "check:security": "node scripts/security-audit.mjs",
+    "check:runtime": "node scripts/runtime-audit.mjs",
     "check:seo": "node scripts/validate-seo.mjs",
-    "check:architecture": "npm run check:studios && npm run check:seo && npm run check:worker && npm run check:security",
+    "check:architecture": "npm run check:studios && npm run check:seo && npm run check:worker && npm run check:security && npm run check:runtime",
     "check": "npm run check:architecture",
     "build": "npm run check",
     "deploy": "npm run check && npx wrangler deploy"
