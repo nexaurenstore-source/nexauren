@@ -32,9 +32,13 @@ if (!generated.includes('const __notificationsUrl')) {
 await mkdir(outputDir, { recursive: true });
 await writeFile(outputUrl, generated, 'utf8');
 
-// These extensions deliberately operate on the generated artifact so the
-// canonical source Worker stays readable and the build remains deterministic.
-for (const script of ['harden-security.mjs', 'extend-admin-users.mjs', 'protect-admin-user.mjs', 'extend-blocked-users.mjs']) {
+for (const script of [
+  'worker/harden-security.mjs',
+  'worker/harden-auth.mjs',
+  'extend-admin-users.mjs',
+  'protect-admin-user.mjs',
+  'extend-blocked-users.mjs',
+]) {
   execFileSync(process.execPath, [new URL(`./${script}`, import.meta.url).pathname], { stdio: 'inherit' });
 }
 
@@ -48,6 +52,7 @@ console.log('[worker-build] Source inspected.');
 console.log('[worker-build] Notification domain module included once.');
 console.log('[worker-build] Notification routes included once.');
 console.log('[worker-build] Security hardening included once.');
+console.log('[worker-build] Authentication hardening included once.');
 console.log('[worker-build] Admin Users extension included once.');
 console.log('[worker-build] Administrator self-edit protection included.');
 console.log('[worker-build] Blocked Users extension included once.');
