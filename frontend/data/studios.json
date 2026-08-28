@@ -2,14 +2,9 @@
   "schemaVersion": 1,
   "architecture": "studios",
   "studios": [
-    {
-      "id": "audio-studio",
-      "name": "Audio Studio",
-      "slug": "audio-studio",
-      "description": "A focused workspace for recording, shaping and creating with voice and audio.",
-      "icon": "🎵",
-      "status": "active",
-      "tools": ["vocal-studio"]
-    }
+    {"id":"audio-studio","name":"Audio Studio","slug":"audio","description":"A focused workspace for recording, shaping and creating with voice and audio.","icon":"🎵","status":"active","tools":["vocal-studio"]},
+    {"id":"image-studio","name":"Image Studio","slug":"image","description":"A future workspace for editing, converting, optimizing and creating with images.","icon":"🖼️","status":"active","tools":[]},
+    {"id":"pdf-studio","name":"PDF Studio","slug":"pdf","description":"A future workspace for merging, splitting, converting and preparing PDF documents.","icon":"📄","status":"active","tools":[]},
+    {"id":"text-studio","name":"Text Studio","slug":"text","description":"A future workspace for cleaning, formatting, comparing and transforming text.","icon":"✍️","status":"active","tools":[]}
   ]
 }
