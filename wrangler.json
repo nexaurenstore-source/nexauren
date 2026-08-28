@@ -2,7 +2,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "nexauren",
   "main": ".worker-build/worker.js",
-  "compatibility_date": "2026-08-25",
+  "compatibility_date": "2026-08-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
   "build": {
     "command": "node scripts/build-worker.mjs",
     "watch_dir": ["worker.js", "scripts", "frontend"]
