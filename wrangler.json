@@ -1,11 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "nexauren",
-  "main": "notifications-user-entry.js",
+  "main": ".worker-build/worker.js",
   "compatibility_date": "2026-08-25",
   "build": {
     "command": "node scripts/build-worker.mjs",
-    "watch_dir": ["worker.js", "scripts", "frontend", "notifications-entry-v2.js", "notifications-user-entry.js"]
+    "watch_dir": ["worker.js", "scripts", "frontend"]
   },
   "assets": {
     "directory": "./frontend",
