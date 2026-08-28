@@ -1,14 +1,5 @@
 {
-  "schemaVersion": 1,
-  "categories": [
-    {"id":"ai","name":"AI","description":"Browser-based AI tools for creativity, productivity and everyday work.","icon":"🤖","order":1},
-    {"id":"image","name":"Image","description":"Tools for resizing, compressing, converting and editing images.","icon":"🖼️","order":2},
-    {"id":"video","name":"Video","description":"Tools for working with video files directly in your browser.","icon":"🎬","order":3},
-    {"id":"audio","name":"Audio","description":"Tools for converting, editing and analyzing audio.","icon":"🎵","order":4},
-    {"id":"pdf","name":"PDF","description":"Tools for converting, merging and working with PDF files.","icon":"📄","order":5},
-    {"id":"text","name":"Text","description":"Tools for formatting, converting and analyzing text.","icon":"📝","order":6},
-    {"id":"utilities","name":"Utilities","description":"Useful everyday tools for time, dates, numbers and quick tasks.","icon":"🧰","order":7},
-    {"id":"business","name":"Business","description":"Useful tools for invoices, pricing, calculations and everyday business tasks.","icon":"💼","order":8},
-    {"id":"productivity","name":"Productivity","description":"Tools for organizing work, tasks, notes, tables and everyday productivity.","icon":"📊","order":9}
-  ]
+  "schemaVersion": 2,
+  "architecture": "studios",
+  "categories": []
 }
