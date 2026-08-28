@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "architecture": "studios",
   "tools": [
     {"id":"vocal-studio","name":"Vocal Studio","slug":"vocal-studio","studio":"audio-studio","studioName":"Audio Studio","description":"Record or upload vocals and shape your voice with effects, analysis and browser-based processing.","url":"/studios/audio/vocal-studio/","icon":"mic","image":"","socialImage":"","status":"active","featured":true,"popular":true,"rankScore":100,"tags":["audio","vocal","voice","studio","autotune","pitch","reverb","delay","eq","compression","effects"]},
@@ -10,6 +10,7 @@
     {"id":"audio-enhancer","name":"Audio Enhancer","slug":"audio-enhancer","studio":"audio-studio","studioName":"Audio Studio","description":"Improve an audio recording with loudness and low-cut processing directly in your browser.","url":"/studios/audio/audio-enhancer/","icon":"enhance","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":84,"tags":["audio","enhancer","clarity","loudness","noise","cleanup"]},
     {"id":"audio-merger","name":"Audio Merger","slug":"audio-merger","studio":"audio-studio","studioName":"Audio Studio","description":"Combine multiple audio files into one continuous track.","url":"/studios/audio/merger/","icon":"merge","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":82,"tags":["audio","merger","combine","wav"]},
     {"id":"audio-compressor","name":"Audio Compressor","slug":"audio-compressor","studio":"audio-studio","studioName":"Audio Studio","description":"Reduce audio file size while keeping the sound clear with adjustable compression quality.","url":"/studios/audio/compressor/","icon":"compress","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":80,"tags":["audio","compressor","size","quality","wav"]},
-    {"id":"audio-trimmer","name":"Audio Trimmer","slug":"audio-trimmer","studio":"audio-studio","studioName":"Audio Studio","description":"Quickly remove unwanted audio from the beginning or end of your recording.","url":"/studios/audio/trimmer/","icon":"trim","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":78,"tags":["audio","trimmer","trim","beginning","end"]}
+    {"id":"audio-trimmer","name":"Audio Trimmer","slug":"audio-trimmer","studio":"audio-studio","studioName":"Audio Studio","description":"Quickly remove unwanted audio from the beginning or end of your recording.","url":"/studios/audio/trimmer/","icon":"trim","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":78,"tags":["audio","trimmer","trim","beginning","end"]},
+    {"id":"audio-speed-pitch","name":"Audio Speed & Pitch","slug":"audio-speed-pitch","studio":"audio-studio","studioName":"Audio Studio","description":"Adjust audio speed and pitch with a focused browser-based audio workspace.","url":"/studios/audio/audio-speed-pitch/","icon":"tune","image":"","socialImage":"","status":"active","featured":false,"popular":false,"rankScore":76,"tags":["audio","speed","pitch","tempo","tuning"]}
   ]
 }
