@@ -15,6 +15,8 @@ requireText('auth_login_attempts', 'login throttling storage');
 requireText('recentAttempts', 'login throttling enforcement');
 requireText("'retry-after': '900'", 'login throttle response');
 requireText('async function isAdmin', 'administrator authorization primitive');
+requireText('__nexaurenAdminApiGuard', 'global administrator API perimeter guard');
+requireText("pathname.startsWith('/api/admin/')", 'administrator API route boundary');
 requireText('access-control-allow-origin', 'CORS policy');
 requireText("'https://nexaurenstory.com'", 'production CORS allowlist');
 requireText('HttpOnly; Secure; SameSite=Lax', 'secure session cookie');
@@ -53,8 +55,6 @@ for (const match of source.matchAll(functionPattern)) {
   if (!body.includes('await isAdmin(r, e)')) errors.push(`Admin function ${match[1]} does not perform an isAdmin authorization check.`);
 }
 
-if (!source.includes("pathname.startsWith('/api/admin/")) errors.push('No /api/admin route guard was detected.');
-
 if (errors.length) {
   console.error('NEXAUREN SECURITY AUDIT: FAILED');
   for (const error of errors) console.error(`ERROR: ${error}`);
@@ -65,5 +65,6 @@ console.log('NEXAUREN SECURITY AUDIT: OK');
 console.log('- password hashing and verification hardened');
 console.log('- login throttling enforced');
 console.log('- administrator authorization audited');
+console.log('- all /api/admin/* routes protected at Worker perimeter');
 console.log('- credentialed CORS uses explicit production allowlist');
 console.log('- secure session cookie flags present');
