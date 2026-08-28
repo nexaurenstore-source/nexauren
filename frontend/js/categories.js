@@ -49,7 +49,7 @@
           <span class="tool-category">${category.count} ${category.count === 1 ? 'tool' : 'tools'}</span>
           <h2>${escapeHTML(category.name)}</h2>
           <p>${escapeHTML(category.description || `Explore ${category.name} tools.`)}</p>
-          <a class="card-link" href="/tools/?category=${encodeURIComponent(category.id)}">Explore category <span aria-hidden="true">→</span></a>
+          <a class="card-link" href="/tools/${encodeURIComponent(category.id)}/">Explore category <span aria-hidden="true">→</span></a>
         </div>
       </article>`).join('');
 
