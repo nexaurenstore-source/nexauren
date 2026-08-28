@@ -10,6 +10,7 @@
   <url><loc>https://nexaurenstory.com/studios/audio/</loc></url>
   <url><loc>https://nexaurenstory.com/studios/image/</loc></url>
   <url><loc>https://nexaurenstory.com/studios/pdf/</loc></url>
+  <url><loc>https://nexaurenstory.com/studios/video/</loc></url>
   <url><loc>https://nexaurenstory.com/studios/audio/vocal-studio/</loc></url>
   <url><loc>https://nexaurenstory.com/studios/audio/audio-recorder/</loc></url>
   <url><loc>https://nexaurenstory.com/studios/audio/audio-editor/</loc></url>
@@ -30,4 +31,9 @@
   <url><loc>https://nexaurenstory.com/studios/image/image-resizer/</loc></url>
   <url><loc>https://nexaurenstory.com/studios/image/image-cropper/</loc></url>
   <url><loc>https://nexaurenstory.com/studios/image/image-editor/</loc></url>
+  <url><loc>https://nexaurenstory.com/studios/video/video-converter/</loc></url>
+  <url><loc>https://nexaurenstory.com/studios/video/video-compressor/</loc></url>
+  <url><loc>https://nexaurenstory.com/studios/video/video-cutter/</loc></url>
+  <url><loc>https://nexaurenstory.com/studios/video/video-merger/</loc></url>
+  <url><loc>https://nexaurenstory.com/studios/video/video-resizer/</loc></url>
 </urlset>
