@@ -4,9 +4,12 @@
   "scripts": {
     "check:worker": "node scripts/build-worker.mjs",
     "check:studios": "node scripts/validate-studios.mjs",
-    "check:architecture": "node scripts/validate-studios.mjs",
-    "check": "npm run check:studios && npm run check:worker",
-    "build": "npm run check:architecture && node scripts/build-worker.mjs",
+    "check:security": "node scripts/security-audit.mjs",
+    "check:runtime": "node scripts/runtime-audit.mjs",
+    "check:seo": "node scripts/validate-seo.mjs",
+    "check:architecture": "npm run check:studios && npm run check:worker && npm run check:security && npm run check:runtime && npm run check:seo",
+    "check": "npm run check:architecture",
+    "build": "npm run check",
     "deploy": "npm run check && npx wrangler deploy"
   }
 }
