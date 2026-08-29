@@ -6,6 +6,7 @@ const outputDir = new URL('../.worker-build/', import.meta.url);
 const outputUrl = new URL('../.worker-build/worker.js', import.meta.url);
 const notificationModuleUrl = new URL('./worker/notifications.js', import.meta.url);
 const notificationRoutesUrl = new URL('./worker/notification-routes.js', import.meta.url);
+const communityMigrationUrl = new URL('./worker/migrate-community-ratings-favorites.mjs', import.meta.url);
 
 const source = await readFile(sourceUrl, 'utf8');
 const notificationModule = await readFile(notificationModuleUrl, 'utf8');
@@ -32,19 +33,52 @@ if (!generated.includes('const __notificationsUrl')) {
 await mkdir(outputDir, { recursive: true });
 await writeFile(outputUrl, generated, 'utf8');
 
-for (const script of [
-  'worker/migrate-community-ratings-favorites.mjs',
-  'worker/harden-community-api.mjs',
-  'worker/inject-design-system.mjs',
-  'worker/inject-seo.mjs',
-  'worker/enforce-admin-routes.mjs',
-  'worker/harden-security.mjs',
-  'worker/harden-auth.mjs',
-  'extend-admin-users.mjs',
-  'protect-admin-user.mjs',
-  'extend-blocked-users.mjs',
+function normalizeRawTemplate(sourceText, marker) {
+  const start = sourceText.indexOf(marker);
+  if (start < 0) return sourceText;
+
+  const openTick = sourceText.indexOf('`', start + marker.length - 1);
+  if (openTick < 0) throw new Error(`[worker-build] Opening template marker not found: ${marker}`);
+
+  const closeMarker = '`;';
+  let closeTick = sourceText.indexOf(closeMarker, openTick + 1);
+  while (closeTick >= 0 && sourceText[closeTick - 1] === '\\') {
+    closeTick = sourceText.indexOf(closeMarker, closeTick + 2);
+  }
+
+  if (closeTick < 0) throw new Error(`[worker-build] Closing template marker not found: ${marker}`);
+
+  const body = sourceText.slice(openTick + 1, closeTick)
+    .replaceAll('`', '\\`');
+
+  return sourceText.slice(0, openTick + 1) + body + sourceText.slice(closeTick);
+}
+
+let migrationSource = await readFile(communityMigrationUrl, 'utf8');
+for (const marker of [
+  'const communityModule = String.raw`',
+  'const adminDashboard = String.raw`',
+  'const routes = String.raw`',
 ]) {
-  execFileSync(process.execPath, [new URL(`./${script}`, import.meta.url).pathname], { stdio: 'inherit' });
+  migrationSource = normalizeRawTemplate(migrationSource, marker);
+}
+
+const normalizedMigrationUrl = new URL('../.worker-build/migrate-community-ratings-favorites.mjs', import.meta.url);
+await writeFile(normalizedMigrationUrl, migrationSource, 'utf8');
+
+for (const script of [
+  normalizedMigrationUrl.pathname,
+  new URL('./worker/harden-community-api.mjs', import.meta.url).pathname,
+  new URL('./worker/inject-design-system.mjs', import.meta.url).pathname,
+  new URL('./worker/inject-seo.mjs', import.meta.url).pathname,
+  new URL('./worker/enforce-admin-routes.mjs', import.meta.url).pathname,
+  new URL('./worker/harden-security.mjs', import.meta.url).pathname,
+  new URL('./worker/harden-auth.mjs', import.meta.url).pathname,
+  new URL('./extend-admin-users.mjs', import.meta.url).pathname,
+  new URL('./protect-admin-user.mjs', import.meta.url).pathname,
+  new URL('./extend-blocked-users.mjs', import.meta.url).pathname,
+]) {
+  execFileSync(process.execPath, [script], { stdio: 'inherit' });
 }
 
 try {
