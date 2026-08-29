@@ -6,7 +6,6 @@ const outputDir = new URL('../.worker-build/', import.meta.url);
 const outputUrl = new URL('../.worker-build/worker.js', import.meta.url);
 const notificationModuleUrl = new URL('./worker/notifications.js', import.meta.url);
 const notificationRoutesUrl = new URL('./worker/notification-routes.js', import.meta.url);
-const communityMigrationUrl = new URL('./worker/migrate-community-ratings-favorites.mjs', import.meta.url);
 
 const source = await readFile(sourceUrl, 'utf8');
 const notificationModule = await readFile(notificationModuleUrl, 'utf8');
@@ -32,19 +31,6 @@ if (!generated.includes('const __notificationsUrl')) {
 
 await mkdir(outputDir, { recursive: true });
 await writeFile(outputUrl, generated, 'utf8');
-
-const migrationSource = await readFile(communityMigrationUrl, 'utf8');
-const migrationStart = migrationSource.indexOf('const communityModule = String.raw`');
-const migrationEnd = migrationSource.indexOf('`;\n\nlet generated', migrationStart);
-if (migrationStart >= 0 && migrationEnd > migrationStart) {
-  const before = migrationSource.slice(0, migrationStart);
-  const body = migrationSource.slice(migrationStart, migrationEnd);
-  const after = migrationSource.slice(migrationEnd);
-  const firstTick = body.indexOf('`');
-  const normalized = body.slice(0, firstTick + 1)
-    + body.slice(firstTick + 1).replaceAll('`', '\\`').replaceAll('${', '\\${');
-  await writeFile(communityMigrationUrl, before + normalized + after, 'utf8');
-}
 
 for (const script of [
   'worker/migrate-community-ratings-favorites.mjs',
