@@ -63,6 +63,11 @@ for (const marker of [
   migrationSource = normalizeRawTemplate(migrationSource, marker);
 }
 
+migrationSource = migrationSource.replace(
+  "new URL('../../.worker-build/worker.js', import.meta.url)",
+  "new URL('./worker.js', import.meta.url)",
+);
+
 const normalizedMigrationUrl = new URL('../.worker-build/migrate-community-ratings-favorites.mjs', import.meta.url);
 await writeFile(normalizedMigrationUrl, migrationSource, 'utf8');
 
