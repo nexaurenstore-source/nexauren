@@ -103,7 +103,6 @@ for (const script of [
   new URL('./worker/harden-community-api.mjs', import.meta.url).pathname,
   new URL('./worker/inject-design-system.mjs', import.meta.url).pathname,
   new URL('./worker/inject-seo.mjs', import.meta.url).pathname,
-  new URL('./worker/inject-ads.mjs', import.meta.url).pathname,
   new URL('./worker/enforce-admin-routes.mjs', import.meta.url).pathname,
   new URL('./worker/harden-security.mjs', import.meta.url).pathname,
   new URL('./worker/harden-auth.mjs', import.meta.url).pathname,
@@ -128,7 +127,6 @@ console.log('[worker-build] Community rating ownership hardening included once.'
 console.log('[worker-build] Community ratings/favorites schema ensured once.');
 console.log('[worker-build] Canonical design system injection included once.');
 console.log('[worker-build] Registry-driven SEO injection included once.');
-console.log('[worker-build] Studio/Experience ads injection included once.');
 console.log('[worker-build] Administrator API perimeter guard included once.');
 console.log('[worker-build] Security hardening included once.');
 console.log('[worker-build] Authentication hardening included once.');
