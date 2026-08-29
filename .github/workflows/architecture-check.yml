@@ -22,7 +22,34 @@ jobs:
           node-version: 24
 
       - name: Materialize ads.js on every Experience page
-        run: node scripts/inject-experience-ads.mjs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('frontend/studios')
+          script = '<script src="/js/ads.js" defer></script>'
+          changed = 0
+
+          for path in root.rglob('index.html'):
+              relative = path.relative_to(root)
+              if len(relative.parts) != 3:
+                  continue
+
+              html = path.read_text(encoding='utf-8')
+              if script in html:
+                  continue
+
+              marker = '</head>'
+              index = html.lower().rfind(marker)
+              if index < 0:
+                  raise SystemExit(f'Missing </head>: {path}')
+
+              path.write_text(html[:index] + script + '\n' + html[index:], encoding='utf-8')
+              changed += 1
+              print(f'Added ads.js: {path}')
+
+          print(f'Experience pages changed: {changed}')
+          PY
 
       - name: Persist Experience ads tags
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
