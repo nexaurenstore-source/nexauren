@@ -33,24 +33,14 @@ if (!generated.includes('const __notificationsUrl')) {
 await mkdir(outputDir, { recursive: true });
 await writeFile(outputUrl, generated, 'utf8');
 
-function normalizeRawTemplate(sourceText, marker) {
+function normalizeRawTemplate(sourceText, marker, closeMarker) {
   const start = sourceText.indexOf(marker);
   if (start < 0) return sourceText;
 
   const openTick = sourceText.indexOf('`', start + marker.length - 1);
   if (openTick < 0) throw new Error(`[worker-build] Opening template marker not found: ${marker}`);
 
-  let closeTick = -1;
-  for (let i = openTick + 1; i < sourceText.length; i += 1) {
-    if (sourceText[i] !== '`') continue;
-    let backslashes = 0;
-    for (let j = i - 1; j >= 0 && sourceText[j] === '\\'; j -= 1) backslashes += 1;
-    if (backslashes % 2 === 0) {
-      closeTick = i;
-      break;
-    }
-  }
-
+  const closeTick = sourceText.indexOf(closeMarker, openTick + 1);
   if (closeTick < 0) throw new Error(`[worker-build] Closing template marker not found: ${marker}`);
 
   let body = '';
@@ -77,13 +67,21 @@ function normalizeRawTemplate(sourceText, marker) {
 }
 
 let migrationSource = await readFile(communityMigrationUrl, 'utf8');
-for (const marker of [
+migrationSource = normalizeRawTemplate(
+  migrationSource,
   'const communityModule = String.raw`',
+  '`;\n\nlet generated',
+);
+migrationSource = normalizeRawTemplate(
+  migrationSource,
   'const adminDashboard = String.raw`',
+  '`;\n\ngenerated = generated.slice(0, adminStart)',
+);
+migrationSource = normalizeRawTemplate(
+  migrationSource,
   'const routes = String.raw`',
-]) {
-  migrationSource = normalizeRawTemplate(migrationSource, marker);
-}
+  '`;\n\ngenerated = generated.slice(0, routesStart)',
+);
 
 migrationSource = migrationSource.replace(
   "new URL('../../.worker-build/worker.js', import.meta.url)",
