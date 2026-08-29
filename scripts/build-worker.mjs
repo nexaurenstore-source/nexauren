@@ -40,16 +40,38 @@ function normalizeRawTemplate(sourceText, marker) {
   const openTick = sourceText.indexOf('`', start + marker.length - 1);
   if (openTick < 0) throw new Error(`[worker-build] Opening template marker not found: ${marker}`);
 
-  const closeMarker = '`;';
-  let closeTick = sourceText.indexOf(closeMarker, openTick + 1);
-  while (closeTick >= 0 && sourceText[closeTick - 1] === '\\') {
-    closeTick = sourceText.indexOf(closeMarker, closeTick + 2);
+  let closeTick = -1;
+  for (let i = openTick + 1; i < sourceText.length; i += 1) {
+    if (sourceText[i] !== '`') continue;
+    let backslashes = 0;
+    for (let j = i - 1; j >= 0 && sourceText[j] === '\\'; j -= 1) backslashes += 1;
+    if (backslashes % 2 === 0) {
+      closeTick = i;
+      break;
+    }
   }
 
   if (closeTick < 0) throw new Error(`[worker-build] Closing template marker not found: ${marker}`);
 
-  const body = sourceText.slice(openTick + 1, closeTick)
-    .replaceAll('`', '\\`');
+  let body = '';
+  for (let i = openTick + 1; i < closeTick; i += 1) {
+    const ch = sourceText[i];
+    if (ch === '\\' && i + 1 < closeTick) {
+      body += ch + sourceText[i + 1];
+      i += 1;
+      continue;
+    }
+    if (ch === '`') {
+      body += '\\`';
+      continue;
+    }
+    if (ch === '$' && sourceText[i + 1] === '{') {
+      body += '\\${';
+      i += 1;
+      continue;
+    }
+    body += ch;
+  }
 
   return sourceText.slice(0, openTick + 1) + body + sourceText.slice(closeTick);
 }
