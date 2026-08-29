@@ -7,6 +7,7 @@
     {"id":"pdf-studio","name":"PDF Studio","slug":"pdf","description":"A focused workspace for merging, splitting, converting, compressing and editing PDF documents.","icon":"file","status":"active","tools":["pdf-converter","pdf-merger","pdf-splitter","pdf-compressor","pdf-editor"]},
     {"id":"video-studio","name":"Video Studio","slug":"video","description":"A focused workspace for converting, compressing, cutting, merging and resizing videos.","icon":"video","status":"active","tools":["video-converter","video-compressor","video-cutter","video-merger","video-resizer"]},
     {"id":"text-studio","name":"Text Studio","slug":"text","description":"A focused workspace for formatting, cleaning, counting, comparing and transforming text.","icon":"text","status":"active","tools":["text-formatter","text-cleaner","text-counter","text-diff","text-converter"]},
-    {"id":"productivity-studio","name":"Productivity Studio","slug":"productivity","description":"A focused workspace for tasks, notes, focus, planning and checklists.","icon":"productivity","status":"active","tools":["task-manager","notes","focus-timer","planner","checklist"]}
+    {"id":"productivity-studio","name":"Productivity Studio","slug":"productivity","description":"A focused workspace for tasks, notes, focus, planning and checklists.","icon":"productivity","status":"active","tools":["task-manager","notes","focus-timer","planner","checklist"]},
+    {"id":"business-studio","name":"Business Studio","slug":"business","description":"A focused workspace for invoices, quotes, business documents, meetings and calculations.","icon":"business","status":"active","tools":["invoice-generator","quote-generator","business-document-generator","meeting-agenda","business-calculator"]}
   ]
 }
