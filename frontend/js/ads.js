@@ -1,4 +1,14 @@
 (function () {
+    if (location.pathname === '/studios/audio/instrument-editor/') {
+        if (!document.querySelector('script[data-nexauren-daw-engine]')) {
+            const script = document.createElement('script');
+            script.src = '/studios/audio/instrument-editor/daw-engine.js?v=1';
+            script.defer = true;
+            script.dataset.nexaurenDawEngine = 'true';
+            (document.head || document.documentElement).appendChild(script);
+        }
+        return;
+    }
     if (window.__nexaurenAdsLoaded) return;
     window.__nexaurenAdsLoaded = true;
     const scripts = [
