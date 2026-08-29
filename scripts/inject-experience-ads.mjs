@@ -4,18 +4,19 @@ import { join } from 'node:path';
 const root = new URL('../frontend/studios/', import.meta.url);
 const SCRIPT = '<script src="/js/ads.js" defer></script>';
 
-async function walk(directory) {
+async function walk(directory, depth = 0) {
   const entries = await readdir(directory, { withFileTypes: true });
 
   for (const entry of entries) {
     const full = join(directory, entry.name);
 
     if (entry.isDirectory()) {
-      await walk(full);
+      await walk(full, depth + 1);
       continue;
     }
 
-    if (entry.name !== 'index.html') continue;
+    // Only Experience pages: frontend/studios/<studio>/<experience>/index.html
+    if (entry.name !== 'index.html' || depth !== 2) continue;
 
     let html = await readFile(full, 'utf8');
     if (html.includes(SCRIPT)) continue;
@@ -33,4 +34,4 @@ async function walk(directory) {
 }
 
 await walk(root);
-console.log('[experience-ads] All Studio/Experience HTML files are ready for ads.');
+console.log('[experience-ads] All Studio Experience HTML files are ready for ads.');
