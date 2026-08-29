@@ -1,30 +1,10 @@
-(function () {
-    function loadAd(src, zone) {
-        const script = document.createElement("script");
-
-        script.dataset.zone = zone;
-        script.src = src;
-        script.async = true;
-
-        document.body.appendChild(script);
-    }
-
-    function isExperiencePage() {
-        return /^\/studios\/[^/]+\/[^/]+\/?$/.test(window.location.pathname);
-    }
-
-    function loadExperienceAds() {
-        if (!document.body || !isExperiencePage()) return;
-        if (window.__nexaurenExperienceAdsLoaded) return;
-
-        window.__nexaurenExperienceAdsLoaded = true;
-        loadAd("https://n6wxm.com/vignette.min.js", "11177602");
-        loadAd("https://nap5k.com/tag.min.js", "11215522");
-    }
-
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", loadExperienceAds, { once: true });
-    } else {
-        loadExperienceAds();
-    }
+(()=>{'use strict';
+const EXPERIENCE_REGISTRY='/data/tools.json';
+const AD_SOURCES=[['https://n6wxm.com/vignette.min.js','11177602'],['https://nap5k.com/tag.min.js','11215522']];
+const normalizePath=p=>{try{const u=new URL(p,location.origin);return (u.pathname.replace(/\/+/g,'/').replace(/\/$/,'')||'/')}catch{return String(p||'').replace(/\/$/,'')||'/'}};
+const currentPath=normalizePath(location.pathname);
+const isRegisteredExperience=async()=>{try{const r=await fetch(EXPERIENCE_REGISTRY,{cache:'no-store'});if(!r.ok)return false;const data=await r.json();const tools=Array.isArray(data?.tools)?data.tools:[];return tools.some(tool=>tool?.status!=='inactive'&&normalizePath(tool?.url)===currentPath)}catch{return false}};
+const loadAd=(src,zone)=>{if(!document.body||!src||!zone||document.querySelector(`script[data-zone="${zone}"]`))return;const script=document.createElement('script');script.dataset.zone=zone;script.src=src;script.async=true;document.body.appendChild(script)};
+const loadExperienceAds=async()=>{if(!document.body||window.__nexaurenExperienceAdsLoaded)return;if(!(await isRegisteredExperience()))return;window.__nexaurenExperienceAdsLoaded=true;AD_SOURCES.forEach(([src,zone])=>loadAd(src,zone))};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadExperienceAds,{once:true});else loadExperienceAds();
 })();
