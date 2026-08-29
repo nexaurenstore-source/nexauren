@@ -33,6 +33,7 @@ await mkdir(outputDir, { recursive: true });
 await writeFile(outputUrl, generated, 'utf8');
 
 for (const script of [
+  'worker/migrate-community-ratings-favorites.mjs',
   'worker/inject-design-system.mjs',
   'worker/inject-seo.mjs',
   'worker/enforce-admin-routes.mjs',
@@ -54,6 +55,7 @@ try {
 console.log('[worker-build] Source inspected.');
 console.log('[worker-build] Notification domain module included once.');
 console.log('[worker-build] Notification routes included once.');
+console.log('[worker-build] Studio/Experience ratings and favorites migration included once.');
 console.log('[worker-build] Canonical design system injection included once.');
 console.log('[worker-build] Registry-driven SEO injection included once.');
 console.log('[worker-build] Administrator API perimeter guard included once.');
