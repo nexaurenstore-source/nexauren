@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
-const sourceUrl = new URL('../../worker.js', import.meta.url);
+const sourceUrl = new URL('../../.worker-build/worker.js', import.meta.url);
 const source = await readFile(sourceUrl, 'utf8');
 
 const communityStart = source.indexOf('async function ensureCommunitySchema(e) {');
@@ -121,7 +121,7 @@ async function getRatings(r, e) {
   const binds = [];
 
   if (targetType) {
-    where.push('r.target_type=?1');
+    where.push(`r.target_type=?${binds.length + 1}`);
     binds.push(targetType);
   }
 
@@ -297,24 +297,6 @@ async function postRating(r, e) {
   );
 }
 
-async function favoriteState(r, e) {
-  const u = await currentUser(r, e);
-  if (!u) return json({ favorite: false, authenticated: false }, 200, cors(r));
-
-  const target = await parseFavoriteTarget(r, e);
-  if (target.error) return target.error;
-
-  const row = await e.DB
-    .prepare(
-      'SELECT 1 FROM favorites WHERE user_id=?1 AND target_type=?2 AND studio_id=?3 AND ' +
-        '(experience_id=?4 OR (?4 IS NULL AND experience_id IS NULL)) LIMIT 1',
-    )
-    .bind(u.id, target.targetType, target.studioId, target.experienceId)
-    .first();
-
-  return json({ favorite: !!row, authenticated: true }, 200, cors(r));
-}
-
 async function parseFavoriteTarget(r, e) {
   const parts = new URL(r.url).pathname.split('/').filter(Boolean);
   const index = parts.indexOf('favorites');
@@ -334,6 +316,24 @@ async function parseFavoriteTarget(r, e) {
   }
 
   return { error: json({ error: 'Invalid favorite target.' }, 400, cors(r)) };
+}
+
+async function favoriteState(r, e) {
+  const u = await currentUser(r, e);
+  if (!u) return json({ favorite: false, authenticated: false }, 200, cors(r));
+
+  const target = await parseFavoriteTarget(r, e);
+  if (target.error) return target.error;
+
+  const row = await e.DB
+    .prepare(
+      'SELECT 1 FROM favorites WHERE user_id=?1 AND target_type=?2 AND studio_id=?3 AND ' +
+        '(experience_id=?4 OR (?4 IS NULL AND experience_id IS NULL)) LIMIT 1',
+    )
+    .bind(u.id, target.targetType, target.studioId, target.experienceId)
+    .first();
+
+  return json({ favorite: !!row, authenticated: true }, 200, cors(r));
 }
 
 async function getFavorites(r, e) {
@@ -359,7 +359,11 @@ async function addFavorite(r, e) {
   if (target.error) return target.error;
 
   const d = await body(r);
-  const url = clean(d?.url || target.experience?.url || (target.studio?.slug ? `/studios/${target.studio.slug}/` : '')).slice(0, 500);
+  const url = clean(
+    d?.url ||
+      target.experience?.url ||
+      (target.studio?.slug ? `/studios/${target.studio.slug}/` : ''),
+  ).slice(0, 500);
   const now = Math.floor(Date.now() / 1000);
 
   if (!url) return json({ error: 'Invalid favorite URL.' }, 400, cors(r));
