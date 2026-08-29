@@ -83,6 +83,12 @@ migrationSource = normalizeRawTemplate(
   '`;\n\ngenerated = generated.slice(0, routesStart)',
 );
 
+// normalizeRawTemplate escapes nested template syntax so the migration source
+// can be parsed as a standalone module. Convert the outer String.raw templates
+// to normal templates so those intentional escapes are interpreted instead of
+// being emitted literally into the generated Worker.
+migrationSource = migrationSource.replaceAll('String.raw`', '`');
+
 migrationSource = migrationSource.replace(
   "new URL('../../.worker-build/worker.js', import.meta.url)",
   "new URL('./worker.js', import.meta.url)",
