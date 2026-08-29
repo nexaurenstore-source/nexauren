@@ -99,6 +99,7 @@ await writeFile(normalizedMigrationUrl, migrationSource, 'utf8');
 
 for (const script of [
   normalizedMigrationUrl.pathname,
+  new URL('./worker/ensure-community-schema.mjs', import.meta.url).pathname,
   new URL('./worker/harden-community-api.mjs', import.meta.url).pathname,
   new URL('./worker/inject-design-system.mjs', import.meta.url).pathname,
   new URL('./worker/inject-seo.mjs', import.meta.url).pathname,
@@ -123,6 +124,7 @@ console.log('[worker-build] Notification domain module included once.');
 console.log('[worker-build] Notification routes included once.');
 console.log('[worker-build] Studio/Experience ratings and favorites migration included once.');
 console.log('[worker-build] Community rating ownership hardening included once.');
+console.log('[worker-build] Community ratings/favorites schema ensured once.');
 console.log('[worker-build] Canonical design system injection included once.');
 console.log('[worker-build] Registry-driven SEO injection included once.');
 console.log('[worker-build] Administrator API perimeter guard included once.');
