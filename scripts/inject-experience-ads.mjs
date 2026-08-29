@@ -1,7 +1,8 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 
-const root = new URL('../frontend/studios/', import.meta.url);
+const root = fileURLToPath(new URL('../frontend/studios/', import.meta.url));
 const SCRIPT = '<script src="/js/ads.js" defer></script>';
 
 async function walk(directory, depth = 0) {
