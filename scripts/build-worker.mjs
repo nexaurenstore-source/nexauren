@@ -41,7 +41,8 @@ if (migrationStart >= 0 && migrationEnd > migrationStart) {
   const body = migrationSource.slice(migrationStart, migrationEnd);
   const after = migrationSource.slice(migrationEnd);
   const firstTick = body.indexOf('`');
-  const normalized = body.slice(0, firstTick + 1) + body.slice(firstTick + 1).replaceAll('`', '\\`');
+  const normalized = body.slice(0, firstTick + 1)
+    + body.slice(firstTick + 1).replaceAll('`', '\\`').replaceAll('${', '\\${');
   await writeFile(communityMigrationUrl, before + normalized + after, 'utf8');
 }
 
