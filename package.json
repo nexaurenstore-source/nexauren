@@ -2,7 +2,7 @@
   "name": "nexauren",
   "private": true,
   "scripts": {
-    "check:worker": "node scripts/inject-experience-ads.mjs && node scripts/build-worker.mjs",
+    "check:worker": "node scripts/inject-experience-billing.mjs && node scripts/inject-experience-ads.mjs && node scripts/build-worker.mjs",
     "check:billing": "node scripts/check-billing.mjs",
     "check:billing-ui": "node scripts/check-billing-ui.mjs",
     "check:studios": "node scripts/validate-studios.mjs",
