@@ -18,7 +18,7 @@ if (__billingUrl.pathname === '/api/billing/checkout' && r.method === 'POST') {
 }
 
 if (__billingUrl.pathname === '/api/billing/usage' && r.method === 'POST') {
-  return billingUsage(r, e);
+  return billingUsageSafe(r, e);
 }
 
 if (__billingUrl.pathname.startsWith('/api/webhooks/')) {
