@@ -10,6 +10,6 @@
     {"id":"productivity-studio","name":"Productivity Studio","slug":"productivity","description":"A focused workspace for tasks, notes, focus, planning and checklists.","icon":"productivity","status":"active","tools":["task-manager","notes","focus-timer","planner","checklist"]},
     {"id":"business-studio","name":"Business Studio","slug":"business","description":"A focused workspace for invoices, quotes, business documents, meetings and calculations.","icon":"business","status":"active","tools":["invoice-generator","quote-generator","business-document-generator","meeting-agenda","business-calculator"]},
     {"id":"marketplace-studio","name":"Marketplace Studio","slug":"marketplace","description":"A focused workspace for product listings, descriptions, pricing, SKUs and marketplace optimization.","icon":"marketplace","status":"active","tools":["product-listing-generator","product-description-generator","pricing-calculator","sku-generator","marketplace-optimizer"]},
-    {"id":"document-studio","name":"Document Studio","slug":"document","description":"A flexible workspace for creating polished documents with rich text, layout freedom and PDF export.","icon":"file","status":"active","tools":["document-creator"]}
+    {"id":"document-studio","name":"Document Studio","slug":"document","description":"A flexible workspace for creating polished documents with rich text, layout freedom and PDF export.","icon":"file","status":"active","tools":["document-creator","document-templates"]}
   ]
 }
