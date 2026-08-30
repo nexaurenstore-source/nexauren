@@ -11,6 +11,7 @@ const billingSafetyPatchUrl = new URL('./worker/billing-safety-patch.js', import
 const billingRoutesUrl = new URL('./worker/billing-routes.js', import.meta.url);
 const paymentProvidersUrl = new URL('./worker/payment-providers.js', import.meta.url);
 const subscriptionModuleUrl = new URL('./worker/subscription-lifecycle.js', import.meta.url);
+const webhookLifecycleUrl = new URL('./worker/billing-webhooks.js', import.meta.url);
 const communityMigrationUrl = new URL('./worker/migrate-community-ratings-favorites.mjs', import.meta.url);
 
 const source = await readFile(sourceUrl, 'utf8');
@@ -21,6 +22,7 @@ const billingSafetyPatch = await readFile(billingSafetyPatchUrl, 'utf8');
 const billingRoutes = await readFile(billingRoutesUrl, 'utf8');
 const paymentProviders = await readFile(paymentProvidersUrl, 'utf8');
 const subscriptionModule = await readFile(subscriptionModuleUrl, 'utf8');
+const webhookLifecycle = await readFile(webhookLifecycleUrl, 'utf8');
 
 if (!source.trim()) throw new Error('[worker-build] worker.js is empty. Deployment stopped.');
 if (!notificationModule.includes('async function ensureNotificationsSchema')) throw new Error('[worker-build] Notification module is incomplete.');
@@ -30,6 +32,7 @@ if (!billingSafetyPatch.includes('async function billingUsageSafe')) throw new E
 if (!billingRoutes.includes('/api/billing/catalog')) throw new Error('[worker-build] Billing routes module is incomplete.');
 if (!paymentProviders.includes('NEXAUREN_PAYMENT_PROVIDERS')) throw new Error('[worker-build] Payment provider registry is incomplete.');
 if (!subscriptionModule.includes('async function billingProcessSubscriptionCycle')) throw new Error('[worker-build] Subscription lifecycle module is incomplete.');
+if (!webhookLifecycle.includes('async function billingWebhook')) throw new Error('[worker-build] Webhook lifecycle module is incomplete.');
 
 let generated = source;
 
@@ -48,7 +51,7 @@ if (!generated.includes('const __notificationsUrl')) {
 if (!generated.includes('async function billingFinalizePayment(')) {
   const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
   if (!marker.test(generated)) throw new Error('[worker-build] Worker structure changed: billing insertion marker not found.');
-  generated = generated.replace(marker, billingModule + '\n\n' + billingSafetyPatch + '\n\n' + subscriptionModule + '\n\n' + paymentProviders + '\n\n$&', 1);
+  generated = generated.replace(marker, billingModule + '\n\n' + billingSafetyPatch + '\n\n' + subscriptionModule + '\n\n' + webhookLifecycle + '\n\n' + paymentProviders + '\n\n$&', 1);
 }
 
 if (!generated.includes('const __billingUrl')) {
@@ -56,15 +59,6 @@ if (!generated.includes('const __billingUrl')) {
   if (!fetchMarker.test(generated)) throw new Error('[worker-build] Worker structure changed: billing route marker not found.');
   generated = generated.replace(fetchMarker, '$&\n' + billingRoutes + '\n', 1);
 }
-
-// billing.js historically contained an empty provider registry placeholder.
-// Replace that placeholder with a lazy proxy so the provider module loaded in
-// the generated Worker supplies the real adapters without changing billing
-// business logic or exposing secrets.
-generated = generated.replace(
-  'const NEXAUREN_PAYMENT_PROVIDERS = Object.freeze({});',
-  "const NEXAUREN_PAYMENT_PROVIDERS = new Proxy({}, { get(_target, key) { return globalThis.__NEXAUREN_PAYMENT_PROVIDERS?.[key]; } });",
-);
 
 await mkdir(outputDir, { recursive: true });
 await writeFile(outputUrl, generated, 'utf8');
@@ -127,6 +121,7 @@ console.log('[worker-build] Billing safety patch included once.');
 console.log('[worker-build] Billing routes included once.');
 console.log('[worker-build] Payment provider registry included once.');
 console.log('[worker-build] Subscription lifecycle included once.');
+console.log('[worker-build] Webhook lifecycle included once.');
 console.log('[worker-build] Existing Worker source/routes preserved.');
 console.log('[worker-build] JavaScript syntax check passed.');
 console.log(`[worker-build] Deploy artifact: ${outputUrl.pathname}`);
