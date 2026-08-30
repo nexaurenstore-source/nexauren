@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-const [migration, lifecycle, billing, safety, routes, build, providers] = await Promise.all([
+const [migration, lifecycle, webhook, billing, safety, routes, build, providers] = await Promise.all([
   read('migrations/0004_billing_core.sql'),
   read('migrations/0005_billing_lifecycle.sql'),
   read('scripts/worker/billing-webhooks.js'),
@@ -24,9 +24,9 @@ for (const column of ['current_period_start','current_period_end','cancel_at_per
   if (!lifecycle.includes(column)) throw new Error(`[billing] Missing lifecycle schema item: ${column}`);
 }
 for (const contract of ['billingWebhook','billingProcessSubscriptionStatus','billingProcessRefund','billingRecordWebhook']) {
-  if (!lifecycle.includes(contract)) throw new Error(`[billing] Missing webhook lifecycle contract: ${contract}`);
+  if (!webhook.includes(contract)) throw new Error(`[billing] Missing webhook lifecycle contract: ${contract}`);
 }
-for (const source of [billing,safety,routes,build,providers]) {
+for (const source of [webhook,safety,routes,build,providers]) {
   if (source.includes('FLW_SECRET_KEY=') || source.includes('PAYPAL_CLIENT_SECRET=')) throw new Error('[billing] Provider secrets must never be committed.');
 }
 for (const route of ['/api/billing/catalog','/api/billing/account','/api/billing/transactions','/api/billing/checkout','/api/billing/usage','/api/webhooks/']) {
