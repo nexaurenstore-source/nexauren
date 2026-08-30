@@ -1,4 +1,4 @@
-/* NEXAUREN BILLING CORE v2 */
+/* NEXAUREN BILLING CORE v3 */
 
 const BILLING_PRODUCT_TYPES = new Set(['credit_purchase', 'subscription']);
 const BILLING_SUBSCRIPTION_STATUSES = new Set(['pending','active','past_due','cancelled','expired','failed']);
@@ -20,9 +20,7 @@ async function billingEnsureAccount(e, userId) {
     e.DB.prepare("INSERT OR IGNORE INTO credit_transactions (id,user_id,amount,type,description,reference,payment_id,tool_id,created_at) VALUES(?1,?2,?3,'bonus','Free plan credits',?4,NULL,NULL,?5)").bind(uuid(), userId, freeCredits, reference, now),
     e.DB.prepare('UPDATE credit_balances SET balance=(SELECT COALESCE(SUM(amount),0) FROM credit_transactions WHERE user_id=?1),updated_at=?2 WHERE user_id=?1').bind(userId, now),
   ]);
-  return e.DB.prepare(
-    'SELECT ba.user_id,ba.plan_id,p.name AS plan_name,p.price_minor,p.currency,p.billing_interval,p.credits_per_cycle,p.enabled AS plan_enabled,COALESCE(cb.balance,0) AS balance,ba.created_at,ba.updated_at FROM billing_accounts ba JOIN plans p ON p.id=ba.plan_id LEFT JOIN credit_balances cb ON cb.user_id=ba.user_id WHERE ba.user_id=?1 LIMIT 1',
-  ).bind(userId).first();
+  return e.DB.prepare('SELECT ba.user_id,ba.plan_id,p.name AS plan_name,p.price_minor,p.currency,p.billing_interval,p.credits_per_cycle,p.enabled AS plan_enabled,COALESCE(cb.balance,0) AS balance,ba.created_at,ba.updated_at FROM billing_accounts ba JOIN plans p ON p.id=ba.plan_id LEFT JOIN credit_balances cb ON cb.user_id=ba.user_id WHERE ba.user_id=?1 LIMIT 1').bind(userId).first();
 }
 
 async function billingCatalog(r, e) {
@@ -39,10 +37,18 @@ async function billingAccount(r, e) {
   const u = await currentUser(r, e);
   if (!u) return json({ error: 'Authentication required.' }, 401, cors(r));
   const account = await billingEnsureAccount(e, u.id);
-  const subscription = await e.DB.prepare(
-    'SELECT id,provider,provider_subscription_id,plan_id,status,start_date,next_billing_date,cancelled_at,created_at,updated_at,current_period_start,current_period_end,cancel_at_period_end FROM subscriptions WHERE user_id=?1 ORDER BY created_at DESC LIMIT 1',
-  ).bind(u.id).first();
+  const subscription = await e.DB.prepare('SELECT id,provider,provider_subscription_id,plan_id,status,start_date,next_billing_date,cancelled_at,created_at,updated_at,current_period_start,current_period_end,cancel_at_period_end FROM subscriptions WHERE user_id=?1 ORDER BY created_at DESC LIMIT 1').bind(u.id).first();
   return json({ account, subscription: subscription || null }, 200, cors(r));
+}
+
+async function billingPaymentStatus(r, e) {
+  const u = await currentUser(r, e);
+  if (!u) return json({ error: 'Authentication required.' }, 401, cors(r));
+  const reference = clean(new URL(r.url).searchParams.get('reference')).slice(0, 180);
+  if (!reference) return json({ error: 'reference is required.' }, 400, cors(r));
+  const payment = await e.DB.prepare('SELECT id,provider,reference,amount_minor,currency,status,type,provider_transaction_id,created_at,updated_at FROM payments WHERE user_id=?1 AND reference=?2 LIMIT 1').bind(u.id, reference).first();
+  if (!payment) return json({ error: 'Payment not found.' }, 404, cors(r));
+  return json({ payment: { ...payment, provider_transaction_id: payment.provider_transaction_id || null } }, 200, cors(r));
 }
 
 async function billingTransactions(r, e) {
@@ -75,15 +81,11 @@ async function billingCheckout(r, e) {
   if (productType === 'subscription' && product.billing_interval === 'none') return json({ error: 'Product is not a subscription.' }, 400, cors(r));
   if (!Number.isSafeInteger(Number(product.price_minor)) || Number(product.price_minor) < 0) return json({ error: 'Invalid product price.' }, 500, cors(r));
   if (!/^[A-Z]{3}$/i.test(String(product.currency || ''))) return json({ error: 'Invalid product currency.' }, 500, cors(r));
-
   const reference = `order:${uuid()}`;
   const amountMinor = Number(product.price_minor);
   const paymentId = uuid();
   const now = Math.floor(Date.now() / 1000);
-  await e.DB.prepare(
-    "INSERT INTO payments (id,user_id,provider,provider_transaction_id,reference,amount_minor,currency,status,type,metadata,created_at,updated_at) VALUES(?1,?2,?3,NULL,?4,?5,?6,'pending',?7,?8,?9,?9)",
-  ).bind(paymentId, u.id, providerName, reference, amountMinor, String(product.currency).toUpperCase(), productType, JSON.stringify({ product_id: productId }), now).run();
-
+  await e.DB.prepare("INSERT INTO payments (id,user_id,provider,provider_transaction_id,reference,amount_minor,currency,status,type,metadata,created_at,updated_at) VALUES(?1,?2,?3,NULL,?4,?5,?6,'pending',?7,?8,?9,?9)").bind(paymentId, u.id, providerName, reference, amountMinor, String(product.currency).toUpperCase(), productType, JSON.stringify({ product_id: productId }), now).run();
   try {
     const checkout = await provider.createCheckout({ request: r, env: e, user: u, reference, product, productType });
     const providerTransactionId = clean(checkout?.transaction_id || checkout?.order_id || checkout?.subscription_id);
@@ -160,16 +162,13 @@ async function billingFinalizePayment(e, verified) {
   if (!provider || !reference || !providerTransactionId || !userId) throw new Error('Invalid verified payment payload.');
   if (!BILLING_PRODUCT_TYPES.has(type)) throw new Error('Invalid payment type.');
   if (!['successful','failed','cancelled','refunded'].includes(status)) throw new Error('Invalid payment status.');
-
   const payment = await e.DB.prepare('SELECT id,user_id,amount_minor,currency,type,status,provider,provider_transaction_id FROM payments WHERE reference=?1 LIMIT 1').bind(reference).first();
   if (!payment) throw new Error('Payment reference not found.');
   if (payment.user_id !== userId || payment.provider !== provider || Number(payment.amount_minor) !== Number(amountMinor) || String(payment.currency).toUpperCase() !== String(currency).toUpperCase() || payment.type !== type) throw new Error('Payment verification mismatch.');
-
   const now = Math.floor(Date.now() / 1000);
   if (payment.provider_transaction_id && String(payment.provider_transaction_id) !== String(providerTransactionId) && payment.status === 'successful') return { processed: false, idempotent: true };
   await e.DB.prepare('UPDATE payments SET provider_transaction_id=?1,status=?2,metadata=?3,updated_at=?4 WHERE reference=?5').bind(String(providerTransactionId), status, JSON.stringify(metadata), now, reference).run();
   if (status !== 'successful') return { processed: false, status };
-
   if (type === 'credit_purchase') {
     const existing = await e.DB.prepare('SELECT id FROM credit_transactions WHERE reference=?1 LIMIT 1').bind(`payment:${reference}`).first();
     if (existing) return { processed: false, idempotent: true, credit_transaction_id: existing.id };
@@ -178,12 +177,10 @@ async function billingFinalizePayment(e, verified) {
     const result = await billingAddCredits(e, { userId, amount: Number(product.credits), type: 'purchase', description: `Credit purchase: ${productId}`, reference: `payment:${reference}`, paymentId: payment.id });
     return { processed: result.applied, idempotent: !result.applied };
   }
-
-  /* Subscription creation is not itself a credit grant. Credits are granted only from a verified recurring sale cycle. */
   const plan = await e.DB.prepare('SELECT id,credits_per_cycle,price_minor,currency FROM plans WHERE id=?1 AND enabled=1 LIMIT 1').bind(productId).first();
   if (!plan) throw new Error('Subscription plan not found.');
   if (Number(plan.price_minor) !== Number(amountMinor) || String(plan.currency).toUpperCase() !== String(currency).toUpperCase()) throw new Error('Subscription plan price mismatch.');
   const providerSubscriptionId = clean(metadata.provider_subscription_id || providerTransactionId);
-  await e.DB.prepare('UPDATE payments SET status=\'successful\',provider_transaction_id=?1,metadata=?2,updated_at=?3 WHERE id=?4').bind(providerSubscriptionId, JSON.stringify({ ...metadata, provider_subscription_id: providerSubscriptionId }), now, payment.id).run();
+  await e.DB.prepare("UPDATE payments SET status='successful',provider_transaction_id=?1,metadata=?2,updated_at=?3 WHERE id=?4").bind(providerSubscriptionId, JSON.stringify({ ...metadata, provider_subscription_id: providerSubscriptionId }), now, payment.id).run();
   return { processed: true, subscription_pending: true };
 }
