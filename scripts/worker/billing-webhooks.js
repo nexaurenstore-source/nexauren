@@ -1,4 +1,4 @@
-/* NEXAUREN BILLING WEBHOOK LIFECYCLE v1 */
+/* NEXAUREN BILLING WEBHOOK LIFECYCLE v2 */
 
 async function billingHashWebhook(raw) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
@@ -6,42 +6,76 @@ async function billingHashWebhook(raw) {
 }
 
 async function billingRecordWebhook(e, { provider, eventId, eventType, reference, raw }) {
-  const id = `${clean(provider)}:${clean(eventId)}`;
+  const safeProvider = clean(provider).toLowerCase();
+  const safeEventId = clean(eventId);
+  if (!safeProvider || !safeEventId) throw new Error('Webhook identity is missing.');
+  const id = `${safeProvider}:${safeEventId}`;
   const now = Math.floor(Date.now() / 1000);
   const payloadHash = await billingHashWebhook(raw);
-  const result = await e.DB.prepare('INSERT OR IGNORE INTO webhook_events(id,provider,event_id,event_type,reference,payload_hash,status,processed_at,created_at) VALUES(?1,?2,?3,?4,?5,?6,\'received\',NULL,?7)').bind(id, provider, eventId, eventType, reference || null, payloadHash, now).run();
-  return { id, duplicate: Number(result?.meta?.changes || 0) === 0 };
+  const result = await e.DB.prepare(
+    'INSERT OR IGNORE INTO webhook_events(id,provider,event_id,event_type,reference,payload_hash,status,processed_at,created_at) VALUES(?1,?2,?3,?4,?5,?6,\'received\',NULL,?7)',
+  ).bind(id, safeProvider, safeEventId, clean(eventType) || 'provider.webhook', reference || null, payloadHash, now).run();
+
+  if (Number(result?.meta?.changes || 0) === 1) return { id, duplicate: false, claimed: true };
+
+  const existing = await e.DB.prepare('SELECT id,status,payload_hash FROM webhook_events WHERE id=?1 LIMIT 1').bind(id).first();
+  if (!existing) throw new Error('Webhook record could not be loaded.');
+  if (existing.payload_hash && existing.payload_hash !== payloadHash) throw new Error('Webhook event payload mismatch.');
+  if (existing.status === 'processed' || existing.status === 'processing') return { id, duplicate: true, claimed: false, status: existing.status };
+
+  const claim = await e.DB.prepare(
+    "UPDATE webhook_events SET status='processing',processed_at=NULL WHERE id=?1 AND status IN ('received','failed')",
+  ).bind(id).run();
+  return { id, duplicate: Number(claim?.meta?.changes || 0) === 0, claimed: Number(claim?.meta?.changes || 0) === 1, status: 'processing' };
 }
 
 async function billingMarkWebhook(e, id, status) {
-  await e.DB.prepare('UPDATE webhook_events SET status=?1,processed_at=?2 WHERE id=?3').bind(status, Math.floor(Date.now() / 1000), id).run();
+  const normalized = ['received','processing','processed','failed'].includes(status) ? status : 'failed';
+  await e.DB.prepare('UPDATE webhook_events SET status=?1,processed_at=?2 WHERE id=?3').bind(normalized, Math.floor(Date.now() / 1000), id).run();
 }
 
 async function billingProcessSubscriptionStatus(e, { provider, providerSubscriptionId, status, cancelledAt = null }) {
   if (!providerSubscriptionId) return { updated: false };
   const normalized = ['active','past_due','cancelled','expired','failed'].includes(status) ? status : 'pending';
   const now = Math.floor(Date.now() / 1000);
-  const result = await e.DB.prepare('UPDATE subscriptions SET status=?1,cancelled_at=?2,updated_at=?3 WHERE provider=?4 AND provider_subscription_id=?5').bind(normalized, cancelledAt, now, provider, providerSubscriptionId).run();
+  const result = await e.DB.prepare(
+    'UPDATE subscriptions SET status=?1,cancelled_at=?2,updated_at=?3 WHERE provider=?4 AND provider_subscription_id=?5',
+  ).bind(normalized, cancelledAt, now, provider, providerSubscriptionId).run();
   return { updated: Number(result?.meta?.changes || 0) > 0 };
 }
 
 async function billingProcessRefund(e, { provider, providerTransactionId, refundId, amountMinor, reason }) {
-  const payment = await e.DB.prepare('SELECT id,user_id,amount_minor,status FROM payments WHERE provider=?1 AND provider_transaction_id=?2 LIMIT 1').bind(provider, String(providerTransactionId)).first();
+  const payment = await e.DB.prepare(
+    'SELECT id,user_id,amount_minor,status FROM payments WHERE provider=?1 AND provider_transaction_id=?2 LIMIT 1',
+  ).bind(provider, String(providerTransactionId)).first();
   if (!payment) throw new Error('Refund payment not found.');
   const refundReference = `refund:${provider}:${clean(refundId || providerTransactionId)}`;
   const amount = Math.max(0, Math.floor(Number(amountMinor)));
   if (!amount) throw new Error('Invalid refund amount.');
   const existing = await e.DB.prepare('SELECT id FROM credit_transactions WHERE reference=?1 LIMIT 1').bind(refundReference).first();
   if (existing) return { processed: false, idempotent: true };
-  const creditRows = await e.DB.prepare('SELECT id,amount FROM credit_transactions WHERE payment_id=?1 AND amount>0 AND type IN (\'purchase\',\'subscription\') ORDER BY created_at ASC').bind(payment.id).all();
+
+  const creditRows = await e.DB.prepare(
+    "SELECT id,amount FROM credit_transactions WHERE payment_id=?1 AND amount>0 AND type IN ('purchase','subscription') ORDER BY created_at ASC",
+  ).bind(payment.id).all();
   const granted = (creditRows?.results || []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
   if (!granted) return { processed: false, idempotent: false, no_credits: true };
+
+  const priorRefunds = await e.DB.prepare(
+    "SELECT COALESCE(SUM(-amount),0) AS refunded FROM credit_transactions WHERE payment_id=?1 AND type='refund'",
+  ).bind(payment.id).first();
+  const alreadyRefunded = Math.max(0, Number(priorRefunds?.refunded || 0));
   const ratio = Math.min(1, amount / Math.max(1, Number(payment.amount_minor)));
-  const creditsToRemove = Math.max(1, Math.floor(granted * ratio));
+  const requestedCredits = Math.max(1, Math.floor(granted * ratio));
+  const creditsToRemove = Math.min(requestedCredits, Math.max(0, granted - alreadyRefunded));
+  if (creditsToRemove <= 0) return { processed: false, idempotent: false, already_refunded: true };
+
   const now = Math.floor(Date.now() / 1000);
   await e.DB.batch([
-    e.DB.prepare('INSERT INTO credit_transactions(id,user_id,amount,type,description,reference,payment_id,created_at) VALUES(?1,?2,?3,\'refund\',?4,?5,?6,?7)').bind(uuid(), payment.user_id, -creditsToRemove, `Refund: ${clean(reason).slice(0, 180)}`, refundReference, payment.id, now),
-    e.DB.prepare('UPDATE payments SET status=\'refunded\',updated_at=?1 WHERE id=?2').bind(now, payment.id),
+    e.DB.prepare(
+      "INSERT INTO credit_transactions(id,user_id,amount,type,description,reference,payment_id,created_at) VALUES(?1,?2,?3,'refund',?4,?5,?6,?7)",
+    ).bind(uuid(), payment.user_id, -creditsToRemove, `Refund: ${clean(reason).slice(0, 180)}`, refundReference, payment.id, now),
+    e.DB.prepare("UPDATE payments SET status='refunded',updated_at=?1 WHERE id=?2").bind(now, payment.id),
     e.DB.prepare('INSERT OR IGNORE INTO credit_balances(user_id,balance,updated_at) VALUES(?1,0,?2)').bind(payment.user_id, now),
     e.DB.prepare('UPDATE credit_balances SET balance=(SELECT COALESCE(SUM(amount),0) FROM credit_transactions WHERE user_id=?1),updated_at=?2 WHERE user_id=?1').bind(payment.user_id, now),
   ]);
@@ -55,11 +89,16 @@ async function billingWebhook(r, e, providerName) {
   const raw = await r.clone().text();
   let payload = null;
   try { payload = JSON.parse(raw); } catch { throw new Error('Invalid webhook JSON.'); }
-  const eventId = provider === 'paypal' ? clean(r.headers.get('paypal-transmission-id')) || clean(payload?.id) : clean(payload?.id || payload?.data?.id) || await billingHashWebhook(raw);
+
+  /* PayPal event.id is the stable event identity. Transmission-ID identifies a delivery, not the event. */
+  const eventId = provider === 'paypal'
+    ? clean(payload?.id)
+    : clean(payload?.id || payload?.data?.id) || await billingHashWebhook(raw);
   const eventType = clean(payload?.event_type || payload?.event || payload?.type) || 'provider.webhook';
   const reference = clean(payload?.resource?.custom_id || payload?.resource?.purchase_units?.[0]?.custom_id || payload?.data?.tx_ref);
   const recorded = await billingRecordWebhook(e, { provider, eventId, eventType, reference, raw });
-  if (recorded.duplicate) return json({ received: true, duplicate: true }, 200, cors(r));
+  if (recorded.duplicate || !recorded.claimed) return json({ received: true, duplicate: true }, 200, cors(r));
+
   try {
     const response = await adapter.handleWebhook({ request: r, env: e, finalize: async (payment) => billingFinalizePayment(e, payment) });
     await billingMarkWebhook(e, recorded.id, 'processed');
