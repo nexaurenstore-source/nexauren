@@ -28,7 +28,7 @@ if (!notificationRoutes.includes('/api/admin/notifications')) throw new Error('[
 if (!billingModule.includes('async function billingFinalizePayment')) throw new Error('[worker-build] Billing module is incomplete.');
 if (!billingSafetyPatch.includes('async function billingUsageSafe')) throw new Error('[worker-build] Billing safety patch is incomplete.');
 if (!billingRoutes.includes('/api/billing/catalog')) throw new Error('[worker-build] Billing routes module is incomplete.');
-if (!paymentProviders.includes('buildPaymentProviderRegistry')) throw new Error('[worker-build] Payment provider registry is incomplete.');
+if (!paymentProviders.includes('NEXAUREN_PAYMENT_PROVIDERS')) throw new Error('[worker-build] Payment provider registry is incomplete.');
 if (!subscriptionModule.includes('async function billingProcessSubscriptionCycle')) throw new Error('[worker-build] Subscription lifecycle module is incomplete.');
 
 let generated = source;
@@ -56,6 +56,15 @@ if (!generated.includes('const __billingUrl')) {
   if (!fetchMarker.test(generated)) throw new Error('[worker-build] Worker structure changed: billing route marker not found.');
   generated = generated.replace(fetchMarker, '$&\n' + billingRoutes + '\n', 1);
 }
+
+// billing.js historically contained an empty provider registry placeholder.
+// Replace that placeholder with a lazy proxy so the provider module loaded in
+// the generated Worker supplies the real adapters without changing billing
+// business logic or exposing secrets.
+generated = generated.replace(
+  'const NEXAUREN_PAYMENT_PROVIDERS = Object.freeze({});',
+  "const NEXAUREN_PAYMENT_PROVIDERS = new Proxy({}, { get(_target, key) { return globalThis.__NEXAUREN_PAYMENT_PROVIDERS?.[key]; } });",
+);
 
 await mkdir(outputDir, { recursive: true });
 await writeFile(outputUrl, generated, 'utf8');
