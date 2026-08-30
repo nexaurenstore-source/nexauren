@@ -9,9 +9,7 @@ async function billingRecordWebhook(e, { provider, eventId, eventType, reference
   const id = `${clean(provider)}:${clean(eventId)}`;
   const now = Math.floor(Date.now() / 1000);
   const payloadHash = await billingHashWebhook(raw);
-  const result = await e.DB.prepare(
-    'INSERT OR IGNORE INTO webhook_events(id,provider,event_id,event_type,reference,payload_hash,status,processed_at,created_at) VALUES(?1,?2,?3,?4,?5,?6,\'received\',NULL,?7)',
-  ).bind(id, provider, eventId, eventType, reference || null, payloadHash, now).run();
+  const result = await e.DB.prepare('INSERT OR IGNORE INTO webhook_events(id,provider,event_id,event_type,reference,payload_hash,status,processed_at,created_at) VALUES(?1,?2,?3,?4,?5,?6,\'received\',NULL,?7)').bind(id, provider, eventId, eventType, reference || null, payloadHash, now).run();
   return { id, duplicate: Number(result?.meta?.changes || 0) === 0 };
 }
 
@@ -23,9 +21,7 @@ async function billingProcessSubscriptionStatus(e, { provider, providerSubscript
   if (!providerSubscriptionId) return { updated: false };
   const normalized = ['active','past_due','cancelled','expired','failed'].includes(status) ? status : 'pending';
   const now = Math.floor(Date.now() / 1000);
-  const result = await e.DB.prepare(
-    'UPDATE subscriptions SET status=?1,cancelled_at=?2,updated_at=?3 WHERE provider=?4 AND provider_subscription_id=?5',
-  ).bind(normalized, cancelledAt, now, provider, providerSubscriptionId).run();
+  const result = await e.DB.prepare('UPDATE subscriptions SET status=?1,cancelled_at=?2,updated_at=?3 WHERE provider=?4 AND provider_subscription_id=?5').bind(normalized, cancelledAt, now, provider, providerSubscriptionId).run();
   return { updated: Number(result?.meta?.changes || 0) > 0 };
 }
 
@@ -47,7 +43,7 @@ async function billingProcessRefund(e, { provider, providerTransactionId, refund
     e.DB.prepare('INSERT INTO credit_transactions(id,user_id,amount,type,description,reference,payment_id,created_at) VALUES(?1,?2,?3,\'refund\',?4,?5,?6,?7)').bind(uuid(), payment.user_id, -creditsToRemove, `Refund: ${clean(reason).slice(0, 180)}`, refundReference, payment.id, now),
     e.DB.prepare('UPDATE payments SET status=\'refunded\',updated_at=?1 WHERE id=?2').bind(now, payment.id),
     e.DB.prepare('INSERT OR IGNORE INTO credit_balances(user_id,balance,updated_at) VALUES(?1,0,?2)').bind(payment.user_id, now),
-    e.DB.prepare('UPDATE credit_balances SET balance=(SELECT COALESCE(SUM(amount),0),updated_at=?2 WHERE user_id=?1').bind(payment.user_id, now),
+    e.DB.prepare('UPDATE credit_balances SET balance=(SELECT COALESCE(SUM(amount),0) FROM credit_transactions WHERE user_id=?1),updated_at=?2 WHERE user_id=?1').bind(payment.user_id, now),
   ]);
   return { processed: true, credits_removed: creditsToRemove };
 }
