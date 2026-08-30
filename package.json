@@ -3,12 +3,13 @@
   "private": true,
   "scripts": {
     "check:worker": "node scripts/inject-experience-ads.mjs && node scripts/build-worker.mjs",
+    "check:billing": "node scripts/check-billing.mjs",
     "check:studios": "node scripts/validate-studios.mjs",
     "check:security": "node scripts/security-audit.mjs",
     "check:runtime": "node scripts/runtime-audit.mjs",
     "check:seo": "node scripts/validate-seo.mjs",
     "check:final": "node scripts/final-audit.mjs",
-    "check:architecture": "npm run check:studios && npm run check:worker && npm run check:security && npm run check:runtime && npm run check:seo && npm run check:final",
+    "check:architecture": "npm run check:studios && npm run check:billing && npm run check:worker && npm run check:security && npm run check:runtime && npm run check:seo && npm run check:final",
     "check": "npm run check:architecture",
     "build": "npm run check",
     "deploy": "npm run check && npx wrangler deploy"
