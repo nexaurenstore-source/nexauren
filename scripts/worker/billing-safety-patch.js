@@ -1,4 +1,4 @@
-/* NEXAUREN BILLING SAFETY PATCH v1 */
+/* NEXAUREN BILLING SAFETY PATCH v2 */
 
 async function billingUsageSafe(r, e) {
   const u = await currentUser(r, e);
@@ -10,12 +10,22 @@ async function billingUsageSafe(r, e) {
   const toolId = clean(d?.tool_id).slice(0, 120);
   const reference = clean(d?.reference).slice(0, 160) || `usage:${uuid()}`;
 
-  if (!toolId) {
-    return json({ error: 'tool_id is required.' }, 400, cors(r));
+  if (!toolId || !/^[A-Za-z0-9._-]{2,120}$/.test(toolId)) {
+    return json({ error: 'Invalid experience id.' }, 400, cors(r));
   }
 
   // Ensure the account and one-time free-plan grant exist before checking balance.
   await billingEnsureAccount(e, u.id);
+
+  // Every shipped experience gets a safe, configurable default of 1 credit.
+  // Admin/pricing configuration can later change this row without changing code.
+  await e.DB
+    .prepare(
+      'INSERT OR IGNORE INTO tool_billing ' +
+        '(tool_id,credit_cost,enabled,updated_at) VALUES (?1,1,1,?2)',
+    )
+    .bind(toolId, Math.floor(Date.now() / 1000))
+    .run();
 
   const tool = await e.DB
     .prepare(
@@ -26,7 +36,7 @@ async function billingUsageSafe(r, e) {
 
   if (!tool || Number(tool.enabled) !== 1) {
     return json(
-      { error: 'Tool billing is not configured.', code: 'tool_not_configured' },
+      { error: 'This experience is currently unavailable.', code: 'experience_disabled' },
       409,
       cors(r),
     );
@@ -34,7 +44,7 @@ async function billingUsageSafe(r, e) {
 
   const cost = Math.floor(Number(tool.credit_cost));
   if (!Number.isFinite(cost) || cost < 0) {
-    return json({ error: 'Invalid tool credit cost.' }, 500, cors(r));
+    return json({ error: 'Invalid experience credit cost.' }, 500, cors(r));
   }
 
   if (cost === 0) {
