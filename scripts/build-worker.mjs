@@ -6,15 +6,21 @@ const outputDir = new URL('../.worker-build/', import.meta.url);
 const outputUrl = new URL('../.worker-build/worker.js', import.meta.url);
 const notificationModuleUrl = new URL('./worker/notifications.js', import.meta.url);
 const notificationRoutesUrl = new URL('./worker/notification-routes.js', import.meta.url);
+const billingModuleUrl = new URL('./worker/billing.js', import.meta.url);
+const billingRoutesUrl = new URL('./worker/billing-routes.js', import.meta.url);
 const communityMigrationUrl = new URL('./worker/migrate-community-ratings-favorites.mjs', import.meta.url);
 
 const source = await readFile(sourceUrl, 'utf8');
 const notificationModule = await readFile(notificationModuleUrl, 'utf8');
 const notificationRoutes = await readFile(notificationRoutesUrl, 'utf8');
+const billingModule = await readFile(billingModuleUrl, 'utf8');
+const billingRoutes = await readFile(billingRoutesUrl, 'utf8');
 
 if (!source.trim()) throw new Error('[worker-build] worker.js is empty. Deployment stopped.');
 if (!notificationModule.includes('async function ensureNotificationsSchema')) throw new Error('[worker-build] Notification module is incomplete.');
 if (!notificationRoutes.includes('/api/admin/notifications')) throw new Error('[worker-build] Notification routes module is incomplete.');
+if (!billingModule.includes('async function billingFinalizePayment')) throw new Error('[worker-build] Billing module is incomplete.');
+if (!billingRoutes.includes('/api/billing/catalog')) throw new Error('[worker-build] Billing routes module is incomplete.');
 
 let generated = source;
 
@@ -28,6 +34,18 @@ if (!generated.includes('const __notificationsUrl')) {
   const fetchMarker = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{\s*/;
   if (!fetchMarker.test(generated)) throw new Error('[worker-build] Worker structure changed: fetch(r, e) marker not found.');
   generated = generated.replace(fetchMarker, '$&\n' + notificationRoutes + '\n', 1);
+}
+
+if (!generated.includes('async function billingFinalizePayment(')) {
+  const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
+  if (!marker.test(generated)) throw new Error('[worker-build] Worker structure changed: billing insertion marker not found.');
+  generated = generated.replace(marker, billingModule + '\n\n$&', 1);
+}
+
+if (!generated.includes('const __billingUrl')) {
+  const fetchMarker = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{\s*/;
+  if (!fetchMarker.test(generated)) throw new Error('[worker-build] Worker structure changed: billing route marker not found.');
+  generated = generated.replace(fetchMarker, '$&\n' + billingRoutes + '\n', 1);
 }
 
 await mkdir(outputDir, { recursive: true });
@@ -122,6 +140,8 @@ try {
 console.log('[worker-build] Source inspected.');
 console.log('[worker-build] Notification domain module included once.');
 console.log('[worker-build] Notification routes included once.');
+console.log('[worker-build] Billing core module included once.');
+console.log('[worker-build] Billing routes included once.');
 console.log('[worker-build] Studio/Experience ratings and favorites migration included once.');
 console.log('[worker-build] Community rating ownership hardening included once.');
 console.log('[worker-build] Community ratings/favorites schema ensured once.');
