@@ -9,6 +9,7 @@ const notificationRoutesUrl = new URL('./worker/notification-routes.js', import.
 const billingModuleUrl = new URL('./worker/billing.js', import.meta.url);
 const billingSafetyPatchUrl = new URL('./worker/billing-safety-patch.js', import.meta.url);
 const billingRoutesUrl = new URL('./worker/billing-routes.js', import.meta.url);
+const paymentProvidersUrl = new URL('./worker/payment-providers.js', import.meta.url);
 const subscriptionModuleUrl = new URL('./worker/subscription-lifecycle.js', import.meta.url);
 const communityMigrationUrl = new URL('./worker/migrate-community-ratings-favorites.mjs', import.meta.url);
 
@@ -18,6 +19,7 @@ const notificationRoutes = await readFile(notificationRoutesUrl, 'utf8');
 const billingModule = await readFile(billingModuleUrl, 'utf8');
 const billingSafetyPatch = await readFile(billingSafetyPatchUrl, 'utf8');
 const billingRoutes = await readFile(billingRoutesUrl, 'utf8');
+const paymentProviders = await readFile(paymentProvidersUrl, 'utf8');
 const subscriptionModule = await readFile(subscriptionModuleUrl, 'utf8');
 
 if (!source.trim()) throw new Error('[worker-build] worker.js is empty. Deployment stopped.');
@@ -26,6 +28,7 @@ if (!notificationRoutes.includes('/api/admin/notifications')) throw new Error('[
 if (!billingModule.includes('async function billingFinalizePayment')) throw new Error('[worker-build] Billing module is incomplete.');
 if (!billingSafetyPatch.includes('async function billingUsageSafe')) throw new Error('[worker-build] Billing safety patch is incomplete.');
 if (!billingRoutes.includes('/api/billing/catalog')) throw new Error('[worker-build] Billing routes module is incomplete.');
+if (!paymentProviders.includes('buildPaymentProviderRegistry')) throw new Error('[worker-build] Payment provider registry is incomplete.');
 if (!subscriptionModule.includes('async function billingProcessSubscriptionCycle')) throw new Error('[worker-build] Subscription lifecycle module is incomplete.');
 
 let generated = source;
@@ -45,7 +48,7 @@ if (!generated.includes('const __notificationsUrl')) {
 if (!generated.includes('async function billingFinalizePayment(')) {
   const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
   if (!marker.test(generated)) throw new Error('[worker-build] Worker structure changed: billing insertion marker not found.');
-  generated = generated.replace(marker, billingModule + '\n\n' + billingSafetyPatch + '\n\n' + subscriptionModule + '\n\n$&', 1);
+  generated = generated.replace(marker, billingModule + '\n\n' + billingSafetyPatch + '\n\n' + subscriptionModule + '\n\n' + paymentProviders + '\n\n$&', 1);
 }
 
 if (!generated.includes('const __billingUrl')) {
@@ -97,7 +100,9 @@ for (const script of [
   new URL('./extend-admin-users.mjs', import.meta.url).pathname,
   new URL('./protect-admin-user.mjs', import.meta.url).pathname,
   new URL('./extend-blocked-users.mjs', import.meta.url).pathname,
-]) execFileSync(process.execPath, [script], { stdio: 'inherit' });
+]) {
+  execFileSync(process.execPath, [script], { stdio: 'inherit' });
+}
 
 try {
   execFileSync(process.execPath, ['--check', outputUrl.pathname], { stdio: 'inherit' });
@@ -111,7 +116,8 @@ console.log('[worker-build] Notification routes included once.');
 console.log('[worker-build] Billing core module included once.');
 console.log('[worker-build] Billing safety patch included once.');
 console.log('[worker-build] Billing routes included once.');
-console.log('[worker-build] Subscription lifecycle module included once.');
+console.log('[worker-build] Payment provider registry included once.');
+console.log('[worker-build] Subscription lifecycle included once.');
 console.log('[worker-build] Existing Worker source/routes preserved.');
 console.log('[worker-build] JavaScript syntax check passed.');
 console.log(`[worker-build] Deploy artifact: ${outputUrl.pathname}`);
