@@ -1,0 +1,29 @@
+name: Billing Syntax Check
+
+on:
+  push:
+    paths:
+      - 'scripts/worker/**'
+      - 'scripts/build-worker.mjs'
+      - 'worker.js'
+      - 'package.json'
+  pull_request:
+    paths:
+      - 'scripts/worker/**'
+      - 'scripts/build-worker.mjs'
+      - 'worker.js'
+      - 'package.json'
+
+jobs:
+  billing-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node --check scripts/worker/billing.js
+      - run: node --check scripts/worker/payment-providers.js
+      - run: node --check scripts/worker/billing-webhooks.js
+      - run: node --check scripts/worker/subscription-lifecycle.js
+      - run: node --check scripts/build-worker.mjs
