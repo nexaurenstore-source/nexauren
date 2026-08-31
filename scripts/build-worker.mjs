@@ -12,6 +12,7 @@ const billingRoutesUrl = new URL('./worker/billing-routes.js', import.meta.url);
 const paymentProvidersUrl = new URL('./worker/payment-providers.js', import.meta.url);
 const subscriptionModuleUrl = new URL('./worker/subscription-lifecycle.js', import.meta.url);
 const webhookLifecycleUrl = new URL('./worker/billing-webhooks.js', import.meta.url);
+const blogRoutesUrl = new URL('./worker/blog-routes.js', import.meta.url);
 const communityMigrationUrl = new URL('./worker/migrate-community-ratings-favorites.mjs', import.meta.url);
 
 const source = await readFile(sourceUrl, 'utf8');
@@ -23,6 +24,7 @@ const billingRoutes = await readFile(billingRoutesUrl, 'utf8');
 const paymentProviders = await readFile(paymentProvidersUrl, 'utf8');
 const subscriptionModule = await readFile(subscriptionModuleUrl, 'utf8');
 const webhookLifecycle = await readFile(webhookLifecycleUrl, 'utf8');
+const blogRoutes = await readFile(blogRoutesUrl, 'utf8');
 
 if (!source.trim()) throw new Error('[worker-build] worker.js is empty. Deployment stopped.');
 if (!notificationModule.includes('async function ensureNotificationsSchema')) throw new Error('[worker-build] Notification module is incomplete.');
@@ -33,6 +35,9 @@ if (!billingRoutes.includes('/api/billing/catalog')) throw new Error('[worker-bu
 if (!paymentProviders.includes('NEXAUREN_PAYMENT_PROVIDERS')) throw new Error('[worker-build] Payment provider registry is incomplete.');
 if (!subscriptionModule.includes('async function billingProcessSubscriptionCycle')) throw new Error('[worker-build] Subscription lifecycle module is incomplete.');
 if (!webhookLifecycle.includes('async function billingWebhook')) throw new Error('[worker-build] Webhook lifecycle module is incomplete.');
+if (!blogRoutes.includes('async function __handleBlogRoute')) throw new Error('[worker-build] Blog routes module is incomplete.');
+if (!blogRoutes.includes("'/api/blog/posts'")) throw new Error('[worker-build] Blog public routes are incomplete.');
+if (!blogRoutes.includes("'/api/admin/blog/posts'")) throw new Error('[worker-build] Blog admin routes are incomplete.');
 
 let generated = source;
 
@@ -51,7 +56,6 @@ if (!generated.includes('const __notificationsUrl')) {
 if (!generated.includes('async function billingFinalizePayment(')) {
   const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
   if (!marker.test(generated)) throw new Error('[worker-build] Worker structure changed: billing insertion marker not found.');
-
   const billingModuleForBuild = billingModule.replace(
     /\nasync function billingWebhook\(r, e, providerName\) \{[\s\S]*?\n\}\n\n(?=async function billingFinalizePayment)/,
     '\n',
@@ -59,7 +63,6 @@ if (!generated.includes('async function billingFinalizePayment(')) {
   if (billingModuleForBuild.includes('async function billingWebhook(')) {
     throw new Error('[worker-build] Legacy billingWebhook declaration was not removed.');
   }
-
   generated = generated.replace(
     marker,
     billingModuleForBuild + '\n\n' + billingSafetyPatch + '\n\n' + subscriptionModule + '\n\n' + webhookLifecycle + '\n\n' + paymentProviders + '\n\n$&',
@@ -73,9 +76,19 @@ if (!generated.includes('const __billingUrl')) {
   generated = generated.replace(fetchMarker, '$&\n' + billingRoutes + '\n', 1);
 }
 
-// Fail closed for unknown API paths. API requests must never fall through to
-// the static HTML asset, otherwise clients receive <!doctype html> where JSON
-// was expected. This guard is intentionally inserted after all API modules.
+if (!generated.includes('const __blogUrl')) {
+  const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
+  if (!marker.test(generated)) throw new Error('[worker-build] Worker structure changed: blog insertion marker not found.');
+  generated = generated.replace(marker, blogRoutes + '\n\n$&', 1);
+}
+
+if (!generated.includes('const __blogRouteActive')) {
+  const fetchMarker = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{\s*/;
+  if (!fetchMarker.test(generated)) throw new Error('[worker-build] Worker structure changed: blog route marker not found.');
+  const blogDispatch = `\n    if (new URL(r.url).pathname.startsWith('/api/blog/') || new URL(r.url).pathname.startsWith('/api/admin/blog/')) {\n      const __blogResponse = await __handleBlogRoute(r, e);\n      if (__blogResponse) return __blogResponse;\n    }\n    const __blogRouteActive = true;\n`;
+  generated = generated.replace(fetchMarker, '$&' + blogDispatch, 1);
+}
+
 const assetFallbackMarker = '      const response = await e.ASSETS.fetch(r);';
 if (!generated.includes(assetFallbackMarker)) {
   throw new Error('[worker-build] Worker structure changed: asset fallback marker not found.');
@@ -87,15 +100,11 @@ generated = generated.replace(
 );
 
 const count = (text, needle) => text.split(needle).length - 1;
-if (count(generated, 'async function billingWebhook(') !== 1) {
-  throw new Error('[worker-build] billingWebhook must be included exactly once.');
-}
-if (count(generated, 'const __billingUrl') !== 1) {
-  throw new Error('[worker-build] Billing route module must be included exactly once.');
-}
-if (count(generated, 'async function billingFinalizePayment(') !== 1) {
-  throw new Error('[worker-build] billingFinalizePayment must be included exactly once.');
-}
+if (count(generated, 'async function billingWebhook(') !== 1) throw new Error('[worker-build] billingWebhook must be included exactly once.');
+if (count(generated, 'const __billingUrl') !== 1) throw new Error('[worker-build] Billing route module must be included exactly once.');
+if (count(generated, 'async function billingFinalizePayment(') !== 1) throw new Error('[worker-build] billingFinalizePayment must be included exactly once.');
+if (count(generated, 'async function __handleBlogRoute(') !== 1) throw new Error('[worker-build] Blog route module must be included exactly once.');
+if (count(generated, 'const __blogRouteActive = true;') !== 1) throw new Error('[worker-build] Blog dispatcher must be included exactly once.');
 
 await mkdir(outputDir, { recursive: true });
 await writeFile(outputUrl, generated, 'utf8');
@@ -159,6 +168,8 @@ console.log('[worker-build] Billing routes included once.');
 console.log('[worker-build] Payment provider registry included once.');
 console.log('[worker-build] Subscription lifecycle included once.');
 console.log('[worker-build] Webhook lifecycle included once.');
+console.log('[worker-build] Blog API module included once.');
+console.log('[worker-build] Blog API dispatcher included once.');
 console.log('[worker-build] Unknown API paths fail closed with JSON 404.');
 console.log('[worker-build] Existing Worker source/routes preserved.');
 console.log('[worker-build] JavaScript syntax check passed.');
