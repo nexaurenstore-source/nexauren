@@ -1,0 +1,29 @@
+/* Nexauren Canonical Design System
+ * This entry point keeps the shared visual system stable while the detailed
+ * redesign rules remain in the versioned stylesheet below.
+ * Keep this file as the canonical Worker-injected stylesheet.
+ */
+@import url("./nexauren-redesign.css");
+
+:root {
+  --nx-violet: #6d3df5;
+  --nx-pink: #ff3d9a;
+  --nx-cyan: #00c8ff;
+  --nx-orange: #ff7a18;
+  --nx-ink: #17172b;
+  --nx-muted: #686780;
+  --nx-line: rgba(76, 58, 170, .14);
+  --nx-radius-sm: 13px;
+  --nx-radius-md: 18px;
+  --nx-radius-lg: 20px;
+  --nx-shadow-sm: 0 10px 30px rgba(49, 31, 112, .07);
+  --nx-shadow-md: 0 18px 42px rgba(49, 31, 112, .12);
+}
+
+html { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: inherit; }
+body { margin: 0; color: var(--nx-ink); }
+button, input, textarea, select { font: inherit; }
+img, svg { max-width: 100%; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid rgba(109, 61, 245, .35); outline-offset: 3px; }
