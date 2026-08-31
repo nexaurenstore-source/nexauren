@@ -23,6 +23,8 @@ jobs:
         with:
           node-version: 20
       - run: node --check scripts/worker/billing.js
+      - run: node --check scripts/worker/billing-routes.js
+      - run: node --check scripts/worker/billing-safety-patch.js
       - run: node --check scripts/worker/payment-providers.js
       - run: node --check scripts/worker/billing-webhooks.js
       - run: node --check scripts/worker/subscription-lifecycle.js
