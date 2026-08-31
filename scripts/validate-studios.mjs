@@ -22,20 +22,23 @@ const normalizeUrl = url => {
   if (typeof url !== 'string') return null;
   const value = url.trim();
   if (!value.startsWith('/') || !value.endsWith('/')) return null;
-  return value.replace(/\/+/g, '/');
+  return value.replace(/\\+/g, '/');
 };
 
 let studiosDoc;
 let toolsDoc;
+let extrasDoc;
 try {
   studiosDoc = readJson(path.join(dataRoot, 'studios.json'));
   toolsDoc = readJson(path.join(dataRoot, 'tools.json'));
+  const extrasPath = path.join(dataRoot, 'tools-extra.json');
+  extrasDoc = fs.existsSync(extrasPath) ? readJson(extrasPath) : {tools: []};
 } catch (error) {
   fail(`Registry JSON could not be read: ${error.message}`);
 }
 
 const studios = Array.isArray(studiosDoc?.studios) ? studiosDoc.studios : [];
-const tools = Array.isArray(toolsDoc?.tools) ? toolsDoc.tools : [];
+const tools = [...(Array.isArray(toolsDoc?.tools) ? toolsDoc.tools : []), ...(Array.isArray(extrasDoc?.tools) ? extrasDoc.tools : [])];
 
 if (!Number.isInteger(studiosDoc?.schemaVersion) || studiosDoc.schemaVersion < 3) fail('studios.json schemaVersion must be an integer >= 3');
 if (studiosDoc?.architecture !== 'studios') fail('studios.json architecture must be "studios"');
@@ -163,7 +166,6 @@ for (const studio of studios.filter(item => item.status === 'active')) {
   }
 }
 
-const expectedStudioUrls = new Set(studios.filter(s => s.status === 'active').map(s => `/studios/${s.slug}/`));
 for (const studio of studios) {
   if (!isSlug(studio.slug)) continue;
   const page = path.join(studiosRoot, studio.slug, 'index.html');
