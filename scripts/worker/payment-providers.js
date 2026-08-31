@@ -1,28 +1,286 @@
-/* NEXAUREN PAYMENT PROVIDERS v5 */
+/* NEXAUREN PAYMENT PROVIDERS v6 — FLUTTERWAVE */
 
-function providerProductEnvKey(prefix, productId) { return `${prefix}_${clean(productId).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`; }
-async function providerJson(response) { const text=await response.text(); let data=null; try{data=text?JSON.parse(text):null;}catch{data=null;} if(!response.ok)throw new Error(String(data?.message||data?.name||text||`HTTP ${response.status}`).slice(0,500)); return data; }
-function paypalBase(env){return clean(env.PAYPAL_ENV).toLowerCase()==='live'?'https://api-m.paypal.com':'https://api-m.sandbox.paypal.com';}
-function providerReturnUrl(raw, reference){const value=clean(raw);if(!value)throw new Error('Payment return/cancel URLs are not configured.');try{const u=new URL(value);u.searchParams.set('reference',reference);return u.toString();}catch{throw new Error('Payment return/cancel URL is invalid.');}}
-async function paypalAccessToken(env){const clientId=clean(env.PAYPAL_CLIENT_ID);const secret=clean(env.PAYPAL_CLIENT_SECRET);if(!clientId||!secret)throw new Error('PayPal server credentials are not configured.');const response=await fetch(`${paypalBase(env)}/v1/oauth2/token`,{method:'POST',headers:{Authorization:`Basic ${btoa(`${clientId}:${secret}`)}`,'Content-Type':'application/x-www-form-urlencoded',Accept:'application/json'},body:'grant_type=client_credentials'});const data=await providerJson(response);if(!data?.access_token)throw new Error('PayPal access token was not returned.');return data.access_token;}
-function paypalHeaders(token,requestId=null){return {Authorization:`Bearer ${token}`,'Content-Type':'application/json',Accept:'application/json',...(requestId?{'PayPal-Request-Id':String(requestId)}:{})};}
-async function paypalCreateCheckout({env,user,reference,product,productType}){const token=await paypalAccessToken(env);const base=paypalBase(env);const returnUrl=providerReturnUrl(env.PAYMENT_RETURN_URL,reference);const cancelUrl=providerReturnUrl(env.PAYMENT_CANCEL_URL,reference);if(productType==='subscription'){const planKey=providerProductEnvKey('PAYPAL_PLAN',product.id);const planId=clean(env[planKey]);if(!planId)throw new Error(`Missing PayPal plan mapping: ${planKey}.`);const response=await fetch(`${base}/v1/billing/subscriptions`,{method:'POST',headers:paypalHeaders(token,reference),body:JSON.stringify({plan_id:planId,custom_id:reference,subscriber:{email_address:user.email},application_context:{brand_name:clean(env.PAYMENT_BRAND_NAME)||'Nexauren',user_action:'SUBSCRIBE_NOW',shipping_preference:'NO_SHIPPING',return_url:returnUrl,cancel_url:cancelUrl}})});const data=await providerJson(response);const approve=(data?.links||[]).find(link=>link.rel==='approve');if(!approve?.href||!data?.id)throw new Error('PayPal subscription approval link was not returned.');return {url:approve.href,transaction_id:data.id,subscription_id:data.id,mode:'subscription'};}const response=await fetch(`${base}/v2/checkout/orders`,{method:'POST',headers:paypalHeaders(token,reference),body:JSON.stringify({intent:'CAPTURE',purchase_units:[{reference_id:reference,custom_id:reference,amount:{currency_code:String(product.currency).toUpperCase(),value:(Number(product.price_minor)/100).toFixed(2)}}],application_context:{brand_name:clean(env.PAYMENT_BRAND_NAME)||'Nexauren',user_action:'PAY_NOW',shipping_preference:'NO_SHIPPING',return_url:returnUrl,cancel_url:cancelUrl}})});const data=await providerJson(response);const approve=(data?.links||[]).find(link=>link.rel==='approve');if(!approve?.href||!data?.id)throw new Error('PayPal approval link was not returned.');return {url:approve.href,transaction_id:data.id,order_id:data.id,mode:'order'};}
-async function paypalGetOrder(env,orderId){const token=await paypalAccessToken(env);const response=await fetch(`${paypalBase(env)}/v2/checkout/orders/${encodeURIComponent(orderId)}`,{headers:paypalHeaders(token)});return providerJson(response);}
-async function paypalCaptureOrder(env,orderId,reference){const token=await paypalAccessToken(env);const response=await fetch(`${paypalBase(env)}/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`,{method:'POST',headers:paypalHeaders(token,`capture:${reference}`)});return providerJson(response);}
-async function paypalVerifyWebhook(env,request,event){const webhookId=clean(env.PAYPAL_WEBHOOK_ID);if(!webhookId)throw new Error('PAYPAL_WEBHOOK_ID is not configured.');const h=request.headers;const payload={auth_algo:h.get('paypal-auth-algo'),cert_url:h.get('paypal-cert-url'),transmission_id:h.get('paypal-transmission-id'),transmission_sig:h.get('paypal-transmission-sig'),transmission_time:h.get('paypal-transmission-time'),webhook_id:webhookId,webhook_event:event};if(Object.values(payload).some(value=>!value))throw new Error('Incomplete PayPal webhook signature headers.');const token=await paypalAccessToken(env);const response=await fetch(`${paypalBase(env)}/v1/notifications/verify-webhook-signature`,{method:'POST',headers:paypalHeaders(token),body:JSON.stringify(payload)});const data=await providerJson(response);if(data?.verification_status!=='SUCCESS')throw new Error('Invalid PayPal webhook signature.');}
-async function paypalFinalizeOrderCapture({env,orderId,captureData,finalize}){const purchase=captureData?.purchase_units?.[0];const payment=purchase?.payments?.captures?.[0];if(!payment||payment.status!=='COMPLETED')return json({received:true,status:'pending'},200);const reference=clean(purchase?.custom_id||purchase?.reference_id);if(!reference)throw new Error('PayPal order reference missing.');const row=await env.DB.prepare('SELECT id,user_id,type,amount_minor,currency,metadata FROM payments WHERE reference=?1 LIMIT 1').bind(reference).first();if(!row)throw new Error('PayPal payment reference not found.');const meta=JSON.parse(row.metadata||'{}');const expected=Number(row.amount_minor)/100;const paid=Number(payment.amount?.value);if(!Number.isFinite(paid)||String(payment.amount?.currency_code).toUpperCase()!==String(row.currency).toUpperCase()||paid!==expected)throw new Error('PayPal payment verification mismatch.');await finalize({provider:'paypal',reference,providerTransactionId:payment.id,status:'successful',userId:row.user_id,amountMinor:row.amount_minor,currency:row.currency,type:row.type,productId:meta.product_id,metadata:{...meta,paypal_order_id:orderId,paypal_capture_id:payment.id}});return json({received:true,processed:true},200);}
-async function paypalHandleOrderApproved({request,env,finalize}){const event=await request.clone().json();await paypalVerifyWebhook(env,request,event);const orderId=clean(event?.resource?.id);if(!orderId)return json({received:true},200);const current=await paypalGetOrder(env,orderId);const purchase=current?.purchase_units?.[0];const reference=clean(purchase?.custom_id||purchase?.reference_id);if(!reference)throw new Error('PayPal order reference missing.');if(current?.status==='COMPLETED')return paypalFinalizeOrderCapture({env,orderId,captureData:current,finalize});if(current?.status!=='APPROVED')return json({received:true,status:current?.status||'pending'},200);const captured=await paypalCaptureOrder(env,orderId,reference);return paypalFinalizeOrderCapture({env,orderId,captureData:captured,finalize});}
-async function paypalHandleCaptureCompleted({request,env,finalize}){const event=await request.clone().json();await paypalVerifyWebhook(env,request,event);const resource=event?.resource||{};const orderId=clean(resource?.supplementary_data?.related_ids?.order_id);const captureId=clean(resource?.id);if(!orderId||!captureId||String(resource?.status).toUpperCase()!=='COMPLETED')return json({received:true,ignored:true},200);const order=await paypalGetOrder(env,orderId);return paypalFinalizeOrderCapture({env,orderId,captureData:order,finalize});}
-async function paypalHandleWebhook({request,env,finalize}){const event=await request.clone().json();const type=clean(event?.event_type);if(type==='CHECKOUT.ORDER.APPROVED')return paypalHandleOrderApproved({request,env,finalize});if(type==='PAYMENT.CAPTURE.COMPLETED')return paypalHandleCaptureCompleted({request,env,finalize});if(type==='CHECKOUT.PAYMENT-APPROVAL.REVERSED'){await paypalVerifyWebhook(env,request,event);const orderId=clean(event?.resource?.id);if(orderId){const order=await paypalGetOrder(env,orderId);const reference=clean(order?.purchase_units?.[0]?.custom_id||order?.purchase_units?.[0]?.reference_id);if(reference)await env.DB.prepare("UPDATE payments SET status='failed',updated_at=?1 WHERE reference=?2 AND status='pending'").bind(Math.floor(Date.now()/1000),reference).run();}return json({received:true,processed:true},200);}await paypalVerifyWebhook(env,request,event);return json({received:true,ignored:true},200);}
-async function paypalGetSubscription(env,subscriptionId){const token=await paypalAccessToken(env);const response=await fetch(`${paypalBase(env)}/v1/billing/subscriptions/${encodeURIComponent(subscriptionId)}`,{headers:paypalHeaders(token)});return providerJson(response);}
-async function paypalCancelSubscription(env,subscriptionId,option='END_OF_PERIOD'){const token=await paypalAccessToken(env);const response=await fetch(`${paypalBase(env)}/v1/billing/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`,{method:'POST',headers:paypalHeaders(token),body:JSON.stringify({cancel_option:option})});if(response.status===204)return {success:true};return providerJson(response);}
-async function paypalResumeSubscription(env,subscriptionId){const token=await paypalAccessToken(env);const response=await fetch(`${paypalBase(env)}/v1/billing/subscriptions/${encodeURIComponent(subscriptionId)}/activate`,{method:'POST',headers:paypalHeaders(token),body:JSON.stringify({reason:'Resume Nexauren subscription'})});if(response.status===204)return {success:true};return providerJson(response);}
-async function paypalSubscriptionWebhook({request,env}){const event=await request.clone().json();await paypalVerifyWebhook(env,request,event);const type=clean(event?.event_type);const resource=event?.resource||{};const subscriptionId=clean(resource?.id||resource?.billing_agreement_id);if(type==='BILLING.SUBSCRIPTION.ACTIVATED'){if(!subscriptionId)throw new Error('PayPal subscription ID missing.');const remote=await paypalGetSubscription(env,subscriptionId);const customId=clean(resource?.custom_id||remote?.custom_id);if(!customId)return json({received:true,ignored:true},200);const payment=await env.DB.prepare('SELECT id,user_id,type,amount_minor,currency,metadata FROM payments WHERE reference=?1 LIMIT 1').bind(customId).first();if(!payment||payment.type!=='subscription')throw new Error('Subscription payment reference not found.');const meta=JSON.parse(payment.metadata||'{}');const plan=await env.DB.prepare('SELECT id,price_minor,currency FROM plans WHERE id=?1 AND enabled=1 LIMIT 1').bind(meta.product_id).first();if(!plan)throw new Error('Subscription plan not found.');const now=Math.floor(Date.now()/1000);const start=Math.floor(new Date(remote?.start_time||remote?.start_date||Date.now()).getTime()/1000);const next=remote?.billing_info?.next_billing_time?Math.floor(new Date(remote.billing_info.next_billing_time).getTime()/1000):null;await env.DB.batch([env.DB.prepare("INSERT OR IGNORE INTO subscriptions(id,user_id,provider,provider_subscription_id,plan_id,status,start_date,next_billing_date,cancelled_at,created_at,updated_at,current_period_start,current_period_end,cancel_at_period_end) VALUES(?1,?2,'paypal',?3,?4,'active',?5,?6,NULL,?5,?5,?5,NULL,0)").bind(uuid(),payment.user_id,subscriptionId,plan.id,start,next),env.DB.prepare("UPDATE payments SET status='successful',provider_transaction_id=?1,metadata=?2,updated_at=?3 WHERE id=?4").bind(subscriptionId,JSON.stringify({...meta,provider_subscription_id:subscriptionId}),now,payment.id),env.DB.prepare('UPDATE billing_accounts SET plan_id=?1,updated_at=?2 WHERE user_id=?3').bind(plan.id,now,payment.user_id)]);return json({received:true,processed:true,subscription_id:subscriptionId},200);}if(type==='PAYMENT.SALE.COMPLETED'){const saleId=clean(resource?.id);const agreementId=clean(resource?.billing_agreement_id);if(!saleId||!agreementId)return json({received:true,ignored:true},200);const sub=await env.DB.prepare("SELECT s.id,s.user_id,s.status,s.plan_id,s.current_period_end,s.next_billing_date,s.cancel_at_period_end,p.price_minor,p.currency FROM subscriptions s JOIN plans p ON p.id=s.plan_id WHERE s.provider='paypal' AND s.provider_subscription_id=?1 LIMIT 1").bind(agreementId).first();if(!sub)throw new Error('PayPal subscription not found for sale.');const amount=Number(resource?.amount?.total??resource?.amount?.value);const currency=String(resource?.amount?.currency??resource?.amount?.currency_code??'').toUpperCase();if(!Number.isFinite(amount))throw new Error('PayPal sale amount missing.');const remote=await paypalGetSubscription(env,agreementId);const periodEnd=remote?.billing_info?.next_billing_time?Math.floor(new Date(remote.billing_info.next_billing_time).getTime()/1000):0;const periodStart=sub.current_period_end?Number(sub.current_period_end):Math.floor(new Date(resource?.create_time||Date.now()).getTime()/1000);if(!periodEnd||periodEnd<=periodStart)throw new Error('PayPal subscription period could not be determined.');if(Number(sub.cancel_at_period_end)===1&&Number(sub.next_billing_date||0)<=periodStart){await billingProcessSubscriptionStatus(env,{provider:'paypal',providerSubscriptionId:agreementId,status:'cancelled',cancelledAt:Math.floor(Date.now()/1000)});const now=Math.floor(Date.now()/1000);await env.DB.prepare("UPDATE billing_accounts SET plan_id='free',updated_at=?1 WHERE user_id=?2").bind(now,sub.user_id).run();return json({received:true,processed:true,cancelled:true},200);}const result=await billingProcessSubscriptionCycle(env,{provider:'paypal',subscriptionId:sub.id,providerTransactionId:saleId,periodStart,periodEnd,amountMinor:Math.round(amount*100),currency,reference:`subscription-sale:${agreementId}:${saleId}`});return json({received:true,processed:!!result?.processed,idempotent:!!result?.idempotent},200);}if(type==='PAYMENT.SALE.REFUNDED'){const transactionId=clean(resource?.parent_payment||resource?.id);if(!transactionId)return json({received:true,ignored:true},200);const payment=await env.DB.prepare('SELECT amount_minor,currency FROM payments WHERE provider=?1 AND provider_transaction_id=?2 LIMIT 1').bind('paypal',transactionId).first();if(!payment)return json({received:true,ignored:true},200);const amount=Number(resource?.amount?.total??resource?.amount?.value);const currency=String(resource?.amount?.currency??resource?.amount?.currency_code??'').toUpperCase();if(!Number.isFinite(amount)||String(payment.currency).toUpperCase()!==currency)throw new Error('Refund amount or currency mismatch.');const result=await billingProcessRefund(env,{provider:'paypal',providerTransactionId:transactionId,refundId:event.id,amountMinor:Math.round(amount*100),reason:'PayPal refund'});return json({received:true,processed:!!result?.processed,idempotent:!!result?.idempotent},200);}if(type==='PAYMENT.SALE.REVERSED'){if(subscriptionId)await billingProcessSubscriptionStatus(env,{provider:'paypal',providerSubscriptionId:subscriptionId,status:'past_due'});return json({received:true,processed:true},200);}const statusMap={'BILLING.SUBSCRIPTION.CREATED':'pending','BILLING.SUBSCRIPTION.UPDATED':null,'BILLING.SUBSCRIPTION.CANCELLED':'cancelled','BILLING.SUBSCRIPTION.EXPIRED':'expired','BILLING.SUBSCRIPTION.SUSPENDED':'past_due','BILLING.SUBSCRIPTION.PAYMENT.FAILED':'past_due'};if(Object.prototype.hasOwnProperty.call(statusMap,type)){if(!subscriptionId)throw new Error('PayPal subscription ID missing.');const status=statusMap[type];if(status)await billingProcessSubscriptionStatus(env,{provider:'paypal',providerSubscriptionId:subscriptionId,status,cancelledAt:status==='cancelled'||status==='expired'?Math.floor(Date.now()/1000):null});if(status==='cancelled'||status==='expired'){const now=Math.floor(Date.now()/1000);await env.DB.prepare("UPDATE billing_accounts SET plan_id='free',updated_at=?1 WHERE user_id=(SELECT user_id FROM subscriptions WHERE provider='paypal' AND provider_subscription_id=?2 LIMIT 1)").bind(now,subscriptionId).run();}return json({received:true,processed:true},200);}return json({received:true,ignored:true},200);}
-async function paypalHandleSubscriptionAction({env,subscriptionId,action}){if(!subscriptionId)throw new Error('PayPal subscription ID missing.');if(action==='cancel')return paypalCancelSubscription(env,subscriptionId,clean(env.PAYPAL_CANCEL_OPTION)||'END_OF_PERIOD');if(action==='resume')return paypalResumeSubscription(env,subscriptionId);throw new Error('Unsupported PayPal subscription action.');}
-async function paypalHandleWebhookPatched(args){const event=await args.request.clone().json();const type=String(event?.event_type||'');if(type.startsWith('BILLING.SUBSCRIPTION.')||type.startsWith('PAYMENT.SALE.'))return paypalSubscriptionWebhook(args);return paypalHandleWebhook(args);}
-function createPayPalProvider(){return Object.freeze({name:'paypal',createCheckout:paypalCreateCheckout,handleWebhook:paypalHandleWebhookPatched,subscriptionAction:paypalHandleSubscriptionAction});}
-function createFlutterwaveProvider(){return Object.freeze({name:'flutterwave',createCheckout:flutterwaveCreateCheckout,handleWebhook:flutterwaveHandleWebhook});}
-function buildPaymentProviderRegistry(env){const configured=clean(env.PAYMENT_PROVIDER).toLowerCase();const registry={paypal:createPayPalProvider(),flutterwave:createFlutterwaveProvider()};return configured&&registry[configured]?Object.freeze({[configured]:registry[configured]}):Object.freeze({});}
-globalThis.__NEXAUREN_PAYMENT_PROVIDERS=Object.freeze({paypal:createPayPalProvider(),flutterwave:createFlutterwaveProvider()});
-async function flutterwaveCreateCheckout({env,user,reference,product,productType}){const secret=clean(env.FLW_SECRET_KEY);if(!secret)throw new Error('Flutterwave server credentials are not configured.');const redirectUrl=providerReturnUrl(env.PAYMENT_RETURN_URL,reference);const payload={tx_ref:reference,amount:Number(product.price_minor)/100,currency:String(product.currency).toUpperCase(),redirect_url:redirectUrl,customer:{email:user.email,name:user.name||user.email},meta:{product_id:product.id,product_type:productType,reference}};if(productType==='subscription'){const planKey=providerProductEnvKey('FLW_PAYMENT_PLAN',product.id);const paymentPlan=clean(env[planKey]);if(!paymentPlan)throw new Error(`Missing Flutterwave payment plan mapping: ${planKey}.`);payload.payment_plan=Number(paymentPlan);}const response=await fetch('https://api.flutterwave.com/v3/payments',{method:'POST',headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await providerJson(response);if(data?.status!=='success'||!data?.data?.link)throw new Error('Flutterwave checkout link was not returned.');return {url:data.data.link,mode:productType==='subscription'?'subscription':'payment'};}
-async function flutterwaveHandleWebhook({request,env,finalize}){const secretHash=clean(env.FLW_WEBHOOK_SECRET);if(!secretHash)throw new Error('FLW_WEBHOOK_SECRET is not configured.');const raw=await request.clone().text();const signature=request.headers.get('flutterwave-signature');if(!signature)throw new Error('Missing Flutterwave webhook signature.');const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secretHash),{name:'HMAC',hash:'SHA-256'},false,['sign']);const digest=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(raw));const expected=btoa(String.fromCharCode(...new Uint8Array(digest)));if(signature!==expected)throw new Error('Invalid Flutterwave webhook signature.');const event=JSON.parse(raw);const transactionId=String(event?.data?.id||'');if(!transactionId)return json({received:true,ignored:true},200);const secret=clean(env.FLW_SECRET_KEY);if(!secret)throw new Error('Flutterwave server credentials are not configured.');const verify=await fetch(`https://api.flutterwave.com/v3/transactions/${encodeURIComponent(transactionId)}/verify`,{headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json'}});const verified=await providerJson(verify);const tx=verified?.data;const reference=clean(tx?.tx_ref);if(!reference)throw new Error('Flutterwave transaction reference missing.');const row=await env.DB.prepare('SELECT id,user_id,type,amount_minor,currency,metadata FROM payments WHERE reference=?1 LIMIT 1').bind(reference).first();if(!row)throw new Error('Flutterwave payment reference not found.');const meta=JSON.parse(row.metadata||'{}');const expectedAmount=Number(row.amount_minor)/100;const status=String(tx?.status||'').toLowerCase();if(String(tx?.currency).toUpperCase()!==String(row.currency).toUpperCase()||Number(tx?.amount)<expectedAmount)throw new Error('Flutterwave payment verification mismatch.');await finalize({provider:'flutterwave',reference,providerTransactionId:transactionId,status:status==='successful'?'successful':status==='failed'?'failed':'cancelled',userId:row.user_id,amountMinor:row.amount_minor,currency:row.currency,type:row.type,productId:meta.product_id,metadata:{...meta,flutterwave_transaction_id:transactionId}});return json({received:true,processed:true},200);}
+function providerProductEnvKey(prefix, productId) {
+  return `${prefix}_${clean(productId).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
+}
+
+async function providerJson(response) {
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+  if (!response.ok) throw new Error(String(data?.message || data?.name || text || `HTTP ${response.status}`).slice(0, 500));
+  return data;
+}
+
+function flutterwaveApiBase(env) {
+  return clean(env.FLW_API_BASE) || 'https://api.flutterwave.com/v3';
+}
+
+function providerReturnUrl(raw, reference, fallbackPath, request) {
+  const configured = clean(raw);
+  const origin = request ? new URL(request.url).origin : '';
+  const value = configured || (origin ? new URL(fallbackPath, origin).toString() : '');
+  if (!value) throw new Error('Payment return URL is not configured.');
+  try {
+    const u = new URL(value);
+    u.searchParams.set('reference', reference);
+    return u.toString();
+  } catch {
+    throw new Error('Payment return URL is invalid.');
+  }
+}
+
+function flutterwaveHeaders(env) {
+  const secret = clean(env.FLW_SECRET_KEY);
+  if (!secret) throw new Error('Flutterwave server credentials are not configured.');
+  return { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json', Accept: 'application/json' };
+}
+
+async function flutterwaveVerifyTransaction(env, transactionId) {
+  const response = await fetch(`${flutterwaveApiBase(env)}/transactions/${encodeURIComponent(transactionId)}/verify`, {
+    headers: flutterwaveHeaders(env),
+  });
+  const data = await providerJson(response);
+  if (data?.status !== 'success' || !data?.data) throw new Error('Flutterwave transaction verification failed.');
+  return data.data;
+}
+
+async function flutterwaveCreateCheckout({ env, request, user, reference, product, productType }) {
+  const headers = flutterwaveHeaders(env);
+  const redirectUrl = providerReturnUrl(env.PAYMENT_RETURN_URL, reference, '/billing/success', request);
+  const payload = {
+    tx_ref: reference,
+    amount: Number(product.price_minor) / 100,
+    currency: String(product.currency).toUpperCase(),
+    redirect_url: redirectUrl,
+    customer: { email: user.email, name: user.name || user.email },
+    meta: { product_id: product.id, product_type: productType, reference },
+    customizations: { title: clean(env.PAYMENT_BRAND_NAME) || 'Nexauren', description: product.name || 'Nexauren payment' },
+  };
+
+  if (productType === 'subscription') {
+    const planKey = providerProductEnvKey('FLW_PAYMENT_PLAN', product.id);
+    const paymentPlan = clean(env[planKey]);
+    if (!paymentPlan) throw new Error(`Missing Flutterwave payment plan mapping: ${planKey}.`);
+    payload.payment_plan = Number(paymentPlan);
+  }
+
+  const response = await fetch(`${flutterwaveApiBase(env)}/payments`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  const data = await providerJson(response);
+  if (data?.status !== 'success' || !data?.data?.link || !data?.data?.id) throw new Error('Flutterwave checkout link was not returned.');
+  return {
+    url: data.data.link,
+    transaction_id: String(data.data.id),
+    mode: productType === 'subscription' ? 'subscription' : 'payment',
+  };
+}
+
+async function flutterwaveGetSubscriptions(env, { email = null, transactionId = null, plan = null } = {}) {
+  const query = new URLSearchParams();
+  if (email) query.set('email', email);
+  if (transactionId) query.set('transaction_id', String(transactionId));
+  if (plan) query.set('plan', String(plan));
+  const response = await fetch(`${flutterwaveApiBase(env)}/subscriptions?${query.toString()}`, {
+    headers: flutterwaveHeaders(env),
+  });
+  const data = await providerJson(response);
+  return data?.data || [];
+}
+
+async function flutterwaveCancelSubscription(env, subscriptionId) {
+  const response = await fetch(`${flutterwaveApiBase(env)}/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, {
+    method: 'PUT',
+    headers: flutterwaveHeaders(env),
+  });
+  return providerJson(response);
+}
+
+async function flutterwaveActivateSubscription(env, subscriptionId) {
+  const response = await fetch(`${flutterwaveApiBase(env)}/subscriptions/${encodeURIComponent(subscriptionId)}/activate`, {
+    method: 'PUT',
+    headers: flutterwaveHeaders(env),
+  });
+  return providerJson(response);
+}
+
+function flutterwaveSubscriptionPeriod(interval, startSeconds, remoteNextDue = null) {
+  const start = Number(startSeconds) || Math.floor(Date.now() / 1000);
+  if (remoteNextDue) {
+    const next = Math.floor(new Date(remoteNextDue).getTime() / 1000);
+    if (Number.isFinite(next) && next > start) return { start, end: next };
+  }
+  const map = { daily: 86400, weekly: 604800, monthly: 2592000, quarterly: 7776000, yearly: 31536000, 'bi-annually': 15768000 };
+  return { start, end: start + (map[String(interval || '').toLowerCase()] || 2592000) };
+}
+
+async function flutterwaveHandleCharge({ request, env, finalize }) {
+  const event = await request.clone().json();
+  const transactionId = String(event?.data?.id || '');
+  if (!transactionId) return json({ received: true, ignored: true }, 200);
+
+  const tx = await flutterwaveVerifyTransaction(env, transactionId);
+  const reference = clean(tx?.tx_ref || tx?.reference);
+  if (!reference) throw new Error('Flutterwave transaction reference missing.');
+
+  const row = await env.DB.prepare('SELECT id,user_id,type,amount_minor,currency,metadata FROM payments WHERE reference=?1 LIMIT 1').bind(reference).first();
+  if (!row) throw new Error('Flutterwave payment reference not found.');
+
+  const meta = JSON.parse(row.metadata || '{}');
+  const expectedAmount = Number(row.amount_minor) / 100;
+  const paidAmount = Number(tx?.amount ?? tx?.charged_amount);
+  const paidCurrency = String(tx?.currency || '').toUpperCase();
+  const txStatus = String(tx?.status || '').toLowerCase();
+
+  if (paidCurrency !== String(row.currency).toUpperCase() || !Number.isFinite(paidAmount) || paidAmount < expectedAmount) {
+    throw new Error('Flutterwave payment verification mismatch.');
+  }
+
+  const normalizedStatus = txStatus === 'successful' || txStatus === 'succeeded' ? 'successful' : txStatus === 'failed' ? 'failed' : 'cancelled';
+
+  if (row.type === 'subscription' && normalizedStatus === 'successful') {
+    const planKey = providerProductEnvKey('FLW_PAYMENT_PLAN', meta.product_id);
+    const paymentPlan = clean(env[planKey]);
+    let subscriptions = paymentPlan ? await flutterwaveGetSubscriptions(env, { transactionId, plan: paymentPlan }) : [];
+    if (!subscriptions.length) subscriptions = await flutterwaveGetSubscriptions(env, { email: tx?.customer?.email, plan: paymentPlan });
+    const remote = subscriptions[0] || null;
+    const subscriptionId = clean(remote?.id);
+
+    await finalize({
+      provider: 'flutterwave',
+      reference,
+      providerTransactionId: transactionId,
+      status: normalizedStatus,
+      userId: row.user_id,
+      amountMinor: row.amount_minor,
+      currency: row.currency,
+      type: row.type,
+      productId: meta.product_id,
+      metadata: { ...meta, flutterwave_transaction_id: transactionId, provider_subscription_id: subscriptionId || null },
+    });
+
+    if (!subscriptionId) throw new Error('Flutterwave subscription could not be identified after successful payment.');
+
+    const plan = await env.DB.prepare('SELECT id,credits_per_cycle,price_minor,currency,billing_interval FROM plans WHERE id=?1 AND enabled=1 LIMIT 1').bind(meta.product_id).first();
+    if (!plan) throw new Error('Subscription plan not found.');
+    const now = Math.floor(Date.now() / 1000);
+    const period = flutterwaveSubscriptionPeriod(plan.billing_interval, now, remote?.next_due_date || remote?.next_due);
+    const existing = await env.DB.prepare("SELECT id FROM subscriptions WHERE provider='flutterwave' AND provider_subscription_id=?1 LIMIT 1").bind(subscriptionId).first();
+
+    if (!existing) {
+      const subscriptionDbId = uuid();
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO subscriptions(id,user_id,provider,provider_subscription_id,plan_id,status,start_date,next_billing_date,cancelled_at,created_at,updated_at,current_period_start,current_period_end,cancel_at_period_end) VALUES(?1,?2,'flutterwave',?3,?4,'active',?5,?6,NULL,?5,?5,?5,?6,0)").bind(subscriptionDbId, row.user_id, subscriptionId, plan.id, period.start, period.end),
+        env.DB.prepare('UPDATE billing_accounts SET plan_id=?1,updated_at=?2 WHERE user_id=?3').bind(plan.id, now, row.user_id),
+      ]);
+      await billingProcessSubscriptionCycle(env, {
+        provider: 'flutterwave',
+        subscriptionId: subscriptionDbId,
+        providerTransactionId: transactionId,
+        periodStart: period.start,
+        periodEnd: period.end,
+        amountMinor: row.amount_minor,
+        currency: row.currency,
+        reference: `subscription-cycle:${subscriptionId}:${transactionId}`,
+      });
+    }
+    return json({ received: true, processed: true, subscription_id: subscriptionId }, 200);
+  }
+
+  await finalize({
+    provider: 'flutterwave',
+    reference,
+    providerTransactionId: transactionId,
+    status: normalizedStatus,
+    userId: row.user_id,
+    amountMinor: row.amount_minor,
+    currency: row.currency,
+    type: row.type,
+    productId: meta.product_id,
+    metadata: { ...meta, flutterwave_transaction_id: transactionId },
+  });
+  return json({ received: true, processed: true }, 200);
+}
+
+async function flutterwaveHandleRefund({ request, env }) {
+  const event = await request.clone().json();
+  const data = event?.data || {};
+  const transactionId = clean(data?.tx_ref || data?.transaction_id || data?.id);
+  const originalTransactionId = clean(data?.transaction_id || data?.charge_id || data?.id);
+  if (!originalTransactionId && !transactionId) return json({ received: true, ignored: true }, 200);
+  const payment = await env.DB.prepare('SELECT id,user_id,amount_minor,currency,provider_transaction_id FROM payments WHERE provider=?1 AND (provider_transaction_id=?2 OR reference=?3) LIMIT 1').bind('flutterwave', originalTransactionId, transactionId).first();
+  if (!payment) return json({ received: true, ignored: true }, 200);
+  const refundAmount = Number(data?.amount || data?.refunded_amount || payment.amount_minor / 100);
+  const currency = String(data?.currency || payment.currency).toUpperCase();
+  if (!Number.isFinite(refundAmount) || currency !== String(payment.currency).toUpperCase()) throw new Error('Flutterwave refund verification mismatch.');
+  const refundId = clean(event?.id || data?.id || originalTransactionId);
+  const result = await billingProcessRefund(env, {
+    provider: 'flutterwave',
+    providerTransactionId: payment.provider_transaction_id || originalTransactionId,
+    refundId,
+    amountMinor: Math.round(refundAmount * 100),
+    reason: 'Flutterwave refund',
+  });
+  return json({ received: true, processed: !!result?.processed, idempotent: !!result?.idempotent }, 200);
+}
+
+async function flutterwaveHandleSubscriptionCancelled({ request, env }) {
+  const event = await request.clone().json();
+  const data = event?.data || {};
+  const email = clean(data?.customer?.email);
+  const planId = clean(data?.plan?.id);
+  let remote = [];
+  if (email || planId) remote = await flutterwaveGetSubscriptions(env, { email, plan: planId });
+  const subscriptionId = clean(remote?.[0]?.id || data?.id || data?.subscription_id);
+  if (subscriptionId) {
+    await billingProcessSubscriptionStatus(env, { provider: 'flutterwave', providerSubscriptionId: subscriptionId, status: 'cancelled', cancelledAt: Math.floor(Date.now() / 1000) });
+  }
+  if (email) {
+    await env.DB.prepare("UPDATE billing_accounts SET plan_id='free',updated_at=?1 WHERE user_id=(SELECT user_id FROM users WHERE lower(email)=lower(?2) LIMIT 1)").bind(Math.floor(Date.now() / 1000), email).run();
+  }
+  return json({ received: true, processed: true }, 200);
+}
+
+async function flutterwaveVerifyWebhookSignature(request, env, raw) {
+  const secretHash = clean(env.FLW_SECRET_HASH);
+  if (!secretHash) throw new Error('FLW_SECRET_HASH is not configured.');
+  const signature = clean(request.headers.get('flutterwave-signature'));
+  if (!signature) throw new Error('Missing Flutterwave webhook signature.');
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secretHash), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(raw));
+  const expected = btoa(String.fromCharCode(...new Uint8Array(digest)));
+  if (signature !== expected) throw new Error('Invalid Flutterwave webhook signature.');
+}
+
+async function flutterwaveHandleWebhook({ request, env, finalize }) {
+  const raw = await request.clone().text();
+  await flutterwaveVerifyWebhookSignature(request, env, raw);
+  const event = JSON.parse(raw);
+  const type = clean(event?.type || event?.event);
+  if (type === 'charge.completed') return flutterwaveHandleCharge({ request, env, finalize });
+  if (type === 'refund.completed') return flutterwaveHandleRefund({ request, env });
+  if (type === 'subscription.cancelled') return flutterwaveHandleSubscriptionCancelled({ request, env });
+  return json({ received: true, ignored: true }, 200);
+}
+
+async function flutterwaveHandleSubscriptionAction({ env, subscriptionId, action }) {
+  if (!subscriptionId) throw new Error('Flutterwave subscription ID missing.');
+  if (action === 'cancel') return flutterwaveCancelSubscription(env, subscriptionId);
+  if (action === 'resume') return flutterwaveActivateSubscription(env, subscriptionId);
+  throw new Error('Unsupported Flutterwave subscription action.');
+}
+
+function createFlutterwaveProvider() {
+  return Object.freeze({ name: 'flutterwave', createCheckout: flutterwaveCreateCheckout, handleWebhook: flutterwaveHandleWebhook, subscriptionAction: flutterwaveHandleSubscriptionAction });
+}
+
+function buildPaymentProviderRegistry(env) {
+  const configured = clean(env.PAYMENT_PROVIDER).toLowerCase() || 'flutterwave';
+  const registry = { flutterwave: createFlutterwaveProvider() };
+  return registry[configured] ? Object.freeze({ [configured]: registry[configured] }) : Object.freeze({});
+}
+
+globalThis.__NEXAUREN_PAYMENT_PROVIDERS = Object.freeze({ flutterwave: createFlutterwaveProvider() });
