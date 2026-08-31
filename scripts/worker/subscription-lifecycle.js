@@ -1,8 +1,9 @@
-/* NEXAUREN SUBSCRIPTION LIFECYCLE v2 */
+/* NEXAUREN SUBSCRIPTION LIFECYCLE v3 */
 
 function billingCycleSeconds(interval, from) {
   const start = new Date(Number(from) * 1000);
-  if (interval === 'year') start.setUTCFullYear(start.getUTCFullYear() + 1);
+  if (interval === 'year' || interval === 'yearly') start.setUTCFullYear(start.getUTCFullYear() + 1);
+  else if (interval === 'quarter' || interval === 'quarterly') start.setUTCMonth(start.getUTCMonth() + 3);
   else start.setUTCMonth(start.getUTCMonth() + 1);
   return Math.floor(start.getTime() / 1000);
 }
@@ -52,8 +53,10 @@ async function billingProcessSubscriptionCycle(e, { provider, subscriptionId, pr
     return { processed: false, idempotent: true, cycle: existing };
   }
 
-  const paymentId = uuid();
+  const existingPayment = await e.DB.prepare('SELECT id,status FROM payments WHERE provider=?1 AND provider_transaction_id=?2 LIMIT 1').bind(clean(provider), String(providerTransactionId)).first();
+  const paymentId = existingPayment?.id || uuid();
   const creditReference = `subscription-cycle:${sub.id}:${cycleKey}`;
+
   await e.DB.batch([
     e.DB.prepare("INSERT OR IGNORE INTO payments(id,user_id,provider,provider_transaction_id,reference,amount_minor,currency,status,type,metadata,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,'successful','subscription',?8,?9,?9)").bind(paymentId, sub.user_id, clean(provider), String(providerTransactionId), reference, Number(amountMinor), currency, JSON.stringify({ subscription_id: sub.id, cycle_key: cycleKey }), now),
     e.DB.prepare("INSERT OR IGNORE INTO credit_transactions(id,user_id,amount,type,description,reference,payment_id,created_at) VALUES(?1,?2,?3,'subscription',?4,?5,?6,?7)").bind(uuid(), sub.user_id, Number(sub.credits_per_cycle), `Subscription renewal: ${sub.plan_id}`, creditReference, paymentId, now),
