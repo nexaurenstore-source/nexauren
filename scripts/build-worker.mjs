@@ -52,10 +52,6 @@ if (!generated.includes('async function billingFinalizePayment(')) {
   const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
   if (!marker.test(generated)) throw new Error('[worker-build] Worker structure changed: billing insertion marker not found.');
 
-  // billing.js historically contained a small provider passthrough named billingWebhook.
-  // The dedicated webhook lifecycle module now owns that function so it can enforce
-  // event recording, idempotency, replay protection and provider verification uniformly.
-  // Strip only that legacy declaration before composing the generated Worker.
   const billingModuleForBuild = billingModule.replace(
     /\nasync function billingWebhook\(r, e, providerName\) \{[\s\S]*?\n\}\n\n(?=async function billingFinalizePayment)/,
     '\n',
@@ -75,6 +71,30 @@ if (!generated.includes('const __billingUrl')) {
   const fetchMarker = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{\s*/;
   if (!fetchMarker.test(generated)) throw new Error('[worker-build] Worker structure changed: billing route marker not found.');
   generated = generated.replace(fetchMarker, '$&\n' + billingRoutes + '\n', 1);
+}
+
+// Fail closed for unknown API paths. API requests must never fall through to
+// the static HTML asset, otherwise clients receive <!doctype html> where JSON
+// was expected. This guard is intentionally inserted after all API modules.
+const assetFallbackMarker = '      const response = await e.ASSETS.fetch(r);';
+if (!generated.includes(assetFallbackMarker)) {
+  throw new Error('[worker-build] Worker structure changed: asset fallback marker not found.');
+}
+generated = generated.replace(
+  assetFallbackMarker,
+  "      if (new URL(r.url).pathname.startsWith('/api/')) {\n        return json({ error: 'Not found' }, 404, cors(r));\n      }\n\n" + assetFallbackMarker,
+  1,
+);
+
+const count = (text, needle) => text.split(needle).length - 1;
+if (count(generated, 'async function billingWebhook(') !== 1) {
+  throw new Error('[worker-build] billingWebhook must be included exactly once.');
+}
+if (count(generated, 'const __billingUrl') !== 1) {
+  throw new Error('[worker-build] Billing route module must be included exactly once.');
+}
+if (count(generated, 'async function billingFinalizePayment(') !== 1) {
+  throw new Error('[worker-build] billingFinalizePayment must be included exactly once.');
 }
 
 await mkdir(outputDir, { recursive: true });
@@ -139,6 +159,7 @@ console.log('[worker-build] Billing routes included once.');
 console.log('[worker-build] Payment provider registry included once.');
 console.log('[worker-build] Subscription lifecycle included once.');
 console.log('[worker-build] Webhook lifecycle included once.');
+console.log('[worker-build] Unknown API paths fail closed with JSON 404.');
 console.log('[worker-build] Existing Worker source/routes preserved.');
 console.log('[worker-build] JavaScript syntax check passed.');
 console.log(`[worker-build] Deploy artifact: ${outputUrl.pathname}`);
