@@ -1,4 +1,4 @@
-/* NEXAUREN SUBSCRIPTION LIFECYCLE v3 */
+/* NEXAUREN SUBSCRIPTION LIFECYCLE v4 */
 
 function billingCycleSeconds(interval, from) {
   const start = new Date(Number(from) * 1000);
@@ -42,36 +42,85 @@ async function billingProcessSubscriptionCycle(e, { provider, subscriptionId, pr
   if (!provider || !providerTransactionId || !reference) throw new Error('Invalid recurring payment identity.');
 
   const cycleKey = `${start}:${end}`;
+  const creditReference = `subscription-cycle:${sub.id}:${cycleKey}`;
   const cycleId = uuid();
   const now = Math.floor(Date.now() / 1000);
-  const cycleInsert = await e.DB.prepare(
-    "INSERT OR IGNORE INTO subscription_cycles(id,subscription_id,user_id,cycle_key,period_start,period_end,credits,status,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,'pending',?8)",
-  ).bind(cycleId, sub.id, sub.user_id, cycleKey, start, end, Number(sub.credits_per_cycle), now).run();
 
-  if (Number(cycleInsert?.meta?.changes || 0) === 0) {
-    const existing = await e.DB.prepare('SELECT id,status,credit_transaction_id FROM subscription_cycles WHERE subscription_id=?1 AND cycle_key=?2 LIMIT 1').bind(sub.id, cycleKey).first();
-    return { processed: false, idempotent: true, cycle: existing };
+  const existingCycle = await e.DB.prepare(
+    'SELECT id,status,credit_transaction_id FROM subscription_cycles WHERE subscription_id=?1 AND cycle_key=?2 LIMIT 1',
+  ).bind(sub.id, cycleKey).first();
+  if (existingCycle) return { processed: false, idempotent: true, cycle: existingCycle };
+
+  const existingPayment = await e.DB.prepare(
+    'SELECT id,status FROM payments WHERE provider=?1 AND provider_transaction_id=?2 LIMIT 1',
+  ).bind(clean(provider), String(providerTransactionId)).first();
+
+  const paymentId = existingPayment?.id || uuid();
+  const statements = [
+    e.DB.prepare(
+      "INSERT INTO subscription_cycles(id,subscription_id,user_id,cycle_key,period_start,period_end,credits,status,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,'pending',?8)",
+    ).bind(cycleId, sub.id, sub.user_id, cycleKey, start, end, Number(sub.credits_per_cycle), now),
+  ];
+
+  if (!existingPayment) {
+    statements.push(
+      e.DB.prepare(
+        "INSERT INTO payments(id,user_id,provider,provider_transaction_id,reference,amount_minor,currency,status,type,metadata,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,'successful','subscription',?8,?9,?9)",
+      ).bind(paymentId, sub.user_id, clean(provider), String(providerTransactionId), reference, Number(amountMinor), currency, JSON.stringify({ subscription_id: sub.id, cycle_key: cycleKey }), now),
+    );
   }
 
-  const existingPayment = await e.DB.prepare('SELECT id,status FROM payments WHERE provider=?1 AND provider_transaction_id=?2 LIMIT 1').bind(clean(provider), String(providerTransactionId)).first();
-  const paymentId = existingPayment?.id || uuid();
-  const creditReference = `subscription-cycle:${sub.id}:${cycleKey}`;
+  statements.push(
+    e.DB.prepare(
+      "INSERT INTO credit_transactions(id,user_id,amount,type,description,reference,payment_id,created_at) VALUES(?1,?2,?3,'subscription',?4,?5,?6,?7)",
+    ).bind(uuid(), sub.user_id, Number(sub.credits_per_cycle), `Subscription renewal: ${sub.plan_id}`, creditReference, paymentId, now),
+    e.DB.prepare(
+      'INSERT OR IGNORE INTO credit_balances(user_id,balance,updated_at) VALUES(?1,0,?2)',
+    ).bind(sub.user_id, now),
+    e.DB.prepare(
+      'UPDATE credit_balances SET balance=(SELECT COALESCE(SUM(amount),0) FROM credit_transactions WHERE user_id=?1),updated_at=?2 WHERE user_id=?1',
+    ).bind(sub.user_id, now),
+  );
 
-  await e.DB.batch([
-    e.DB.prepare("INSERT OR IGNORE INTO payments(id,user_id,provider,provider_transaction_id,reference,amount_minor,currency,status,type,metadata,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,'successful','subscription',?8,?9,?9)").bind(paymentId, sub.user_id, clean(provider), String(providerTransactionId), reference, Number(amountMinor), currency, JSON.stringify({ subscription_id: sub.id, cycle_key: cycleKey }), now),
-    e.DB.prepare("INSERT OR IGNORE INTO credit_transactions(id,user_id,amount,type,description,reference,payment_id,created_at) VALUES(?1,?2,?3,'subscription',?4,?5,?6,?7)").bind(uuid(), sub.user_id, Number(sub.credits_per_cycle), `Subscription renewal: ${sub.plan_id}`, creditReference, paymentId, now),
-  ]);
-
-  const tx = await e.DB.prepare('SELECT id FROM credit_transactions WHERE reference=?1 LIMIT 1').bind(creditReference).first();
-  const next = sub.cancel_at_period_end ? end : billingCycleSeconds(sub.billing_interval, end);
+  const next = Number(sub.cancel_at_period_end) === 1 ? end : billingCycleSeconds(sub.billing_interval, end);
   const final = Number(sub.cancel_at_period_end) === 1;
 
-  await e.DB.batch([
-    e.DB.prepare("UPDATE subscription_cycles SET status='credited',credit_transaction_id=?1,processed_at=?2 WHERE id=?3").bind(tx?.id || null, now, cycleId),
-    e.DB.prepare('UPDATE subscriptions SET current_period_start=?1,current_period_end=?2,next_billing_date=?3,status=?4,cancelled_at=?5,updated_at=?6 WHERE id=?7').bind(start, end, next, final ? 'cancelled' : 'active', final ? now : null, now, sub.id),
-    e.DB.prepare("UPDATE billing_accounts SET plan_id=?1,updated_at=?2 WHERE user_id=?3").bind(final ? 'free' : sub.plan_id, now, sub.user_id),
-    e.DB.prepare('INSERT OR IGNORE INTO credit_balances(user_id,balance,updated_at) VALUES(?1,0,?2)').bind(sub.user_id, now),
-    e.DB.prepare('UPDATE credit_balances SET balance=(SELECT COALESCE(SUM(amount),0) FROM credit_transactions WHERE user_id=?1),updated_at=?2 WHERE user_id=?1').bind(sub.user_id, now),
-  ]);
+  statements.push(
+    e.DB.prepare(
+      "UPDATE subscriptions SET current_period_start=?1,current_period_end=?2,next_billing_date=?3,status=?4,cancelled_at=?5,updated_at=?6 WHERE id=?7",
+    ).bind(start, end, next, final ? 'cancelled' : 'active', final ? now : null, now, sub.id),
+    e.DB.prepare(
+      'UPDATE billing_accounts SET plan_id=?1,updated_at=?2 WHERE user_id=?3',
+    ).bind(final ? 'free' : sub.plan_id, now, sub.user_id),
+  );
+
+  try {
+    await e.DB.batch(statements);
+  } catch (error) {
+    const committedCycle = await e.DB.prepare(
+      'SELECT id,status,credit_transaction_id FROM subscription_cycles WHERE subscription_id=?1 AND cycle_key=?2 LIMIT 1',
+    ).bind(sub.id, cycleKey).first();
+    if (committedCycle) return { processed: false, idempotent: true, cycle: committedCycle };
+
+    const committedPayment = await e.DB.prepare(
+      'SELECT id FROM payments WHERE provider=?1 AND provider_transaction_id=?2 LIMIT 1',
+    ).bind(clean(provider), String(providerTransactionId)).first();
+    if (committedPayment) {
+      const retryCycle = await e.DB.prepare(
+        'SELECT id,status,credit_transaction_id FROM subscription_cycles WHERE subscription_id=?1 AND cycle_key=?2 LIMIT 1',
+      ).bind(sub.id, cycleKey).first();
+      if (retryCycle) return { processed: false, idempotent: true, cycle: retryCycle };
+    }
+    throw error;
+  }
+
+  const tx = await e.DB.prepare(
+    'SELECT id FROM credit_transactions WHERE reference=?1 LIMIT 1',
+  ).bind(creditReference).first();
+
+  await e.DB.prepare(
+    "UPDATE subscription_cycles SET status='credited',credit_transaction_id=?1,processed_at=?2 WHERE id=?3",
+  ).bind(tx?.id || null, now, cycleId).run();
+
   return { processed: true, idempotent: false, cycle_id: cycleId, credit_transaction_id: tx?.id || null };
 }
