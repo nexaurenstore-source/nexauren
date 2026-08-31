@@ -17,7 +17,7 @@ for (const token of [
 
 for (const token of [
   'async function billingProcessSubscriptionCycle',
-  'INSERT OR IGNORE INTO subscription_cycles',
+  'INSERT INTO subscription_cycles',
   'subscription-cycle:',
   'billingCycleSeconds',
   'Recurring payment amount mismatch',
