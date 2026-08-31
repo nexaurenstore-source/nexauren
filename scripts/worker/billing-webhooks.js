@@ -90,12 +90,14 @@ async function billingWebhook(r, e, providerName) {
   let payload = null;
   try { payload = JSON.parse(raw); } catch { throw new Error('Invalid webhook JSON.'); }
 
-  /* PayPal event.id is the stable event identity. Transmission-ID identifies a delivery, not the event. */
-  const eventId = provider === 'paypal'
-    ? clean(payload?.id)
-    : clean(payload?.id || payload?.data?.id) || await billingHashWebhook(raw);
+  /* Flutterwave exposes a stable webhook_id on current webhook payloads; older payloads may only expose data.id. */
+  const eventId = provider === 'flutterwave'
+    ? clean(payload?.webhook_id || payload?.id || payload?.data?.id) || await billingHashWebhook(raw)
+    : provider === 'paypal'
+      ? clean(payload?.id)
+      : clean(payload?.id || payload?.data?.id) || await billingHashWebhook(raw);
   const eventType = clean(payload?.event_type || payload?.event || payload?.type) || 'provider.webhook';
-  const reference = clean(payload?.resource?.custom_id || payload?.resource?.purchase_units?.[0]?.custom_id || payload?.data?.tx_ref);
+  const reference = clean(payload?.resource?.custom_id || payload?.resource?.purchase_units?.[0]?.custom_id || payload?.data?.tx_ref || payload?.data?.reference);
   const recorded = await billingRecordWebhook(e, { provider, eventId, eventType, reference, raw });
   if (recorded.duplicate || !recorded.claimed) return json({ received: true, duplicate: true }, 200, cors(r));
 
