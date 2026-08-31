@@ -1,8 +1,8 @@
-/* NEXAUREN BILLING ROUTES v6 — FLUTTERWAVE */
+/* NEXAUREN BILLING ROUTES v7 — FLUTTERWAVE */
 const __billingUrl = new URL(r.url);
 
 if (__billingUrl.pathname === '/api/billing/catalog' && r.method === 'GET') return billingCatalog(r, e);
-if (__billingUrl.pathname === '/api/billing/account' && r.method === 'GET') return billingAccount(r, e);
+if (__billingUrl.pathname === '/api/billing/account' && r.method === 'GET') return billingAccountSafe(r, e);
 if (__billingUrl.pathname === '/api/billing/payment' && r.method === 'GET') return billingPaymentStatus(r, e);
 if (__billingUrl.pathname === '/api/billing/payment' && r.method === 'POST') {
   const u = await currentUser(r, e);
