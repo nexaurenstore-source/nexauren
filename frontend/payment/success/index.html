@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payment status — Nexauren</title>
+<meta name="description" content="Check the status of your Nexauren payment.">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/menu.css">
+<link rel="stylesheet" href="/css/nexauren-redesign.css">
+<style>
+.payment-status{max-width:720px;margin:72px auto;padding:24px}.payment-card{padding:28px;border:1px solid var(--border,#ddd);border-radius:20px;background:var(--card,#fff)}.payment-state{font-size:28px;font-weight:800;margin:10px 0}.payment-muted{color:var(--text-soft,#687080)}.payment-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}.payment-btn{display:inline-block;padding:11px 15px;border-radius:10px;border:1px solid var(--border,#ddd);font-weight:700;text-decoration:none;color:inherit}.payment-btn.primary{background:#635bff;color:#fff;border-color:#635bff}
+</style>
+</head>
+<body>
+<header id="site-header"></header>
+<main class="payment-status">
+  <section class="payment-card">
+    <span class="nx-kicker">Nexauren Payment</span>
+    <h1>Payment status</h1>
+    <div id="state" class="payment-state">Checking…</div>
+    <p id="detail" class="payment-muted">We are checking the payment with Nexauren's backend.</p>
+    <div class="payment-actions">
+      <a class="payment-btn primary" href="/billing/">Manage billing</a>
+      <a class="payment-btn" href="/dashboard/">Back to dashboard</a>
+    </div>
+  </section>
+</main>
+<footer id="site-footer"></footer>
+<script src="/js/app.js" defer></script>
+<script src="/auth/auth.js"></script>
+<script>
+(async function(){
+  const state=document.getElementById('state');
+  const detail=document.getElementById('detail');
+  const params=new URLSearchParams(location.search);
+  const reference=(params.get('reference')||'').trim();
+  if(!reference){state.textContent='Reference missing';detail.textContent='No payment reference was returned. No credits were granted from this page.';return;}
+  try{
+    const res=await fetch('/api/billing/payment?reference='+encodeURIComponent(reference),{credentials:'include',headers:{Accept:'application/json'}});
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(data.error||'Unable to check payment status.');
+    const payment=data.payment||{};
+    const status=String(payment.status||'pending').toLowerCase();
+    if(status==='successful'){
+      state.textContent='Payment confirmed';
+      detail.textContent='The backend has confirmed the payment. Any credits or subscription changes are granted by the verified webhook flow.';
+    }else if(status==='failed'){
+      state.textContent='Payment failed';
+      detail.textContent='The payment was not confirmed. No credits were granted.';
+    }else if(status==='cancelled'){
+      state.textContent='Payment cancelled';
+      detail.textContent='The payment was cancelled. No credits were granted.';
+    }else{
+      state.textContent='Payment pending';
+      detail.textContent='The payment is not confirmed yet. You can return to Billing and check again later.';
+    }
+  }catch(error){
+    state.textContent='Unable to verify payment';
+    detail.textContent=error.message||'Please return to Billing and try again. This page never grants credits.';
+  }
+})();
+</script>
+</body>
+</html>
