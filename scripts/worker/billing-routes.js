@@ -1,9 +1,19 @@
-/* NEXAUREN BILLING ROUTES v5 — FLUTTERWAVE */
+/* NEXAUREN BILLING ROUTES v6 — FLUTTERWAVE */
 const __billingUrl = new URL(r.url);
 
 if (__billingUrl.pathname === '/api/billing/catalog' && r.method === 'GET') return billingCatalog(r, e);
 if (__billingUrl.pathname === '/api/billing/account' && r.method === 'GET') return billingAccount(r, e);
 if (__billingUrl.pathname === '/api/billing/payment' && r.method === 'GET') return billingPaymentStatus(r, e);
+if (__billingUrl.pathname === '/api/billing/payment' && r.method === 'POST') {
+  const u = await currentUser(r, e);
+  if (!u) return json({ error: 'Authentication required.' }, 401, cors(r));
+  const d = await body(r);
+  const reference = clean(d?.reference).slice(0, 180);
+  if (!reference) return json({ error: 'reference is required.' }, 400, cors(r));
+  const payment = await e.DB.prepare('SELECT id,provider,reference,amount_minor,currency,status,type,provider_transaction_id,created_at,updated_at FROM payments WHERE user_id=?1 AND reference=?2 LIMIT 1').bind(u.id, reference).first();
+  if (!payment) return json({ error: 'Payment not found.' }, 404, cors(r));
+  return json({ payment }, 200, cors(r));
+}
 if (__billingUrl.pathname === '/api/billing/transactions' && r.method === 'GET') return billingTransactions(r, e);
 if (__billingUrl.pathname === '/api/billing/checkout' && r.method === 'POST') return billingCheckout(r, e);
 if (__billingUrl.pathname === '/api/billing/usage' && r.method === 'POST') return billingUsageSafe(r, e);
@@ -54,10 +64,6 @@ if (__billingUrl.pathname.startsWith('/api/webhooks/')) {
   return json({ error: 'Not found' }, 404, cors(r));
 }
 
-// The router must never allow a known API namespace to fall through to the
-// static HTML asset. The build also installs a final global /api fail-closed
-// guard, so this protects the billing/webhook namespace even if route ordering
-// changes later.
 if (__billingUrl.pathname.startsWith('/api/billing/')) {
   return json({ error: 'Not found' }, 404, cors(r));
 }
