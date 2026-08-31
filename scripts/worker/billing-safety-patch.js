@@ -1,4 +1,4 @@
-/* NEXAUREN BILLING SAFETY PATCH v3 */
+/* NEXAUREN BILLING SAFETY PATCH v4 */
 
 async function billingDebitCreditsSafe(e, { userId, amount, toolId, reference }) {
   const credits = Math.floor(Number(amount));
@@ -7,25 +7,27 @@ async function billingDebitCreditsSafe(e, { userId, amount, toolId, reference })
   if (!safeReference) throw new Error('Usage reference is required.');
   const safeToolId = clean(toolId).slice(0, 120);
   const now = Math.floor(Date.now() / 1000);
+  const debitId = uuid();
 
-  // D1 batch() is transactional and statements execute sequentially. The
-  // balance decrement is conditional on both the reference being unused and
-  // the current balance being sufficient, so two concurrent requests cannot
-  // both spend the same credits.
+  // D1 batch() is transactional. The first statement creates the ledger row
+  // only when the current balance is sufficient and the usage reference has
+  // not been consumed. The next statements are tied to this unique debitId.
+  // Therefore concurrent requests cannot both create a debit for one reference
+  // and cannot spend more credits than the available balance.
   const results = await e.DB.batch([
     e.DB.prepare(
-      "UPDATE credit_balances SET balance=balance-?1,updated_at=?2 WHERE user_id=?3 AND balance>=?1 AND NOT EXISTS(SELECT 1 FROM credit_transactions WHERE reference=?4)",
-    ).bind(credits, now, userId, safeReference),
+      "INSERT INTO credit_transactions(id,user_id,amount,type,description,reference,payment_id,tool_id,created_at) SELECT ?1,?2,?3,'usage',?4,?5,NULL,?6,?7 WHERE EXISTS(SELECT 1 FROM credit_balances WHERE user_id=?2 AND balance>=?8) AND NOT EXISTS(SELECT 1 FROM credit_transactions WHERE reference=?5)",
+    ).bind(debitId, userId, -credits, `Experience usage: ${safeToolId}`.slice(0, 240), safeReference, safeToolId, now, credits),
     e.DB.prepare(
-      "INSERT INTO credit_transactions(id,user_id,amount,type,description,reference,payment_id,tool_id,created_at) SELECT ?1,?2,?3,'usage',?4,?5,NULL,?6,?7 WHERE EXISTS(SELECT 1 FROM credit_balances WHERE user_id=?2) AND NOT EXISTS(SELECT 1 FROM credit_transactions WHERE reference=?5)",
-    ).bind(uuid(), userId, -credits, `Experience usage: ${safeToolId}`.slice(0, 240), safeReference, safeToolId, now),
+      'UPDATE credit_balances SET balance=balance-?1,updated_at=?2 WHERE user_id=?3 AND balance>=?1 AND EXISTS(SELECT 1 FROM credit_transactions WHERE id=?4 AND user_id=?3 AND reference=?5)',
+    ).bind(credits, now, userId, debitId, safeReference),
     e.DB.prepare(
-      "INSERT INTO tool_usage(id,user_id,tool_id,credits,status,reference,created_at) SELECT ?1,?2,?3,?4,'consumed',?5,?6 WHERE EXISTS(SELECT 1 FROM credit_transactions WHERE user_id=?2 AND reference=?5 AND type='usage') AND NOT EXISTS(SELECT 1 FROM tool_usage WHERE reference=?5)",
-    ).bind(uuid(), userId, safeToolId, credits, safeReference, now),
+      "INSERT INTO tool_usage(id,user_id,tool_id,credits,status,reference,created_at) SELECT ?1,?2,?3,?4,'consumed',?5,?6 WHERE EXISTS(SELECT 1 FROM credit_transactions WHERE id=?7 AND user_id=?2 AND reference=?5 AND type='usage') AND NOT EXISTS(SELECT 1 FROM tool_usage WHERE reference=?5)",
+    ).bind(uuid(), userId, safeToolId, credits, safeReference, now, debitId),
   ]);
 
-  const debited = Number(results?.[0]?.meta?.changes || 0) > 0;
-  if (debited) return { applied: true, idempotent: false };
+  const applied = Number(results?.[0]?.meta?.changes || 0) > 0;
+  if (applied) return { applied: true, idempotent: false };
 
   const existing = await e.DB.prepare(
     'SELECT id,amount,tool_id,created_at FROM credit_transactions WHERE user_id=?1 AND reference=?2 LIMIT 1',
