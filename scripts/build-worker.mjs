@@ -51,7 +51,24 @@ if (!generated.includes('const __notificationsUrl')) {
 if (!generated.includes('async function billingFinalizePayment(')) {
   const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
   if (!marker.test(generated)) throw new Error('[worker-build] Worker structure changed: billing insertion marker not found.');
-  generated = generated.replace(marker, billingModule + '\n\n' + billingSafetyPatch + '\n\n' + subscriptionModule + '\n\n' + webhookLifecycle + '\n\n' + paymentProviders + '\n\n$&', 1);
+
+  // billing.js historically contained a small provider passthrough named billingWebhook.
+  // The dedicated webhook lifecycle module now owns that function so it can enforce
+  // event recording, idempotency, replay protection and provider verification uniformly.
+  // Strip only that legacy declaration before composing the generated Worker.
+  const billingModuleForBuild = billingModule.replace(
+    /\nasync function billingWebhook\(r, e, providerName\) \{[\s\S]*?\n\}\n\n(?=async function billingFinalizePayment)/,
+    '\n',
+  );
+  if (billingModuleForBuild.includes('async function billingWebhook(')) {
+    throw new Error('[worker-build] Legacy billingWebhook declaration was not removed.');
+  }
+
+  generated = generated.replace(
+    marker,
+    billingModuleForBuild + '\n\n' + billingSafetyPatch + '\n\n' + subscriptionModule + '\n\n' + webhookLifecycle + '\n\n' + paymentProviders + '\n\n$&',
+    1,
+  );
 }
 
 if (!generated.includes('const __billingUrl')) {
