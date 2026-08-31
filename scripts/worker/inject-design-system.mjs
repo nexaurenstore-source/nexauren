@@ -7,6 +7,9 @@ const additions = [];
 if (!source.includes('design-system.css')) {
   additions.push("el.append('<link rel=\"stylesheet\" href=\"/css/design-system.css\">', { html: true });");
 }
+if (!source.includes('nexauren-2026.css')) {
+  additions.push("el.append('<link rel=\"stylesheet\" href=\"/css/nexauren-2026.css\">', { html: true });");
+}
 if (!source.includes('/js/experience-state.js')) {
   additions.push("el.append('<script src=\"/js/experience-state.js\" defer></script>', { html: true });");
 }
@@ -19,4 +22,4 @@ if (additions.length) {
 }
 
 await writeFile(output, source, 'utf8');
-console.log('[runtime] Canonical design system and isolated Experience state runtime injected into HTML responses.');
+console.log('[runtime] Nexauren design systems and isolated Experience state runtime injected into HTML responses.');
