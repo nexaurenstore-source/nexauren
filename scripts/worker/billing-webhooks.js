@@ -1,4 +1,4 @@
-/* NEXAUREN BILLING WEBHOOK LIFECYCLE v3 */
+/* NEXAUREN BILLING WEBHOOK LIFECYCLE v4 */
 
 async function billingHashWebhook(raw) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
@@ -12,19 +12,33 @@ async function billingRecordWebhook(e, { provider, eventId, eventType, reference
   const id = `${safeProvider}:${safeEventId}`;
   const now = Math.floor(Date.now() / 1000);
   const payloadHash = await billingHashWebhook(raw);
-  const result = await e.DB.prepare("INSERT OR IGNORE INTO webhook_events(id,provider,event_id,event_type,reference,payload_hash,status,processed_at,created_at) VALUES(?1,?2,?3,?4,?5,?6,'received',NULL,?7)").bind(id, safeProvider, safeEventId, clean(eventType) || 'provider.webhook', reference || null, payloadHash, now).run();
-  if (Number(result?.meta?.changes || 0) === 1) return { id, duplicate: false, claimed: true };
-  const existing = await e.DB.prepare('SELECT id,status,payload_hash FROM webhook_events WHERE id=?1 LIMIT 1').bind(id).first();
+  const result = await e.DB.prepare("INSERT OR IGNORE INTO webhook_events(id,provider,event_id,event_type,reference,payload_hash,status,processed_at,processing_at,created_at) VALUES(?1,?2,?3,?4,?5,?6,'received',NULL,NULL,?7)").bind(id, safeProvider, safeEventId, clean(eventType) || 'provider.webhook', reference || null, payloadHash, now).run();
+  if (Number(result?.meta?.changes || 0) === 1) {
+    const claim = await e.DB.prepare("UPDATE webhook_events SET status='processing',processing_at=?1 WHERE id=?2 AND status='received'").bind(now, id).run();
+    return { id, duplicate: Number(claim?.meta?.changes || 0) !== 1, claimed: Number(claim?.meta?.changes || 0) === 1, status: 'processing' };
+  }
+  const existing = await e.DB.prepare('SELECT id,status,payload_hash,processing_at FROM webhook_events WHERE id=?1 LIMIT 1').bind(id).first();
   if (!existing) throw new Error('Webhook record could not be loaded.');
   if (existing.payload_hash && existing.payload_hash !== payloadHash) throw new Error('Webhook event payload mismatch.');
-  if (existing.status === 'processed' || existing.status === 'processing') return { id, duplicate: true, claimed: false, status: existing.status };
-  const claim = await e.DB.prepare("UPDATE webhook_events SET status='processing',processed_at=NULL WHERE id=?1 AND status IN ('received','failed')").bind(id).run();
+  if (existing.status === 'processed') return { id, duplicate: true, claimed: false, status: existing.status };
+  if (existing.status === 'processing') {
+    const processingAt = Number(existing.processing_at || 0);
+    if (processingAt > 0 && now - processingAt < 600) return { id, duplicate: true, claimed: false, status: existing.status };
+    const reclaim = await e.DB.prepare("UPDATE webhook_events SET status='processing',processing_at=?1,processed_at=NULL WHERE id=?2 AND status='processing' AND COALESCE(processing_at,0)=?3").bind(now, id, processingAt).run();
+    return { id, duplicate: Number(reclaim?.meta?.changes || 0) === 0, claimed: Number(reclaim?.meta?.changes || 0) === 1, status: 'processing', reclaimed: Number(reclaim?.meta?.changes || 0) === 1 };
+  }
+  const claim = await e.DB.prepare("UPDATE webhook_events SET status='processing',processing_at=?1,processed_at=NULL WHERE id=?2 AND status IN ('received','failed')").bind(now, id).run();
   return { id, duplicate: Number(claim?.meta?.changes || 0) === 0, claimed: Number(claim?.meta?.changes || 0) === 1, status: 'processing' };
 }
 
 async function billingMarkWebhook(e, id, status) {
   const normalized = ['received','processing','processed','failed'].includes(status) ? status : 'failed';
-  await e.DB.prepare('UPDATE webhook_events SET status=?1,processed_at=?2 WHERE id=?3').bind(normalized, Math.floor(Date.now() / 1000), id).run();
+  const now = Math.floor(Date.now() / 1000);
+  if (normalized === 'processing') {
+    await e.DB.prepare('UPDATE webhook_events SET status=?1,processing_at=?2 WHERE id=?3').bind(normalized, now, id).run();
+    return;
+  }
+  await e.DB.prepare('UPDATE webhook_events SET status=?1,processed_at=?2,processing_at=NULL WHERE id=?3').bind(normalized, now, id).run();
 }
 
 async function billingProcessSubscriptionStatus(e, { provider, providerSubscriptionId, status, cancelledAt = null }) {
