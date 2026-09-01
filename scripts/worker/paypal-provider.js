@@ -1,4 +1,4 @@
-/* Nexauren PayPal provider — Orders v2 / Sandbox.
+/* Nexauren PayPal provider — Orders v2 / Catalog Products / Sandbox.
  * Secrets are read exclusively from Cloudflare Worker env bindings.
  */
 
@@ -52,21 +52,38 @@ async function paypalJson(response) {
   return data;
 }
 
+async function paypalCreateProduct({ env, name, description, type = 'SERVICE', category = 'SOFTWARE', imageUrl = '', homeUrl = '', requestId = '' }) {
+  const productName = clean(name).slice(0, 127);
+  const productDescription = clean(description).slice(0, 256);
+  const productType = clean(type).toUpperCase();
+  const productCategory = clean(category).toUpperCase();
+  if (!productName) throw new Error('PayPal product name is required.');
+  if (!['PHYSICAL', 'DIGITAL', 'SERVICE'].includes(productType)) throw new Error('Invalid PayPal product type.');
+  if (!/^[A-Z_]{4,256}$/.test(productCategory)) throw new Error('Invalid PayPal product category.');
+  const payload = {
+    name: productName,
+    description: productDescription || undefined,
+    type: productType,
+    category: productCategory,
+    ...(clean(imageUrl) ? { image_url: clean(imageUrl).slice(0, 2000) } : {}),
+    ...(clean(homeUrl) ? { home_url: clean(homeUrl).slice(0, 2000) } : {}),
+  };
+  const headers = {};
+  if (clean(requestId)) headers['PayPal-Request-Id'] = clean(requestId).slice(0, 108);
+  const response = await paypalApi(env, '/v1/catalogs/products', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  return paypalJson(response);
+}
+
 function paypalMoney(product) {
   const minor = Number(product?.price_minor);
   if (!Number.isSafeInteger(minor) || minor < 0) throw new Error('Invalid product price.');
   const currency = String(product?.currency || '').toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Invalid product currency.');
   return { currency_code: currency, value: (minor / 100).toFixed(2) };
-}
-
-function paypalReturnUrl(request, reference) {
-  const origin = new URL(request.url).origin;
-  const configured = String(request?.cf?.paypalReturnUrl || '').trim();
-  const url = configured || new URL('/payment/success', origin).toString();
-  const result = new URL(url);
-  result.searchParams.set('reference', reference);
-  return result.toString();
 }
 
 async function paypalCreateOrder({ env, request, user, reference, product }) {
@@ -138,6 +155,7 @@ function createPayPalProvider() {
     createCheckout: paypalCreateCheckout,
     captureCheckout: paypalCaptureCheckout,
     getOrder: paypalGetOrder,
+    createProduct: paypalCreateProduct,
   });
 }
 
