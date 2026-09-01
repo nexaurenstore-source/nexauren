@@ -1,4 +1,4 @@
-/* NEXAUREN BILLING WEBHOOK LIFECYCLE v4 */
+/* NEXAUREN BILLING WEBHOOK LIFECYCLE v5 */
 
 async function billingHashWebhook(raw) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
@@ -87,8 +87,13 @@ async function billingProcessPayPalSaleCompleted(e, event) {
   if (!providerSubscriptionId || !providerTransactionId || total == null || !currency) return { handled: false, ignored: true };
   const subscription = await e.DB.prepare("SELECT id,user_id,plan_id,status,provider_subscription_id FROM subscriptions WHERE provider='paypal' AND provider_subscription_id=?1 LIMIT 1").bind(providerSubscriptionId).first();
   if (!subscription) return { handled: false, ignored: true, reason: 'subscription not found' };
-  if (!['active','past_due'].includes(String(subscription.status))) return { handled: false, ignored: true, reason: 'subscription not billable' };
   const details = await paypalGetSubscription({ env: e, subscriptionId: providerSubscriptionId });
+  const providerStatus = String(details?.status || '').toLowerCase();
+  if (providerStatus === 'active' && !['active','past_due'].includes(String(subscription.status))) {
+    await billingProcessSubscriptionStatus(e, { provider: 'paypal', providerSubscriptionId, status: 'active' });
+    subscription.status = 'active';
+  }
+  if (!['active','past_due'].includes(String(subscription.status))) return { handled: false, ignored: true, reason: 'subscription not billable' };
   const lastPaymentTime = details?.billing_info?.last_payment?.time || resource?.create_time || resource?.update_time;
   const nextBillingTime = details?.billing_info?.next_billing_time;
   const periodStart = lastPaymentTime ? Math.floor(new Date(lastPaymentTime).getTime() / 1000) : NaN;
