@@ -22,7 +22,7 @@ for (const contract of ['billingWebhook','billingProcessSubscriptionStatus','bil
 for (const source of [webhook,safety,routes,build,providers,paypal]) if (source.includes('FLW_SECRET_KEY=') || source.includes('FLW_SECRET_HASH=') || source.includes('PAYPAL_CLIENT_SECRET=')) throw new Error('[billing] Provider secrets must never be committed.');
 for (const route of ['/api/billing/catalog','/api/billing/account','/api/billing/payment','/api/billing/transactions','/api/billing/checkout','/api/billing/usage','/api/billing/subscription/cancel','/api/billing/subscription/resume','/api/webhooks/','/api/admin/paypal/products']) if (!routes.includes(route)) throw new Error(`[billing] Missing route: ${route}`);
 for (const contract of ['createCheckout','captureCheckout','getOrder','createProduct','buildPaymentProviderRegistry','PAYMENT_PROVIDER']) if (!providers.includes(contract) && !build.includes(contract) && !paypal.includes(contract)) throw new Error(`[billing] Missing PayPal provider contract: ${contract}`);
-if (!paypal.includes('https://api-m.sandbox.paypal.com/v1/oauth2/token')) throw new Error('[billing] PayPal sandbox OAuth endpoint missing.');
+if (!paypal.includes('PAYPAL_SANDBOX_BASE') || !paypal.includes('/v1/oauth2/token')) throw new Error('[billing] PayPal sandbox OAuth endpoint missing.');
 if (!paypal.includes('/v1/catalogs/products')) throw new Error('[billing] PayPal catalog product endpoint missing.');
 if (!paypal.includes('/v2/checkout/orders')) throw new Error('[billing] PayPal Orders endpoint missing.');
 if (!webhook.includes('payload?.id')) throw new Error('[billing] Webhook idempotency must use the provider event ID.');
