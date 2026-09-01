@@ -10,6 +10,7 @@ const billingModuleUrl = new URL('./worker/billing.js', import.meta.url);
 const billingSafetyPatchUrl = new URL('./worker/billing-safety-patch.js', import.meta.url);
 const billingRoutesUrl = new URL('./worker/billing-routes.js', import.meta.url);
 const paymentProvidersUrl = new URL('./worker/payment-providers.js', import.meta.url);
+const paypalProviderUrl = new URL('./worker/paypal-provider.js', import.meta.url);
 const subscriptionModuleUrl = new URL('./worker/subscription-lifecycle.js', import.meta.url);
 const webhookLifecycleUrl = new URL('./worker/billing-webhooks.js', import.meta.url);
 const blogRoutesUrl = new URL('./worker/blog-routes.js', import.meta.url);
@@ -22,6 +23,7 @@ const billingModule = await readFile(billingModuleUrl, 'utf8');
 const billingSafetyPatch = await readFile(billingSafetyPatchUrl, 'utf8');
 const billingRoutes = await readFile(billingRoutesUrl, 'utf8');
 const paymentProviders = await readFile(paymentProvidersUrl, 'utf8');
+const paypalProvider = await readFile(paypalProviderUrl, 'utf8');
 const subscriptionModule = await readFile(subscriptionModuleUrl, 'utf8');
 const webhookLifecycle = await readFile(webhookLifecycleUrl, 'utf8');
 const blogRoutes = await readFile(blogRoutesUrl, 'utf8');
@@ -33,6 +35,7 @@ if (!billingModule.includes('async function billingFinalizePayment')) throw new 
 if (!billingSafetyPatch.includes('async function billingUsageSafe')) throw new Error('[worker-build] Billing safety patch is incomplete.');
 if (!billingRoutes.includes('/api/billing/catalog')) throw new Error('[worker-build] Billing routes module is incomplete.');
 if (!paymentProviders.includes('NEXAUREN_PAYMENT_PROVIDERS')) throw new Error('[worker-build] Payment provider registry is incomplete.');
+if (!paypalProvider.includes('async function paypalAccessToken')) throw new Error('[worker-build] PayPal provider module is incomplete.');
 if (!subscriptionModule.includes('async function billingProcessSubscriptionCycle')) throw new Error('[worker-build] Subscription lifecycle module is incomplete.');
 if (!webhookLifecycle.includes('async function billingWebhook')) throw new Error('[worker-build] Webhook lifecycle module is incomplete.');
 if (!blogRoutes.includes('async function __handleBlogRoute')) throw new Error('[worker-build] Blog routes module is incomplete.');
@@ -60,12 +63,10 @@ if (!generated.includes('async function billingFinalizePayment(')) {
     /\nasync function billingWebhook\(r, e, providerName\) \{[\s\S]*?\n\}\n\n(?=async function billingFinalizePayment)/,
     '\n',
   );
-  if (billingModuleForBuild.includes('async function billingWebhook(')) {
-    throw new Error('[worker-build] Legacy billingWebhook declaration was not removed.');
-  }
+  if (billingModuleForBuild.includes('async function billingWebhook(')) throw new Error('[worker-build] Legacy billingWebhook declaration was not removed.');
   generated = generated.replace(
     marker,
-    billingModuleForBuild + '\n\n' + billingSafetyPatch + '\n\n' + subscriptionModule + '\n\n' + webhookLifecycle + '\n\n' + paymentProviders + '\n\n$&',
+    billingModuleForBuild + '\n\n' + billingSafetyPatch + '\n\n' + subscriptionModule + '\n\n' + webhookLifecycle + '\n\n' + paymentProviders + '\n\n' + paypalProvider + '\n\n$&',
     1,
   );
 }
@@ -90,19 +91,14 @@ if (!generated.includes('const __blogRouteActive')) {
 }
 
 const assetFallbackMarker = '      const response = await e.ASSETS.fetch(r);';
-if (!generated.includes(assetFallbackMarker)) {
-  throw new Error('[worker-build] Worker structure changed: asset fallback marker not found.');
-}
-generated = generated.replace(
-  assetFallbackMarker,
-  "      if (new URL(r.url).pathname.startsWith('/api/')) {\n        return json({ error: 'Not found' }, 404, cors(r));\n      }\n\n" + assetFallbackMarker,
-  1,
-);
+if (!generated.includes(assetFallbackMarker)) throw new Error('[worker-build] Worker structure changed: asset fallback marker not found.');
+generated = generated.replace(assetFallbackMarker, "      if (new URL(r.url).pathname.startsWith('/api/')) {\n        return json({ error: 'Not found' }, 404, cors(r));\n      }\n\n" + assetFallbackMarker, 1);
 
 const count = (text, needle) => text.split(needle).length - 1;
 if (count(generated, 'async function billingWebhook(') !== 1) throw new Error('[worker-build] billingWebhook must be included exactly once.');
 if (count(generated, 'const __billingUrl') !== 1) throw new Error('[worker-build] Billing route module must be included exactly once.');
 if (count(generated, 'async function billingFinalizePayment(') !== 1) throw new Error('[worker-build] billingFinalizePayment must be included exactly once.');
+if (count(generated, 'async function paypalAccessToken(') !== 1) throw new Error('[worker-build] PayPal provider must be included exactly once.');
 if (count(generated, 'async function __handleBlogRoute(') !== 1) throw new Error('[worker-build] Blog route module must be included exactly once.');
 if (count(generated, 'const __blogRouteActive = true;') !== 1) throw new Error('[worker-build] Blog dispatcher must be included exactly once.');
 
@@ -149,15 +145,10 @@ for (const script of [
   new URL('./extend-admin-users.mjs', import.meta.url).pathname,
   new URL('./protect-admin-user.mjs', import.meta.url).pathname,
   new URL('./extend-blocked-users.mjs', import.meta.url).pathname,
-]) {
-  execFileSync(process.execPath, [script], { stdio: 'inherit' });
-}
+]) execFileSync(process.execPath, [script], { stdio: 'inherit' });
 
-try {
-  execFileSync(process.execPath, ['--check', outputUrl.pathname], { stdio: 'inherit' });
-} catch {
-  throw new Error('[worker-build] Generated Worker failed JavaScript syntax validation. Deployment stopped.');
-}
+try { execFileSync(process.execPath, ['--check', outputUrl.pathname], { stdio: 'inherit' }); }
+catch { throw new Error('[worker-build] Generated Worker failed JavaScript syntax validation. Deployment stopped.'); }
 
 console.log('[worker-build] Source inspected.');
 console.log('[worker-build] Notification domain module included once.');
@@ -166,6 +157,7 @@ console.log('[worker-build] Billing core module included once.');
 console.log('[worker-build] Billing safety patch included once.');
 console.log('[worker-build] Billing routes included once.');
 console.log('[worker-build] Payment provider registry included once.');
+console.log('[worker-build] PayPal provider included once.');
 console.log('[worker-build] Subscription lifecycle included once.');
 console.log('[worker-build] Webhook lifecycle included once.');
 console.log('[worker-build] Blog API module included once.');
