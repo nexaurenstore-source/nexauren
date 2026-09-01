@@ -85,7 +85,12 @@ async function paypalCreateSubscription({ env, request, user, reference, product
   const approve = (data.links || []).find(link => link.rel === 'approve');
   if (!approve?.href) throw new Error('PayPal subscription approval link was not returned.');
   const now = Math.floor(Date.now() / 1000);
-  await env.DB.prepare("INSERT INTO subscriptions(id,user_id,provider,provider_subscription_id,plan_id,status,start_date,next_billing_date,cancelled_at,created_at,updated_at) VALUES(?1,?2,'paypal',?3,?4,'pending',?5,NULL,NULL,?5,?5)").bind(uuid(), user.id, String(data.id), clean(product.id), now).run();
+  try {
+    await env.DB.prepare("INSERT INTO subscriptions(id,user_id,provider,provider_subscription_id,plan_id,status,start_date,next_billing_date,cancelled_at,created_at,updated_at) VALUES(?1,?2,'paypal',?3,?4,'pending',?5,NULL,NULL,?5,?5)").bind(uuid(), user.id, String(data.id), clean(product.id), now).run();
+  } catch (error) {
+    const existing = await env.DB.prepare("SELECT id FROM subscriptions WHERE provider='paypal' AND provider_subscription_id=?1 LIMIT 1").bind(String(data.id)).first();
+    if (!existing) throw error;
+  }
   return { url: approve.href, subscription_id: String(data.id), transaction_id: String(data.id), mode: 'subscription', status: String(data.status || 'APPROVAL_PENDING') };
 }
 
@@ -123,7 +128,32 @@ async function paypalHandleWebhook({ request, env }) {
   const providerSubscriptionId = type.startsWith('BILLING.SUBSCRIPTION.') ? clean(resource?.id) : subscriptionId;
   if (!providerSubscriptionId) return json({ received: true, ignored: true }, 200, cors(request));
 
-  const local = await env.DB.prepare("SELECT id,user_id,plan_id,status,current_period_start,current_period_end FROM subscriptions WHERE provider='paypal' AND provider_subscription_id=?1 LIMIT 1").bind(providerSubscriptionId).first();
+  let local = await env.DB.prepare("SELECT id,user_id,plan_id,status,current_period_start,current_period_end FROM subscriptions WHERE provider='paypal' AND provider_subscription_id=?1 LIMIT 1").bind(providerSubscriptionId).first();
+
+  // Recovery path: PayPal can legitimately deliver the activation webhook after the
+  // provider created the remote subscription but the local insert was interrupted.
+  // Recover the local subscription from the pending payment created by billingCheckout
+  // instead of silently ignoring every future webhook for this subscription.
+  if (!local) {
+    const payment = await env.DB.prepare("SELECT id,user_id,amount_minor,currency,type,reference,metadata FROM payments WHERE provider='paypal' AND provider_transaction_id=?1 ORDER BY created_at DESC LIMIT 1").bind(providerSubscriptionId).first();
+    if (payment?.type === 'subscription') {
+      let metadata = {};
+      try { metadata = JSON.parse(payment.metadata || '{}'); } catch { metadata = {}; }
+      const planId = clean(metadata.product_id);
+      if (planId) {
+        const now = Math.floor(Date.now() / 1000);
+        const localId = uuid();
+        try {
+          await env.DB.prepare("INSERT INTO subscriptions(id,user_id,provider,provider_subscription_id,plan_id,status,start_date,next_billing_date,cancelled_at,created_at,updated_at) VALUES(?1,?2,'paypal',?3,?4,'pending',?5,NULL,NULL,?5,?5)").bind(localId, payment.user_id, providerSubscriptionId, planId, now).run();
+        } catch (error) {
+          const recovered = await env.DB.prepare("SELECT id,user_id,plan_id,status,current_period_start,current_period_end FROM subscriptions WHERE provider='paypal' AND provider_subscription_id=?1 LIMIT 1").bind(providerSubscriptionId).first();
+          if (!recovered) throw error;
+        }
+        local = await env.DB.prepare("SELECT id,user_id,plan_id,status,current_period_start,current_period_end FROM subscriptions WHERE provider='paypal' AND provider_subscription_id=?1 LIMIT 1").bind(providerSubscriptionId).first();
+      }
+    }
+  }
+
   if (!local) return json({ received: true, ignored: true }, 200, cors(request));
 
   if (type === 'BILLING.SUBSCRIPTION.ACTIVATED' || type === 'BILLING.SUBSCRIPTION.UPDATED') {
