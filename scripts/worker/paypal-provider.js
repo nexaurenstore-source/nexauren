@@ -130,10 +130,6 @@ async function paypalHandleWebhook({ request, env }) {
 
   let local = await env.DB.prepare("SELECT id,user_id,plan_id,status,current_period_start,current_period_end FROM subscriptions WHERE provider='paypal' AND provider_subscription_id=?1 LIMIT 1").bind(providerSubscriptionId).first();
 
-  // Recovery path: PayPal can legitimately deliver the activation webhook after the
-  // provider created the remote subscription but the local insert was interrupted.
-  // Recover the local subscription from the pending payment created by billingCheckout
-  // instead of silently ignoring every future webhook for this subscription.
   if (!local) {
     const payment = await env.DB.prepare("SELECT id,user_id,amount_minor,currency,type,reference,metadata FROM payments WHERE provider='paypal' AND provider_transaction_id=?1 ORDER BY created_at DESC LIMIT 1").bind(providerSubscriptionId).first();
     if (payment?.type === 'subscription') {
@@ -164,10 +160,8 @@ async function paypalHandleWebhook({ request, env }) {
     const now = Math.floor(Date.now() / 1000);
     await env.DB.prepare('UPDATE subscriptions SET status=?1,start_date=?2,next_billing_date=?3,current_period_start=?4,current_period_end=?5,updated_at=?6 WHERE id=?7').bind(status, start, next, start, next, now, local.id).run();
     await env.DB.prepare('UPDATE billing_accounts SET plan_id=?1,updated_at=?2 WHERE user_id=?3').bind(local.plan_id, now, local.user_id).run();
-    if (type === 'BILLING.SUBSCRIPTION.ACTIVATED' && status === 'active' && next && next > start && typeof billingProcessSubscriptionCycle === 'function') {
-      const plan = await env.DB.prepare('SELECT price_minor,currency FROM plans WHERE id=?1 LIMIT 1').bind(local.plan_id).first();
-      if (plan) await billingProcessSubscriptionCycle(env, { provider: 'paypal', subscriptionId: local.id, providerTransactionId: `activation:${event.id}`, periodStart: start, periodEnd: next, amountMinor: Number(plan.price_minor), currency: plan.currency, reference: `subscription:${local.id}:${start}:${next}` });
-    }
+    // Activation synchronizes the local subscription only. Credits are granted by
+    // PAYMENT.SALE.COMPLETED after PayPal confirms the actual charge.
     return json({ received: true, processed: true }, 200, cors(request));
   }
 
@@ -181,8 +175,10 @@ async function paypalHandleWebhook({ request, env }) {
     if (!plan) throw new Error('Subscription plan not found.');
     const verifiedAmountMinor = amount > 0 ? Math.round(amount * 100) : Number(plan.price_minor);
     const verifiedCurrency = currency || String(plan.currency).toUpperCase();
-    if (end && typeof billingProcessSubscriptionCycle === 'function') await billingProcessSubscriptionCycle(env, { provider: 'paypal', subscriptionId: local.id, providerTransactionId: clean(resource?.id || event.id), periodStart: start, periodEnd: end, amountMinor: verifiedAmountMinor, currency: verifiedCurrency, reference: `subscription:${local.id}:${start}:${end}` });
-    return json({ received: true, processed: true }, 200, cors(request));
+    // The billing-webhooks wrapper owns recurring crediting so that there is one
+    // authoritative path and one idempotency key for each PayPal sale.
+    if (!end) return json({ received: true, processed: true, pending_cycle: true }, 200, cors(request));
+    return json({ received: true, processed: true, payment_amount_minor: verifiedAmountMinor, currency: verifiedCurrency }, 200, cors(request));
   }
 
   const statusMap = { 'BILLING.SUBSCRIPTION.CANCELLED': 'cancelled', 'BILLING.SUBSCRIPTION.EXPIRED': 'expired', 'BILLING.SUBSCRIPTION.SUSPENDED': 'past_due', 'BILLING.SUBSCRIPTION.PAYMENT.FAILED': 'past_due' };
