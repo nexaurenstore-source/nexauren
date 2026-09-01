@@ -49,6 +49,7 @@ async function paypalJson(response) {
     const error = new Error(`PayPal API error (${response.status}): ${issue}: ${description}`);
     error.paypalStatus = response.status;
     error.paypalIssue = issue;
+    error.paypalDebugId = clean(data?.debug_id || response.headers.get('PayPal-Debug-Id') || '');
     throw error;
   }
   return data;
