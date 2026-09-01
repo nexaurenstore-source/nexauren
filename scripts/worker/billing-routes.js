@@ -81,6 +81,40 @@ if (__billingUrl.pathname === '/api/billing/payment' && r.method === 'POST') {
   if (payment.status === 'successful') return json({ payment }, 200, cors(r));
   if (String(payment.provider).toLowerCase() !== 'paypal') return json({ error: 'Payment provider mismatch.' }, 409, cors(r));
   const provider = billingProviderRegistry(e).paypal;
+
+  // PayPal subscriptions are approved through /v1/billing/subscriptions and must never be captured as Orders.
+  if (payment.type === 'subscription') {
+    if (!provider?.getSubscription) return json({ error: 'PayPal subscription verification is not configured.' }, 503, cors(r));
+    const subscriptionId = clean(payment.provider_transaction_id);
+    if (!subscriptionId) return json({ error: 'PayPal subscription is not associated with this payment.' }, 409, cors(r));
+    try {
+      const details = await provider.getSubscription({ env: e, subscriptionId });
+      const paypalStatus = String(details?.status || '').toUpperCase();
+      let metadata = {};
+      try { metadata = JSON.parse(payment.metadata || '{}'); } catch { metadata = {}; }
+      const planId = clean(metadata.product_id);
+      if (!planId || paypalStatus !== 'ACTIVE') {
+        return json({ success: false, pending: true, payment: { ...payment, provider_transaction_id: subscriptionId }, subscription: { id: subscriptionId, status: paypalStatus || 'APPROVAL_PENDING' } }, 200, cors(r));
+      }
+      const plan = await e.DB.prepare('SELECT id,price_minor,currency,credits_per_cycle FROM plans WHERE id=?1 AND enabled=1 LIMIT 1').bind(planId).first();
+      if (!plan) return json({ error: 'Subscription plan not found.' }, 409, cors(r));
+      if (Number(plan.price_minor) !== Number(payment.amount_minor) || String(plan.currency).toUpperCase() !== String(payment.currency).toUpperCase()) return json({ error: 'Subscription plan price mismatch.' }, 409, cors(r));
+      const now = Math.floor(Date.now() / 1000);
+      const start = details?.start_time ? Math.floor(new Date(details.start_time).getTime() / 1000) : now;
+      const next = details?.billing_info?.next_billing_time ? Math.floor(new Date(details.billing_info.next_billing_time).getTime() / 1000) : null;
+      const local = await e.DB.prepare("SELECT id,status FROM subscriptions WHERE provider='paypal' AND provider_subscription_id=?1 LIMIT 1").bind(subscriptionId).first();
+      if (local) {
+        await e.DB.prepare('UPDATE subscriptions SET plan_id=?1,status=\'active\',start_date=?2,next_billing_date=?3,current_period_start=?2,current_period_end=?3,updated_at=?4 WHERE id=?5').bind(planId, start, next, now, local.id).run();
+      }
+      await e.DB.prepare('UPDATE billing_accounts SET plan_id=?1,updated_at=?2 WHERE user_id=?3').bind(planId, now, u.id).run();
+      const finalized = await billingFinalizePayment(e, { provider: 'paypal', reference, providerTransactionId: subscriptionId, status: 'successful', userId: u.id, amountMinor: payment.amount_minor, currency: payment.currency, type: 'subscription', productId: planId, metadata: { ...metadata, provider_subscription_id: subscriptionId, paypal_subscription_status: paypalStatus } });
+      return json({ success: true, payment: { ...payment, status: 'successful', provider_transaction_id: subscriptionId }, subscription: { id: subscriptionId, status: 'ACTIVE', plan_id: planId, start_date: start, next_billing_date: next }, finalized }, 200, cors(r));
+    } catch (error) {
+      console.error('PayPal subscription verification failed', String(error).slice(0, 500));
+      return json({ error: 'Unable to verify the PayPal subscription.' }, 502, cors(r));
+    }
+  }
+
   if (!provider?.captureCheckout || !provider?.getOrder) return json({ error: 'PayPal provider is not configured.' }, 503, cors(r));
   const orderId = clean(payment.provider_transaction_id);
   if (!orderId) return json({ error: 'PayPal order is not associated with this payment.' }, 409, cors(r));
