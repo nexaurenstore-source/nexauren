@@ -4,6 +4,37 @@ const __billingUrl = new URL(r.url);
 if (__billingUrl.pathname === '/api/billing/catalog' && r.method === 'GET') return billingCatalog(r, e);
 if (__billingUrl.pathname === '/api/billing/account' && r.method === 'GET') return billingAccountSafe(r, e);
 
+if (__billingUrl.pathname === '/api/admin/paypal/products' && r.method === 'POST') {
+  const admin = await isAdmin(r, e);
+  if (!admin) return json({ error: 'Admin access required.' }, 403, cors(r));
+  const provider = billingProviderRegistry(e).paypal;
+  if (!provider?.createProduct) return json({ error: 'PayPal provider is not configured.' }, 503, cors(r));
+  const d = await body(r);
+  const name = clean(d?.name).slice(0, 127);
+  const description = clean(d?.description).slice(0, 256);
+  const type = clean(d?.type || 'SERVICE').toUpperCase();
+  const category = clean(d?.category || 'SOFTWARE').toUpperCase();
+  const imageUrl = clean(d?.image_url);
+  const homeUrl = clean(d?.home_url);
+  if (!name) return json({ error: 'Product name is required.' }, 400, cors(r));
+  try {
+    const product = await provider.createProduct({
+      env: e,
+      name,
+      description,
+      type,
+      category,
+      imageUrl,
+      homeUrl,
+      requestId: `nexauren-product-${crypto.randomUUID()}`,
+    });
+    return json({ success: true, product }, 201, cors(r));
+  } catch (error) {
+    console.error('PayPal product creation failed', String(error).slice(0, 500));
+    return json({ error: 'Unable to create the PayPal product.' }, 502, cors(r));
+  }
+}
+
 if (__billingUrl.pathname === '/api/billing/payment' && r.method === 'GET') return billingPaymentStatus(r, e);
 
 if (__billingUrl.pathname === '/api/billing/payment' && r.method === 'POST') {
