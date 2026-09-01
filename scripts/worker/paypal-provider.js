@@ -43,7 +43,14 @@ async function paypalJson(response) {
   const text = await response.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = null; }
-  if (!response.ok) throw new Error(`PayPal API error (${response.status})`);
+  if (!response.ok) {
+    const issue = clean(data?.details?.[0]?.issue || data?.name || 'PAYPAL_API_ERROR');
+    const description = clean(data?.details?.[0]?.description || data?.message || 'PayPal rejected the request.');
+    const error = new Error(`PayPal API error (${response.status}): ${issue}: ${description}`);
+    error.paypalStatus = response.status;
+    error.paypalIssue = issue;
+    throw error;
+  }
   return data;
 }
 
@@ -73,7 +80,8 @@ async function paypalCreatePlan({ env, productId, name, description, priceMinor,
   if (!product) throw new Error('PayPal product ID is required.');
   if (!planName) throw new Error('PayPal plan name is required.');
   if (!['DAY', 'WEEK', 'MONTH', 'YEAR'].includes(unit)) throw new Error('Invalid billing interval.');
-  if (!Number.isInteger(count) || count < 1 || count > 12) throw new Error('Invalid billing interval count.');
+  const maxIntervalCount = unit === 'DAY' ? 365 : unit === 'WEEK' ? 52 : unit === 'MONTH' ? 12 : 1;
+  if (!Number.isInteger(count) || count < 1 || count > maxIntervalCount) throw new Error('Invalid billing interval count.');
   if (!Number.isSafeInteger(minor) || minor < 0) throw new Error('Invalid plan price.');
   if (!/^[A-Z]{3}$/.test(currencyCode)) throw new Error('Invalid plan currency.');
   if (!Number.isInteger(trial) || trial < 0 || trial > 365) throw new Error('Invalid trial days.');
