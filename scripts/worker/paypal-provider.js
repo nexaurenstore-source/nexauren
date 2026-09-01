@@ -79,17 +79,7 @@ async function paypalCreateSubscription({ env, request, user, reference, product
   cancelUrl.searchParams.set('reference', reference);
   cancelUrl.searchParams.set('status', 'cancelled');
   cancelUrl.searchParams.set('type', 'subscription');
-  const payload = {
-    plan_id: planId,
-    quantity: '1',
-    application_context: {
-      brand_name: String(env.PAYMENT_BRAND_NAME || 'Nexauren').slice(0, 127),
-      user_action: 'SUBSCRIBE_NOW',
-      shipping_preference: 'NO_SHIPPING',
-      return_url: returnUrl.toString(),
-      cancel_url: cancelUrl.toString(),
-    },
-  };
+  const payload = { plan_id: planId, quantity: '1', application_context: { brand_name: String(env.PAYMENT_BRAND_NAME || 'Nexauren').slice(0, 127), user_action: 'SUBSCRIBE_NOW', shipping_preference: 'NO_SHIPPING', return_url: returnUrl.toString(), cancel_url: cancelUrl.toString() } };
   const data = await paypalJson(await paypalApi(env, '/v1/billing/subscriptions', { method: 'POST', headers: { 'PayPal-Request-Id': reference.slice(0, 25) }, body: JSON.stringify(payload) }));
   if (!data?.id) throw new Error('PayPal subscription was not created.');
   const approve = (data.links || []).find(link => link.rel === 'approve');
@@ -133,7 +123,7 @@ async function paypalHandleWebhook({ request, env }) {
   const providerSubscriptionId = type.startsWith('BILLING.SUBSCRIPTION.') ? clean(resource?.id) : subscriptionId;
   if (!providerSubscriptionId) return json({ received: true, ignored: true }, 200, cors(request));
 
-  const local = await env.DB.prepare('SELECT id,user_id,plan_id,status FROM subscriptions WHERE provider=\'paypal\' AND provider_subscription_id=?1 LIMIT 1').bind(providerSubscriptionId).first();
+  const local = await env.DB.prepare("SELECT id,user_id,plan_id,status,current_period_start,current_period_end FROM subscriptions WHERE provider='paypal' AND provider_subscription_id=?1 LIMIT 1").bind(providerSubscriptionId).first();
   if (!local) return json({ received: true, ignored: true }, 200, cors(request));
 
   if (type === 'BILLING.SUBSCRIPTION.ACTIVATED' || type === 'BILLING.SUBSCRIPTION.UPDATED') {
@@ -142,11 +132,11 @@ async function paypalHandleWebhook({ request, env }) {
     const start = Math.floor(new Date(details?.start_time || resource?.start_time || Date.now()).getTime() / 1000);
     const next = details?.billing_info?.next_billing_time ? Math.floor(new Date(details.billing_info.next_billing_time).getTime() / 1000) : null;
     const now = Math.floor(Date.now() / 1000);
-    await env.DB.prepare('UPDATE subscriptions SET status=?1,start_date=?2,next_billing_date=?3,updated_at=?4 WHERE id=?5').bind(status, start, next, now, local.id).run();
+    await env.DB.prepare('UPDATE subscriptions SET status=?1,start_date=?2,next_billing_date=?3,current_period_start=?4,current_period_end=?5,updated_at=?6 WHERE id=?7').bind(status, start, next, start, next, now, local.id).run();
     await env.DB.prepare('UPDATE billing_accounts SET plan_id=?1,updated_at=?2 WHERE user_id=?3').bind(local.plan_id, now, local.user_id).run();
-    if (type === 'BILLING.SUBSCRIPTION.ACTIVATED' && typeof billingProcessSubscriptionCycle === 'function' && next && next > start) {
+    if (type === 'BILLING.SUBSCRIPTION.ACTIVATED' && status === 'active' && next && next > start && typeof billingProcessSubscriptionCycle === 'function') {
       const plan = await env.DB.prepare('SELECT price_minor,currency FROM plans WHERE id=?1 LIMIT 1').bind(local.plan_id).first();
-      if (plan) await billingProcessSubscriptionCycle(env, { provider: 'paypal', subscriptionId: local.id, providerTransactionId: `activation:${event.id}`, periodStart: start, periodEnd: next, amountMinor: Number(plan.price_minor), currency: plan.currency, reference: `subscription:${local.id}:${event.id}` });
+      if (plan) await billingProcessSubscriptionCycle(env, { provider: 'paypal', subscriptionId: local.id, providerTransactionId: `activation:${event.id}`, periodStart: start, periodEnd: next, amountMinor: Number(plan.price_minor), currency: plan.currency, reference: `subscription:${local.id}:${start}:${next}` });
     }
     return json({ received: true, processed: true }, 200, cors(request));
   }
@@ -158,7 +148,10 @@ async function paypalHandleWebhook({ request, env }) {
     const amount = Number(resource?.amount?.total || resource?.amount?.value || 0);
     const currency = String(resource?.amount?.currency || resource?.amount?.currency_code || '').toUpperCase();
     const plan = await env.DB.prepare('SELECT price_minor,currency FROM plans WHERE id=?1 LIMIT 1').bind(local.plan_id).first();
-    if (end && plan && typeof billingProcessSubscriptionCycle === 'function') await billingProcessSubscriptionCycle(env, { provider: 'paypal', subscriptionId: local.id, providerTransactionId: clean(resource?.id || event.id), periodStart: start, periodEnd: end, amountMinor: Math.round(amount * 100), currency: currency || plan.currency, reference: `subscription:${local.id}:${event.id}` });
+    if (!plan) throw new Error('Subscription plan not found.');
+    const verifiedAmountMinor = amount > 0 ? Math.round(amount * 100) : Number(plan.price_minor);
+    const verifiedCurrency = currency || String(plan.currency).toUpperCase();
+    if (end && typeof billingProcessSubscriptionCycle === 'function') await billingProcessSubscriptionCycle(env, { provider: 'paypal', subscriptionId: local.id, providerTransactionId: clean(resource?.id || event.id), periodStart: start, periodEnd: end, amountMinor: verifiedAmountMinor, currency: verifiedCurrency, reference: `subscription:${local.id}:${start}:${end}` });
     return json({ received: true, processed: true }, 200, cors(request));
   }
 
@@ -166,7 +159,7 @@ async function paypalHandleWebhook({ request, env }) {
   if (statusMap[type]) {
     const now = Math.floor(Date.now() / 1000);
     await env.DB.prepare('UPDATE subscriptions SET status=?1,cancelled_at=?2,updated_at=?3 WHERE id=?4').bind(statusMap[type], statusMap[type] === 'cancelled' || statusMap[type] === 'expired' ? now : null, now, local.id).run();
-    if (statusMap[type] !== 'past_due') await env.DB.prepare('UPDATE billing_accounts SET plan_id=\'free\',updated_at=?1 WHERE user_id=?2').bind(now, local.user_id).run();
+    if (statusMap[type] !== 'past_due') await env.DB.prepare("UPDATE billing_accounts SET plan_id='free',updated_at=?1 WHERE user_id=?2").bind(now, local.user_id).run();
     return json({ received: true, processed: true }, 200, cors(request));
   }
   return json({ received: true, ignored: true }, 200, cors(request));
