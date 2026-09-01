@@ -11,33 +11,30 @@
 <main>
 <section class="hero"><div><p class="eyebrow">ADMINISTRATION</p><h1>Dashboard</h1><p id="status">Checking administrator access…</p></div></section>
 <section id="cards" class="cards">
-<article><span>Users</span><strong id="users">—</strong></article>
-<article><span>New users · 7d</span><strong id="new_users">—</strong></article>
-<article><span>Active users</span><strong id="active_users">—</strong></article>
-<article><span>Forms</span><strong id="forms">—</strong></article>
-<article><span>Responses</span><strong id="responses">—</strong></article>
-<article><span>Reviews</span><strong id="reviews">—</strong></article>
-<article><span>Notifications</span><strong id="notifications">—</strong></article>
+<article><span>Users</span><strong id="users">—</strong></article><article><span>New users · 7d</span><strong id="new_users">—</strong></article><article><span>Active users</span><strong id="active_users">—</strong></article><article><span>Forms</span><strong id="forms">—</strong></article><article><span>Responses</span><strong id="responses">—</strong></article><article><span>Reviews</span><strong id="reviews">—</strong></article><article><span>Notifications</span><strong id="notifications">—</strong></article>
 </section>
 <section class="panel"><div class="panel-head"><h2>Admin sections</h2></div><nav class="grid-nav">
-<a href="/admin/users/">Users</a><a href="#">Activity</a><a href="#">Tools</a><a href="#">Forms</a><a href="#">Responses</a><a href="#">Reviews</a><a href="#">Notifications</a><a href="#">Announcements</a><a href="#">Statistics</a><a href="#">Settings</a><a class="paypal-link" href="#paypal-products">PayPal Products</a>
+<a href="/admin/users/">Users</a><a href="#">Activity</a><a href="#">Tools</a><a href="#">Forms</a><a href="#">Responses</a><a href="#">Reviews</a><a href="#">Notifications</a><a href="#">Announcements</a><a href="#">Statistics</a><a href="#">Settings</a><a class="paypal-link" href="#paypal-products">PayPal Products</a><a class="paypal-link" href="#paypal-plans">PayPal Plans</a>
 </nav></section>
 <section class="panel paypal-panel" id="paypal-products">
 <div class="panel-head"><h2>PayPal Products</h2><p>Create a PayPal catalog product securely from the admin dashboard.</p></div>
 <form id="paypal-product-form" class="product-form">
-<label>Name<input id="paypal-name" name="name" maxlength="127" required placeholder="Nexauren Pro"></label>
-<label>Description<textarea id="paypal-description" name="description" maxlength="256" placeholder="Digital service or subscription product"></textarea></label>
-<div class="form-row">
-<label>Type<select id="paypal-type" name="type"><option value="SERVICE">Service</option><option value="DIGITAL">Digital</option></select></label>
-<label>Category<input id="paypal-category" name="category" value="SOFTWARE" maxlength="256"></label>
-</div>
-<label>Image URL <span class="muted">(optional)</span><input id="paypal-image" name="image_url" type="url" placeholder="https://…"></label>
-<label>Product URL <span class="muted">(optional)</span><input id="paypal-home" name="home_url" type="url" placeholder="https://nexaurenstory.com/…"></label>
-<button class="primary" id="paypal-create" type="submit">Create PayPal Product</button>
-<div id="paypal-result" class="result" role="status" aria-live="polite"></div>
-</form>
-</section>
-</main>
-<script src="/admin/script.js"></script>
-</body>
-</html>
+<label>Name<input id="paypal-name" maxlength="127" required placeholder="Nexauren Pro"></label><label>Description<textarea id="paypal-description" maxlength="256" placeholder="Digital service or subscription product"></textarea></label>
+<div class="form-row"><label>Type<select id="paypal-type"><option value="SERVICE">Service</option><option value="DIGITAL">Digital</option></select></label><label>Category<input id="paypal-category" value="SOFTWARE" maxlength="256"></label></div>
+<label>Image URL <span class="muted">(optional)</span><input id="paypal-image" type="url" placeholder="https://…"></label><label>Product URL <span class="muted">(optional)</span><input id="paypal-home" type="url" placeholder="https://nexaurenstory.com/…"></label>
+<button class="primary" id="paypal-create" type="submit">Create PayPal Product</button><div id="paypal-result" class="result" role="status" aria-live="polite"></div>
+</form></section>
+<section class="panel paypal-panel" id="paypal-plans">
+<div class="panel-head"><h2>PayPal Plans</h2><p>Create a recurring PayPal subscription plan linked to a PayPal product.</p></div>
+<form id="paypal-plan-form" class="product-form">
+<label>Local Plan ID<input id="paypal-plan-id" maxlength="64" required placeholder="pro_monthly"></label>
+<label>PayPal Product ID<input id="paypal-plan-product" maxlength="50" required placeholder="PROD-XXXXXXXXXXXX"></label>
+<label>Plan Name<input id="paypal-plan-name" maxlength="127" required placeholder="Nexauren Pro Monthly"></label>
+<label>Description<textarea id="paypal-plan-description" maxlength="127" placeholder="Monthly Nexauren Pro subscription"></textarea></label>
+<div class="form-row"><label>Price<input id="paypal-plan-price" type="number" min="0" step="0.01" required value="10.00"></label><label>Currency<select id="paypal-plan-currency"><option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option></select></label></div>
+<div class="form-row"><label>Billing interval<select id="paypal-plan-interval"><option value="MONTH">Monthly</option><option value="YEAR">Yearly</option><option value="WEEK">Weekly</option><option value="DAY">Daily</option></select></label><label>Interval count<input id="paypal-plan-count" type="number" min="1" max="12" step="1" value="1"></label></div>
+<div class="form-row"><label>Trial days <span class="muted">(optional)</span><input id="paypal-plan-trial" type="number" min="0" max="365" step="1" value="0"></label><label>Credits per cycle<input id="paypal-plan-credits" type="number" min="0" step="1" value="1000"></label></div>
+<button class="primary" id="paypal-plan-create" type="submit">Create PayPal Plan</button><div id="paypal-plan-result" class="result" role="status" aria-live="polite"></div>
+</form></section>
+</main><script src="/admin/script.js"></script>
+</body></html>
