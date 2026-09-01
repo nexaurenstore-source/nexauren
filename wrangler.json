@@ -9,7 +9,9 @@
     "head_sampling_rate": 1
   },
   "vars": {
-    "PAYMENT_PROVIDER": "flutterwave"
+    "PAYMENT_PROVIDER": "paypal",
+    "PAYPAL_ENVIRONMENT": "sandbox",
+    "PAYMENT_BRAND_NAME": "Nexauren"
   },
   "build": {
     "command": "node scripts/build-worker.mjs && node scripts/worker/blog-route-patch.mjs && node scripts/worker/blog-category-route-patch.mjs",
