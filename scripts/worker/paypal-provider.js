@@ -1,4 +1,4 @@
-/* Nexauren PayPal provider — Sandbox/Live REST authentication.
+/* Nexauren PayPal provider — Orders v2 / Sandbox.
  * Secrets are read exclusively from Cloudflare Worker env bindings.
  */
 
@@ -12,16 +12,13 @@ function paypalBaseUrl(env) {
 }
 
 function requirePaypalCredentials(env) {
-  if (!env?.PAYPAL_CLIENT_ID || !env?.PAYPAL_CLIENT_SECRET) {
-    throw new Error('PayPal credentials are not configured');
-  }
+  if (!env?.PAYPAL_CLIENT_ID || !env?.PAYPAL_CLIENT_SECRET) throw new Error('PayPal credentials are not configured');
 }
 
 async function paypalAccessToken(env) {
   requirePaypalCredentials(env);
   const credentials = `${env.PAYPAL_CLIENT_ID}:${env.PAYPAL_CLIENT_SECRET}`;
   const basic = btoa(credentials);
-
   const response = await fetch(`${paypalBaseUrl(env)}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
@@ -32,12 +29,7 @@ async function paypalAccessToken(env) {
     },
     body: 'grant_type=client_credentials',
   });
-
-  if (!response.ok) {
-    // Never expose PayPal credentials or the response body in application errors/logs.
-    throw new Error(`PayPal OAuth failed (${response.status})`);
-  }
-
+  if (!response.ok) throw new Error(`PayPal OAuth failed (${response.status})`);
   const data = await response.json();
   if (!data?.access_token) throw new Error('PayPal OAuth returned no access token');
   return data.access_token;
@@ -48,13 +40,104 @@ async function paypalApi(env, path, options = {}) {
   const headers = new Headers(options.headers || {});
   headers.set('Authorization', `Bearer ${token}`);
   headers.set('Accept', 'application/json');
-  if (options.body != null && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
+  if (options.body != null && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  return fetch(`${paypalBaseUrl(env)}${path}`, { ...options, headers });
+}
 
-  return fetch(`${paypalBaseUrl(env)}${path}`, {
-    ...options,
-    headers,
+async function paypalJson(response) {
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+  if (!response.ok) throw new Error(`PayPal API error (${response.status})`);
+  return data;
+}
+
+function paypalMoney(product) {
+  const minor = Number(product?.price_minor);
+  if (!Number.isSafeInteger(minor) || minor < 0) throw new Error('Invalid product price.');
+  const currency = String(product?.currency || '').toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) throw new Error('Invalid product currency.');
+  return { currency_code: currency, value: (minor / 100).toFixed(2) };
+}
+
+function paypalReturnUrl(request, reference) {
+  const origin = new URL(request.url).origin;
+  const configured = String(request?.cf?.paypalReturnUrl || '').trim();
+  const url = configured || new URL('/payment/success', origin).toString();
+  const result = new URL(url);
+  result.searchParams.set('reference', reference);
+  return result.toString();
+}
+
+async function paypalCreateOrder({ env, request, user, reference, product }) {
+  const amount = paypalMoney(product);
+  const origin = new URL(request.url).origin;
+  const returnUrl = new URL('/payment/success', origin);
+  returnUrl.searchParams.set('reference', reference);
+  const cancelUrl = new URL('/payment/success', origin);
+  cancelUrl.searchParams.set('reference', reference);
+  cancelUrl.searchParams.set('status', 'cancelled');
+  const payload = {
+    intent: 'CAPTURE',
+    purchase_units: [{
+      reference_id: reference.slice(0, 64),
+      custom_id: reference.slice(0, 127),
+      invoice_id: reference.slice(0, 127),
+      description: String(product?.name || 'Nexauren purchase').slice(0, 127),
+      amount,
+    }],
+    application_context: {
+      brand_name: String(env.PAYMENT_BRAND_NAME || 'Nexauren').slice(0, 127),
+      user_action: 'PAY_NOW',
+      return_url: returnUrl.toString(),
+      cancel_url: cancelUrl.toString(),
+      shipping_preference: 'NO_SHIPPING',
+    },
+  };
+  const response = await paypalApi(env, '/v2/checkout/orders', {
+    method: 'POST',
+    headers: { 'PayPal-Request-Id': reference.slice(0, 25) },
+    body: JSON.stringify(payload),
+  });
+  const data = await paypalJson(response);
+  if (!data?.id || data?.status !== 'CREATED') throw new Error('PayPal order was not created.');
+  const approve = (data.links || []).find(link => link.rel === 'payer-action' || link.rel === 'approve');
+  if (!approve?.href) throw new Error('PayPal approval link was not returned.');
+  return { url: approve.href, order_id: String(data.id), transaction_id: String(data.id), mode: 'payment' };
+}
+
+async function paypalCaptureOrder({ env, orderId }) {
+  if (!orderId) throw new Error('PayPal order ID is required.');
+  const response = await paypalApi(env, `/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
+    method: 'POST',
+    headers: { 'PayPal-Request-Id': `capture-${String(orderId).slice(0, 18)}` },
+    body: '{}',
+  });
+  const data = await paypalJson(response);
+  if (data?.status !== 'COMPLETED') throw new Error('PayPal order was not completed.');
+  return data;
+}
+
+async function paypalGetOrder({ env, orderId }) {
+  if (!orderId) throw new Error('PayPal order ID is required.');
+  return paypalJson(await paypalApi(env, `/v2/checkout/orders/${encodeURIComponent(orderId)}`, { method: 'GET' }));
+}
+
+async function paypalCreateCheckout({ env, request, user, reference, product, productType }) {
+  if (productType !== 'credit_purchase') throw new Error('PayPal subscription checkout is not enabled yet.');
+  return paypalCreateOrder({ env, request, user, reference, product });
+}
+
+async function paypalCaptureCheckout({ env, orderId }) {
+  return paypalCaptureOrder({ env, orderId });
+}
+
+function createPayPalProvider() {
+  return Object.freeze({
+    name: 'paypal',
+    createCheckout: paypalCreateCheckout,
+    captureCheckout: paypalCaptureCheckout,
+    getOrder: paypalGetOrder,
   });
 }
 
