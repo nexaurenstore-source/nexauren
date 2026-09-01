@@ -13,7 +13,7 @@ source = source.replace(oldHash, newHash);
 const loginMarker = `async function login(r, e) {\n`;
 if (!source.includes(loginMarker)) throw new Error('[auth] login function marker not found. Build stopped.');
 
-const throttleFunctions = `\nconst ensureAuthThrottleSchema = async (e) => {\n  await e.DB.batch([\n    e.DB.prepare('CREATE TABLE IF NOT EXISTS auth_login_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT,email TEXT NOT NULL,ip_hash TEXT NOT NULL,success INTEGER NOT NULL DEFAULT 0,created_at INTEGER NOT NULL)'),\n    e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_email_time ON auth_login_attempts(email,created_at DESC)'),\n    e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_ip_time ON auth_login_attempts(ip_hash,created_at DESC)'),\n  ]);\n};\n\nconst getClientIpHash = async (r) => sha256(r.headers.get('CF-Connecting-IP') || r.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown');\n`;
+const throttleFunctions = `\nconst ensureAuthThrottleSchema = async (e) => {\n  await e.DB.batch([\n    e.DB.prepare('CREATE TABLE IF NOT EXISTS auth_login_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT,email TEXT NOT NULL,ip_hash TEXT NOT NULL,success INTEGER NOT NULL DEFAULT 0,created_at INTEGER NOT NULL)'),\n    e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_email_time ON auth_login_attempts(email,created_at DESC)'),\n    e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_auth_login_attempts_ip_time ON auth_login_attempts(ip_hash,created_at DESC)'),\n    e.DB.prepare('CREATE TABLE IF NOT EXISTS admin_user_blocks (user_id TEXT PRIMARY KEY,blocked_at INTEGER NOT NULL,blocked_until INTEGER)'),\n    e.DB.prepare('CREATE INDEX IF NOT EXISTS idx_admin_user_blocks_until ON admin_user_blocks(blocked_until)'),\n  ]);\n};\n\nconst getClientIpHash = async (r) => sha256(r.headers.get('CF-Connecting-IP') || r.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown');\n`;
 if (!source.includes('const ensureAuthThrottleSchema = async')) {
   source = source.replace(loginMarker, throttleFunctions + '\n' + loginMarker, 1);
 }
@@ -26,7 +26,7 @@ if (!source.includes(loginHardenedStart)) {
 }
 
 const queryNeedle = `  const u = await e.DB\n    .prepare(\n      'SELECT id,email,username,password_hash FROM users ' +\n        'WHERE email=?1 LIMIT 1',\n    )\n    .bind(email)\n    .first();`;
-const queryReplacement = `${queryNeedle}\n\n  const validPassword = !!u && !(await e.DB.prepare('SELECT 1 FROM admin_user_blocks WHERE user_id=?1 AND (blocked_until IS NULL OR blocked_until>?2) LIMIT 1').bind(u.id, throttleNow).first()) && await passwordVerify(password, u.password_hash);\n  await e.DB.prepare('INSERT INTO auth_login_attempts (email,ip_hash,success,created_at) VALUES (?1,?2,?3,?4)').bind(email, ipHash, validPassword ? 1 : 0, throttleNow).run();`;
+const queryReplacement = `${queryNeedle}\n\n  let blocked = false;\n  if (u) {\n    try {\n      blocked = !!(await e.DB.prepare('SELECT 1 FROM admin_user_blocks WHERE user_id=?1 AND (blocked_until IS NULL OR blocked_until>?2) LIMIT 1').bind(u.id, throttleNow).first());\n    } catch (err) {\n      console.error('[auth] admin block lookup failed; continuing with normal authentication', err);\n    }\n  }\n  const validPassword = !!u && !blocked && await passwordVerify(password, u.password_hash);\n  await e.DB.prepare('INSERT INTO auth_login_attempts (email,ip_hash,success,created_at) VALUES (?1,?2,?3,?4)').bind(email, ipHash, validPassword ? 1 : 0, throttleNow).run();`;
 if (!source.includes(queryReplacement)) {
   if (!source.includes(queryNeedle)) throw new Error('[auth] login query marker not found. Build stopped.');
   source = source.replace(queryNeedle, queryReplacement, 1);
@@ -48,3 +48,5 @@ source = source.slice(0, successIndex) + loginSuccessMarker + source.slice(succe
 
 await writeFile(output, source, 'utf8');
 console.log('[auth] PBKDF2 password hashing, legacy upgrade, constant-time verification and login throttling applied.');
+console.log('[auth] Admin user block schema is now ensured before login checks.');
+console.log('[auth] Missing admin block state cannot take authentication offline.');
