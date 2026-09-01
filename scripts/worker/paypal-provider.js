@@ -104,6 +104,54 @@ async function paypalSubscriptionAction({ env, subscriptionId, action }) {
   return true;
 }
 
+function paypalCrc32Decimal(raw) {
+  const bytes = new TextEncoder().encode(raw);
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+function readDerLength(bytes, offset) {
+  const first = bytes[offset++];
+  if (first < 0x80) return { length: first, offset };
+  const count = first & 0x7f;
+  if (!count || count > 4 || offset + count > bytes.length) throw new Error('Invalid PayPal certificate DER length.');
+  let length = 0;
+  for (let i = 0; i < count; i++) length = (length * 256) + bytes[offset++];
+  return { length, offset };
+}
+function readDerTlv(bytes, offset) {
+  if (offset >= bytes.length) throw new Error('Invalid PayPal certificate DER.');
+  const tag = bytes[offset++];
+  const parsed = readDerLength(bytes, offset);
+  const start = parsed.offset;
+  const end = start + parsed.length;
+  if (end > bytes.length) throw new Error('Invalid PayPal certificate DER bounds.');
+  return { tag, start, end, next: end };
+}
+function certificateToSpki(pem) {
+  const normalized = String(pem || '').replace(/\s+/g, '');
+  const base64 = normalized.replace(/^.*?BEGINCERTIFICATE/, '').replace(/ENDCERTIFICATE.*$/, '');
+  if (!base64) throw new Error('PayPal certificate is empty.');
+  const der = Uint8Array.from(atob(base64), char => char.charCodeAt(0));
+  const cert = readDerTlv(der, 0);
+  if (cert.tag !== 0x30) throw new Error('Invalid PayPal X.509 certificate.');
+  const tbs = readDerTlv(der, cert.start);
+  if (tbs.tag !== 0x30) throw new Error('Invalid PayPal certificate TBS.');
+  let p = tbs.start;
+  const versionOrSerial = readDerTlv(der, p);
+  p = versionOrSerial.next;
+  if (versionOrSerial.tag === 0xa0) p = readDerTlv(der, p).next;
+  p = readDerTlv(der, p).next;
+  p = readDerTlv(der, p).next;
+  p = readDerTlv(der, p).next;
+  p = readDerTlv(der, p).next;
+  const spki = readDerTlv(der, p);
+  if (spki.tag !== 0x30) throw new Error('PayPal certificate public key is missing.');
+  return der.slice(p, spki.next);
+}
 async function paypalVerifyWebhook({ env, request, raw }) {
   const webhookId = clean(env.PAYPAL_WEBHOOK_ID);
   const transmissionId = clean(request.headers.get('paypal-transmission-id'));
@@ -112,9 +160,22 @@ async function paypalVerifyWebhook({ env, request, raw }) {
   const authAlgo = clean(request.headers.get('paypal-auth-algo')) || 'SHA256withRSA';
   const transmissionSig = clean(request.headers.get('paypal-transmission-sig'));
   if (!webhookId || !transmissionId || !transmissionTime || !certUrl || !transmissionSig) throw new Error('PayPal webhook verification is not configured.');
-  const response = await paypalApi(env, '/v1/notifications/verify-webhook-signature', { method: 'POST', body: JSON.stringify({ transmission_id: transmissionId, transmission_time: transmissionTime, cert_url: certUrl, auth_algo: authAlgo, transmission_sig: transmissionSig, webhook_id: webhookId, webhook_event: JSON.parse(raw) }) });
-  const result = await paypalJson(response);
-  if (result?.verification_status !== 'SUCCESS') throw new Error('PayPal webhook signature verification failed.');
+  if (authAlgo !== 'SHA256withRSA') throw new Error(`Unsupported PayPal webhook algorithm: ${authAlgo}`);
+  const transmittedAt = Date.parse(transmissionTime);
+  if (!Number.isFinite(transmittedAt) || Math.abs(Date.now() - transmittedAt) > 10 * 60 * 1000) throw new Error('PayPal webhook timestamp is outside the allowed window.');
+  const cert = new URL(certUrl);
+  const expectedHost = String(env?.PAYPAL_ENVIRONMENT || 'sandbox').toLowerCase() === 'live' ? 'api-m.paypal.com' : 'api-m.sandbox.paypal.com';
+  if (cert.protocol !== 'https:' || cert.hostname !== expectedHost || !cert.pathname.includes('/v1/notifications/certs/')) throw new Error('Untrusted PayPal webhook certificate URL.');
+  const crc = paypalCrc32Decimal(raw);
+  const signedMessage = `${transmissionId}|${transmissionTime}|${webhookId}|${crc}`;
+  const certificateResponse = await fetch(cert.toString(), { method: 'GET', headers: { Accept: 'application/x-pem-file,text/plain,*/*' } });
+  if (!certificateResponse.ok) throw new Error(`PayPal webhook certificate fetch failed (${certificateResponse.status}).`);
+  const certificatePem = await certificateResponse.text();
+  const spki = certificateToSpki(certificatePem);
+  const publicKey = await crypto.subtle.importKey('spki', spki, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  const signature = Uint8Array.from(atob(transmissionSig), char => char.charCodeAt(0));
+  const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', publicKey, signature, new TextEncoder().encode(signedMessage));
+  if (!valid) throw new Error('PayPal webhook signature verification failed.');
   return true;
 }
 
@@ -160,8 +221,6 @@ async function paypalHandleWebhook({ request, env }) {
     const now = Math.floor(Date.now() / 1000);
     await env.DB.prepare('UPDATE subscriptions SET status=?1,start_date=?2,next_billing_date=?3,current_period_start=?4,current_period_end=?5,updated_at=?6 WHERE id=?7').bind(status, start, next, start, next, now, local.id).run();
     await env.DB.prepare('UPDATE billing_accounts SET plan_id=?1,updated_at=?2 WHERE user_id=?3').bind(local.plan_id, now, local.user_id).run();
-    // Activation synchronizes the local subscription only. Credits are granted by
-    // PAYMENT.SALE.COMPLETED after PayPal confirms the actual charge.
     return json({ received: true, processed: true }, 200, cors(request));
   }
 
@@ -175,8 +234,6 @@ async function paypalHandleWebhook({ request, env }) {
     if (!plan) throw new Error('Subscription plan not found.');
     const verifiedAmountMinor = amount > 0 ? Math.round(amount * 100) : Number(plan.price_minor);
     const verifiedCurrency = currency || String(plan.currency).toUpperCase();
-    // The billing-webhooks wrapper owns recurring crediting so that there is one
-    // authoritative path and one idempotency key for each PayPal sale.
     if (!end) return json({ received: true, processed: true, pending_cycle: true }, 200, cors(request));
     return json({ received: true, processed: true, payment_amount_minor: verifiedAmountMinor, currency: verifiedCurrency }, 200, cors(request));
   }
