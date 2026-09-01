@@ -20,8 +20,23 @@
 <article><span>Notifications</span><strong id="notifications">—</strong></article>
 </section>
 <section class="panel"><div class="panel-head"><h2>Admin sections</h2></div><nav class="grid-nav">
-<a href="/admin/users/">Users</a><a href="#">Activity</a><a href="#">Tools</a><a href="#">Forms</a><a href="#">Responses</a><a href="#">Reviews</a><a href="#">Notifications</a><a href="#">Announcements</a><a href="#">Statistics</a><a href="#">Settings</a>
+<a href="/admin/users/">Users</a><a href="#">Activity</a><a href="#">Tools</a><a href="#">Forms</a><a href="#">Responses</a><a href="#">Reviews</a><a href="#">Notifications</a><a href="#">Announcements</a><a href="#">Statistics</a><a href="#">Settings</a><a class="paypal-link" href="#paypal-products">PayPal Products</a>
 </nav></section>
+<section class="panel paypal-panel" id="paypal-products">
+<div class="panel-head"><h2>PayPal Products</h2><p>Create a PayPal catalog product securely from the admin dashboard.</p></div>
+<form id="paypal-product-form" class="product-form">
+<label>Name<input id="paypal-name" name="name" maxlength="127" required placeholder="Nexauren Pro"></label>
+<label>Description<textarea id="paypal-description" name="description" maxlength="256" placeholder="Digital service or subscription product"></textarea></label>
+<div class="form-row">
+<label>Type<select id="paypal-type" name="type"><option value="SERVICE">Service</option><option value="DIGITAL">Digital</option></select></label>
+<label>Category<input id="paypal-category" name="category" value="SOFTWARE" maxlength="256"></label>
+</div>
+<label>Image URL <span class="muted">(optional)</span><input id="paypal-image" name="image_url" type="url" placeholder="https://…"></label>
+<label>Product URL <span class="muted">(optional)</span><input id="paypal-home" name="home_url" type="url" placeholder="https://nexaurenstory.com/…"></label>
+<button class="primary" id="paypal-create" type="submit">Create PayPal Product</button>
+<div id="paypal-result" class="result" role="status" aria-live="polite"></div>
+</form>
+</section>
 </main>
 <script src="/admin/script.js"></script>
 </body>
