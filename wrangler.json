@@ -12,7 +12,7 @@
     "PAYMENT_PROVIDER": "flutterwave"
   },
   "build": {
-    "command": "node scripts/build-worker.mjs && node scripts/worker/blog-route-patch.mjs",
+    "command": "node scripts/build-worker.mjs && node scripts/worker/blog-route-patch.mjs && node scripts/worker/blog-category-route-patch.mjs",
     "watch_dir": ["worker.js", "scripts", "frontend"]
   },
   "assets": {
