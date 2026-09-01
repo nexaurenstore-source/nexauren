@@ -1,9 +1,12 @@
-/* NEXAUREN SUBSCRIPTION LIFECYCLE v4 */
+/* NEXAUREN SUBSCRIPTION LIFECYCLE v5 */
 
 function billingCycleSeconds(interval, from) {
   const start = new Date(Number(from) * 1000);
-  if (interval === 'year' || interval === 'yearly') start.setUTCFullYear(start.getUTCFullYear() + 1);
-  else if (interval === 'quarter' || interval === 'quarterly') start.setUTCMonth(start.getUTCMonth() + 3);
+  const unit = String(interval || 'month').toLowerCase();
+  if (unit === 'day') start.setUTCDate(start.getUTCDate() + 1);
+  else if (unit === 'week') start.setUTCDate(start.getUTCDate() + 7);
+  else if (unit === 'quarter' || unit === 'quarterly') start.setUTCMonth(start.getUTCMonth() + 3);
+  else if (unit === 'year' || unit === 'yearly') start.setUTCFullYear(start.getUTCFullYear() + 1);
   else start.setUTCMonth(start.getUTCMonth() + 1);
   return Math.floor(start.getTime() / 1000);
 }
@@ -34,16 +37,20 @@ async function billingProcessSubscriptionCycle(e, { provider, subscriptionId, pr
   ).bind(subscriptionId).first();
   if (!sub) throw new Error('Subscription not found.');
   if (sub.status !== 'active' && sub.status !== 'past_due') throw new Error('Subscription is not billable.');
-  if (Number(sub.price_minor) !== Number(amountMinor) || String(sub.currency).toUpperCase() !== String(currency).toUpperCase()) throw new Error('Recurring payment amount mismatch.');
 
   const start = Math.floor(Number(periodStart));
   const end = Math.floor(Number(periodEnd));
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) throw new Error('Invalid subscription period.');
   if (!provider || !providerTransactionId || !reference) throw new Error('Invalid recurring payment identity.');
 
+  const expectedAmount = Number(sub.price_minor);
+  const paidAmount = Number(amountMinor);
+  if (!Number.isSafeInteger(expectedAmount) || expectedAmount < 0 || !Number.isSafeInteger(paidAmount) || paidAmount < 0) throw new Error('Invalid recurring payment amount.');
+  if (expectedAmount !== paidAmount || String(sub.currency).toUpperCase() !== String(currency).toUpperCase()) throw new Error('Recurring payment amount mismatch.');
+
   const cycleKey = `${start}:${end}`;
   const creditReference = `subscription-cycle:${sub.id}:${cycleKey}`;
-  const cycleId = uuid();
+  const cycleId = `subscription-cycle:${sub.id}:${cycleKey}`;
   const now = Math.floor(Date.now() / 1000);
 
   const existingCycle = await e.DB.prepare(
@@ -54,73 +61,44 @@ async function billingProcessSubscriptionCycle(e, { provider, subscriptionId, pr
   const existingPayment = await e.DB.prepare(
     'SELECT id,status FROM payments WHERE provider=?1 AND provider_transaction_id=?2 LIMIT 1',
   ).bind(clean(provider), String(providerTransactionId)).first();
-
   const paymentId = existingPayment?.id || uuid();
+
+  /*
+   * All ledger mutations are in one D1 batch. This prevents the dangerous state
+   * where credits were inserted but the cycle remained pending after a retry.
+   * subscription_cycles has a unique (subscription_id,cycle_key) constraint and
+   * credit_transactions has a unique reference, so concurrent/replayed webhooks
+   * cannot create a second credit grant.
+   */
   const statements = [
-    e.DB.prepare(
-      "INSERT INTO subscription_cycles(id,subscription_id,user_id,cycle_key,period_start,period_end,credits,status,created_at) VALUES(?1,?2,?3,?4,?5,?6,?7,'pending',?8)",
-    ).bind(cycleId, sub.id, sub.user_id, cycleKey, start, end, Number(sub.credits_per_cycle), now),
+    e.DB.prepare("INSERT OR IGNORE INTO subscription_cycles(id,subscription_id,user_id,cycle_key,period_start,period_end,credits,status,credit_transaction_id,created_at,processed_at) VALUES(?1,?2,?3,?4,?5,?6,?7,'credited',?8,?9,?9)").bind(cycleId, sub.id, sub.user_id, cycleKey, start, end, Number(sub.credits_per_cycle), null, now),
   ];
 
   if (!existingPayment) {
     statements.push(
-      e.DB.prepare(
-        "INSERT INTO payments(id,user_id,provider,provider_transaction_id,reference,amount_minor,currency,status,type,metadata,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,'successful','subscription',?8,?9,?9)",
-      ).bind(paymentId, sub.user_id, clean(provider), String(providerTransactionId), reference, Number(amountMinor), currency, JSON.stringify({ subscription_id: sub.id, cycle_key: cycleKey }), now),
+      e.DB.prepare("INSERT INTO payments(id,user_id,provider,provider_transaction_id,reference,amount_minor,currency,status,type,metadata,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,'successful','subscription',?8,?9,?9)").bind(paymentId, sub.user_id, clean(provider), String(providerTransactionId), reference, paidAmount, String(currency).toUpperCase(), JSON.stringify({ subscription_id: sub.id, cycle_key: cycleKey }), now),
     );
+  } else if (String(existingPayment.status) !== 'successful') {
+    statements.push(e.DB.prepare("UPDATE payments SET status='successful',amount_minor=?1,currency=?2,updated_at=?3 WHERE id=?4").bind(paidAmount, String(currency).toUpperCase(), now, paymentId));
   }
 
+  const transactionId = uuid();
   statements.push(
-    e.DB.prepare(
-      "INSERT INTO credit_transactions(id,user_id,amount,type,description,reference,payment_id,created_at) VALUES(?1,?2,?3,'subscription',?4,?5,?6,?7)",
-    ).bind(uuid(), sub.user_id, Number(sub.credits_per_cycle), `Subscription renewal: ${sub.plan_id}`, creditReference, paymentId, now),
-    e.DB.prepare(
-      'INSERT OR IGNORE INTO credit_balances(user_id,balance,updated_at) VALUES(?1,0,?2)',
-    ).bind(sub.user_id, now),
-    e.DB.prepare(
-      'UPDATE credit_balances SET balance=(SELECT COALESCE(SUM(amount),0) FROM credit_transactions WHERE user_id=?1),updated_at=?2 WHERE user_id=?1',
-    ).bind(sub.user_id, now),
+    e.DB.prepare("INSERT OR IGNORE INTO credit_transactions(id,user_id,amount,type,description,reference,payment_id,created_at) VALUES(?1,?2,?3,'subscription',?4,?5,?6,?7)").bind(transactionId, sub.user_id, Number(sub.credits_per_cycle), `Subscription cycle: ${sub.plan_id}`, creditReference, paymentId, now),
+    e.DB.prepare('INSERT OR IGNORE INTO credit_balances(user_id,balance,updated_at) VALUES(?1,0,?2)').bind(sub.user_id, now),
+    e.DB.prepare('UPDATE credit_balances SET balance=(SELECT COALESCE(SUM(amount),0) FROM credit_transactions WHERE user_id=?1),updated_at=?2 WHERE user_id=?1').bind(sub.user_id, now),
   );
 
-  const next = Number(sub.cancel_at_period_end) === 1 ? end : billingCycleSeconds(sub.billing_interval, end);
   const final = Number(sub.cancel_at_period_end) === 1;
-
+  const next = final ? end : billingCycleSeconds(sub.billing_interval, end);
   statements.push(
-    e.DB.prepare(
-      "UPDATE subscriptions SET current_period_start=?1,current_period_end=?2,next_billing_date=?3,status=?4,cancelled_at=?5,updated_at=?6 WHERE id=?7",
-    ).bind(start, end, next, final ? 'cancelled' : 'active', final ? now : null, now, sub.id),
-    e.DB.prepare(
-      'UPDATE billing_accounts SET plan_id=?1,updated_at=?2 WHERE user_id=?3',
-    ).bind(final ? 'free' : sub.plan_id, now, sub.user_id),
+    e.DB.prepare("UPDATE subscription_cycles SET credit_transaction_id=COALESCE((SELECT id FROM credit_transactions WHERE reference=?1 LIMIT 1),?2),status='credited',processed_at=?3 WHERE subscription_id=?4 AND cycle_key=?5").bind(creditReference, transactionId, now, sub.id, cycleKey),
+    e.DB.prepare("UPDATE subscriptions SET current_period_start=?1,current_period_end=?2,next_billing_date=?3,status=?4,cancelled_at=?5,updated_at=?6 WHERE id=?7").bind(start, end, next, final ? 'cancelled' : 'active', final ? now : null, now, sub.id),
+    e.DB.prepare('UPDATE billing_accounts SET plan_id=?1,updated_at=?2 WHERE user_id=?3').bind(final ? 'free' : sub.plan_id, now, sub.user_id),
   );
 
-  try {
-    await e.DB.batch(statements);
-  } catch (error) {
-    const committedCycle = await e.DB.prepare(
-      'SELECT id,status,credit_transaction_id FROM subscription_cycles WHERE subscription_id=?1 AND cycle_key=?2 LIMIT 1',
-    ).bind(sub.id, cycleKey).first();
-    if (committedCycle) return { processed: false, idempotent: true, cycle: committedCycle };
+  await e.DB.batch(statements);
 
-    const committedPayment = await e.DB.prepare(
-      'SELECT id FROM payments WHERE provider=?1 AND provider_transaction_id=?2 LIMIT 1',
-    ).bind(clean(provider), String(providerTransactionId)).first();
-    if (committedPayment) {
-      const retryCycle = await e.DB.prepare(
-        'SELECT id,status,credit_transaction_id FROM subscription_cycles WHERE subscription_id=?1 AND cycle_key=?2 LIMIT 1',
-      ).bind(sub.id, cycleKey).first();
-      if (retryCycle) return { processed: false, idempotent: true, cycle: retryCycle };
-    }
-    throw error;
-  }
-
-  const tx = await e.DB.prepare(
-    'SELECT id FROM credit_transactions WHERE reference=?1 LIMIT 1',
-  ).bind(creditReference).first();
-
-  await e.DB.prepare(
-    "UPDATE subscription_cycles SET status='credited',credit_transaction_id=?1,processed_at=?2 WHERE id=?3",
-  ).bind(tx?.id || null, now, cycleId).run();
-
-  return { processed: true, idempotent: false, cycle_id: cycleId, credit_transaction_id: tx?.id || null };
+  const cycle = await e.DB.prepare('SELECT id,status,credit_transaction_id FROM subscription_cycles WHERE subscription_id=?1 AND cycle_key=?2 LIMIT 1').bind(sub.id, cycleKey).first();
+  return { processed: true, idempotent: false, cycle_id: cycle?.id || cycleId, credit_transaction_id: cycle?.credit_transaction_id || transactionId };
 }
