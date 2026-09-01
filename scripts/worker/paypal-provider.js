@@ -67,7 +67,116 @@ function paypalMoney(product) { const minor = Number(product?.price_minor); if (
 async function paypalCreateOrder({ env, request, user, reference, product }) { const amount = paypalMoney(product); const origin = new URL(request.url).origin; const returnUrl = new URL('/payment/success', origin); returnUrl.searchParams.set('reference', reference); const cancelUrl = new URL('/payment/success', origin); cancelUrl.searchParams.set('reference', reference); cancelUrl.searchParams.set('status', 'cancelled'); const payload = { intent: 'CAPTURE', purchase_units: [{ reference_id: reference.slice(0, 64), custom_id: reference.slice(0, 127), invoice_id: reference.slice(0, 127), description: String(product?.name || 'Nexauren purchase').slice(0, 127), amount }], application_context: { brand_name: String(env.PAYMENT_BRAND_NAME || 'Nexauren').slice(0, 127), user_action: 'PAY_NOW', return_url: returnUrl.toString(), cancel_url: cancelUrl.toString(), shipping_preference: 'NO_SHIPPING' } }; const data = await paypalJson(await paypalApi(env, '/v2/checkout/orders', { method: 'POST', headers: { 'PayPal-Request-Id': reference.slice(0, 25) }, body: JSON.stringify(payload) })); if (!data?.id || data?.status !== 'CREATED') throw new Error('PayPal order was not created.'); const approve = (data.links || []).find(link => link.rel === 'payer-action' || link.rel === 'approve'); if (!approve?.href) throw new Error('PayPal approval link was not returned.'); return { url: approve.href, order_id: String(data.id), transaction_id: String(data.id), mode: 'payment' }; }
 async function paypalCaptureOrder({ env, orderId }) { if (!orderId) throw new Error('PayPal order ID is required.'); const data = await paypalJson(await paypalApi(env, `/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, { method: 'POST', headers: { 'PayPal-Request-Id': `capture-${String(orderId).slice(0, 18)}` }, body: '{}' })); if (data?.status !== 'COMPLETED') throw new Error('PayPal order was not completed.'); return data; }
 async function paypalGetOrder({ env, orderId }) { if (!orderId) throw new Error('PayPal order ID is required.'); return paypalJson(await paypalApi(env, `/v2/checkout/orders/${encodeURIComponent(orderId)}`, { method: 'GET' })); }
-async function paypalCreateCheckout({ env, request, user, reference, product, productType }) { if (productType !== 'credit_purchase') throw new Error('PayPal subscription checkout is not enabled yet.'); return paypalCreateOrder({ env, request, user, reference, product }); }
+
+async function paypalCreateSubscription({ env, request, user, reference, product }) {
+  const planId = clean(product?.paypal_plan_id);
+  if (!planId) throw new Error('PayPal subscription plan ID is missing.');
+  const origin = new URL(request.url).origin;
+  const returnUrl = new URL('/payment/success', origin);
+  returnUrl.searchParams.set('reference', reference);
+  returnUrl.searchParams.set('type', 'subscription');
+  const cancelUrl = new URL('/payment/success', origin);
+  cancelUrl.searchParams.set('reference', reference);
+  cancelUrl.searchParams.set('status', 'cancelled');
+  cancelUrl.searchParams.set('type', 'subscription');
+  const payload = {
+    plan_id: planId,
+    quantity: '1',
+    application_context: {
+      brand_name: String(env.PAYMENT_BRAND_NAME || 'Nexauren').slice(0, 127),
+      user_action: 'SUBSCRIBE_NOW',
+      shipping_preference: 'NO_SHIPPING',
+      return_url: returnUrl.toString(),
+      cancel_url: cancelUrl.toString(),
+    },
+  };
+  const data = await paypalJson(await paypalApi(env, '/v1/billing/subscriptions', { method: 'POST', headers: { 'PayPal-Request-Id': reference.slice(0, 25) }, body: JSON.stringify(payload) }));
+  if (!data?.id) throw new Error('PayPal subscription was not created.');
+  const approve = (data.links || []).find(link => link.rel === 'approve');
+  if (!approve?.href) throw new Error('PayPal subscription approval link was not returned.');
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB.prepare("INSERT INTO subscriptions(id,user_id,provider,provider_subscription_id,plan_id,status,start_date,next_billing_date,cancelled_at,created_at,updated_at) VALUES(?1,?2,'paypal',?3,?4,'pending',?5,NULL,NULL,?5,?5)").bind(uuid(), user.id, String(data.id), clean(product.id), now).run();
+  return { url: approve.href, subscription_id: String(data.id), transaction_id: String(data.id), mode: 'subscription', status: String(data.status || 'APPROVAL_PENDING') };
+}
+
+async function paypalGetSubscription({ env, subscriptionId }) { if (!subscriptionId) throw new Error('PayPal subscription ID is required.'); return paypalJson(await paypalApi(env, `/v1/billing/subscriptions/${encodeURIComponent(subscriptionId)}`, { method: 'GET' })); }
+async function paypalSubscriptionAction({ env, subscriptionId, action }) {
+  if (!subscriptionId) throw new Error('PayPal subscription ID is required.');
+  const map = { cancel: ['cancel', { reason: 'Cancelled by subscriber.' }], suspend: ['suspend', { reason: 'Suspended by Nexauren.' }], resume: ['activate', { reason: 'Resumed by subscriber.' }] };
+  const item = map[action]; if (!item) throw new Error('Unsupported PayPal subscription action.');
+  const response = await paypalApi(env, `/v1/billing/subscriptions/${encodeURIComponent(subscriptionId)}/${item[0]}`, { method: 'POST', body: JSON.stringify(item[1]) });
+  if (!response.ok && response.status !== 204) await paypalJson(response);
+  return true;
+}
+
+async function paypalVerifyWebhook({ env, request, raw }) {
+  const webhookId = clean(env.PAYPAL_WEBHOOK_ID);
+  const transmissionId = clean(request.headers.get('paypal-transmission-id'));
+  const transmissionTime = clean(request.headers.get('paypal-transmission-time'));
+  const certUrl = clean(request.headers.get('paypal-cert-url'));
+  const authAlgo = clean(request.headers.get('paypal-auth-algo')) || 'SHA256withRSA';
+  const transmissionSig = clean(request.headers.get('paypal-transmission-sig'));
+  if (!webhookId || !transmissionId || !transmissionTime || !certUrl || !transmissionSig) throw new Error('PayPal webhook verification is not configured.');
+  const response = await paypalApi(env, '/v1/notifications/verify-webhook-signature', { method: 'POST', body: JSON.stringify({ transmission_id: transmissionId, transmission_time: transmissionTime, cert_url: certUrl, auth_algo: authAlgo, transmission_sig: transmissionSig, webhook_id: webhookId, webhook_event: JSON.parse(raw) }) });
+  const result = await paypalJson(response);
+  if (result?.verification_status !== 'SUCCESS') throw new Error('PayPal webhook signature verification failed.');
+  return true;
+}
+
+async function paypalHandleWebhook({ request, env }) {
+  const raw = await request.clone().text();
+  await paypalVerifyWebhook({ env, request, raw });
+  const event = JSON.parse(raw);
+  const type = clean(event?.event_type);
+  const resource = event?.resource || {};
+  const subscriptionId = clean(resource?.id || resource?.billing_agreement_id || resource?.supplementary_data?.related_ids?.billing_agreement_id);
+  const providerSubscriptionId = type.startsWith('BILLING.SUBSCRIPTION.') ? clean(resource?.id) : subscriptionId;
+  if (!providerSubscriptionId) return json({ received: true, ignored: true }, 200, cors(request));
+
+  const local = await env.DB.prepare('SELECT id,user_id,plan_id,status FROM subscriptions WHERE provider=\'paypal\' AND provider_subscription_id=?1 LIMIT 1').bind(providerSubscriptionId).first();
+  if (!local) return json({ received: true, ignored: true }, 200, cors(request));
+
+  if (type === 'BILLING.SUBSCRIPTION.ACTIVATED' || type === 'BILLING.SUBSCRIPTION.UPDATED') {
+    const details = await paypalGetSubscription({ env, subscriptionId: providerSubscriptionId });
+    const status = String(details?.status || '').toLowerCase() === 'active' ? 'active' : 'pending';
+    const start = Math.floor(new Date(details?.start_time || resource?.start_time || Date.now()).getTime() / 1000);
+    const next = details?.billing_info?.next_billing_time ? Math.floor(new Date(details.billing_info.next_billing_time).getTime() / 1000) : null;
+    const now = Math.floor(Date.now() / 1000);
+    await env.DB.prepare('UPDATE subscriptions SET status=?1,start_date=?2,next_billing_date=?3,updated_at=?4 WHERE id=?5').bind(status, start, next, now, local.id).run();
+    await env.DB.prepare('UPDATE billing_accounts SET plan_id=?1,updated_at=?2 WHERE user_id=?3').bind(local.plan_id, now, local.user_id).run();
+    if (type === 'BILLING.SUBSCRIPTION.ACTIVATED' && typeof billingProcessSubscriptionCycle === 'function' && next && next > start) {
+      const plan = await env.DB.prepare('SELECT price_minor,currency FROM plans WHERE id=?1 LIMIT 1').bind(local.plan_id).first();
+      if (plan) await billingProcessSubscriptionCycle(env, { provider: 'paypal', subscriptionId: local.id, providerTransactionId: `activation:${event.id}`, periodStart: start, periodEnd: next, amountMinor: Number(plan.price_minor), currency: plan.currency, reference: `subscription:${local.id}:${event.id}` });
+    }
+    return json({ received: true, processed: true }, 200, cors(request));
+  }
+
+  if (type === 'PAYMENT.SALE.COMPLETED') {
+    const details = await paypalGetSubscription({ env, subscriptionId: providerSubscriptionId });
+    const start = details?.billing_info?.last_payment?.time ? Math.floor(new Date(details.billing_info.last_payment.time).getTime() / 1000) : Math.floor(new Date(resource?.create_time || Date.now()).getTime() / 1000);
+    const end = details?.billing_info?.next_billing_time ? Math.floor(new Date(details.billing_info.next_billing_time).getTime() / 1000) : null;
+    const amount = Number(resource?.amount?.total || resource?.amount?.value || 0);
+    const currency = String(resource?.amount?.currency || resource?.amount?.currency_code || '').toUpperCase();
+    const plan = await env.DB.prepare('SELECT price_minor,currency FROM plans WHERE id=?1 LIMIT 1').bind(local.plan_id).first();
+    if (end && plan && typeof billingProcessSubscriptionCycle === 'function') await billingProcessSubscriptionCycle(env, { provider: 'paypal', subscriptionId: local.id, providerTransactionId: clean(resource?.id || event.id), periodStart: start, periodEnd: end, amountMinor: Math.round(amount * 100), currency: currency || plan.currency, reference: `subscription:${local.id}:${event.id}` });
+    return json({ received: true, processed: true }, 200, cors(request));
+  }
+
+  const statusMap = { 'BILLING.SUBSCRIPTION.CANCELLED': 'cancelled', 'BILLING.SUBSCRIPTION.EXPIRED': 'expired', 'BILLING.SUBSCRIPTION.SUSPENDED': 'past_due', 'BILLING.SUBSCRIPTION.PAYMENT.FAILED': 'past_due' };
+  if (statusMap[type]) {
+    const now = Math.floor(Date.now() / 1000);
+    await env.DB.prepare('UPDATE subscriptions SET status=?1,cancelled_at=?2,updated_at=?3 WHERE id=?4').bind(statusMap[type], statusMap[type] === 'cancelled' || statusMap[type] === 'expired' ? now : null, now, local.id).run();
+    if (statusMap[type] !== 'past_due') await env.DB.prepare('UPDATE billing_accounts SET plan_id=\'free\',updated_at=?1 WHERE user_id=?2').bind(now, local.user_id).run();
+    return json({ received: true, processed: true }, 200, cors(request));
+  }
+  return json({ received: true, ignored: true }, 200, cors(request));
+}
+
+async function paypalCreateCheckout({ env, request, user, reference, product, productType }) {
+  if (productType === 'subscription') return paypalCreateSubscription({ env, request, user, reference, product });
+  if (productType !== 'credit_purchase') throw new Error('Unsupported PayPal checkout type.');
+  return paypalCreateOrder({ env, request, user, reference, product });
+}
 async function paypalCaptureCheckout({ env, orderId }) { return paypalCaptureOrder({ env, orderId }); }
-function createPayPalProvider() { return Object.freeze({ name: 'paypal', createCheckout: paypalCreateCheckout, captureCheckout: paypalCaptureCheckout, getOrder: paypalGetOrder, createProduct: paypalCreateProduct, createPlan: paypalCreatePlan }); }
+function createPayPalProvider() { return Object.freeze({ name: 'paypal', createCheckout: paypalCreateCheckout, captureCheckout: paypalCaptureCheckout, getOrder: paypalGetOrder, createProduct: paypalCreateProduct, createPlan: paypalCreatePlan, getSubscription: paypalGetSubscription, subscriptionAction: paypalSubscriptionAction, handleWebhook: paypalHandleWebhook }); }
 async function paypalHealthCheck(env) { const token = await paypalAccessToken(env); return { ok: true, environment: String(env?.PAYPAL_ENVIRONMENT || 'sandbox').toLowerCase() === 'live' ? 'live' : 'sandbox', authenticated: Boolean(token) }; }
