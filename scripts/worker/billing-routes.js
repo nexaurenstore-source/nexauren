@@ -61,7 +61,10 @@ if (__billingUrl.pathname === '/api/admin/paypal/plans' && r.method === 'POST') 
     return json({ success: true, plan: { id: planId, name, price_minor: priceMinor, currency, billing_interval: interval, credits_per_cycle: credits, paypal_product_id: productId, paypal_plan_id: clean(remote?.id), paypal: remote } }, 201, cors(r));
   } catch (error) {
     console.error('PayPal plan creation failed', String(error).slice(0, 700));
-    return json({ error: 'Unable to create the PayPal plan.' }, 502, cors(r));
+    const issue = clean(error?.paypalIssue || 'PAYPAL_PLAN_CREATE_FAILED');
+    const description = clean(error?.paypalDescription || error?.message || 'PayPal plan creation failed.').slice(0, 500);
+    const debugId = clean(error?.paypalDebugId || '');
+    return json({ error: `Unable to create the PayPal plan: ${issue}: ${description}`, paypal_issue: issue, paypal_debug_id: debugId || undefined }, 502, cors(r));
   }
 }
 
