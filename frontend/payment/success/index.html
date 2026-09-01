@@ -35,10 +35,25 @@
   const detail=document.getElementById('detail');
   const params=new URLSearchParams(location.search);
   const reference=(params.get('reference')||'').trim();
-  if(!reference){state.textContent='Reference missing';detail.textContent='No payment reference was returned. No credits were granted from this page.';return;}
+  if(!reference){state.textContent='Reference missing';detail.textContent='No payment reference was returned. This page does not grant credits from the return URL.';return;}
+
+  const statusUrl='/api/billing/payment?reference='+encodeURIComponent(reference);
 
   async function verify(){
     try{
+      const statusRes=await fetch(statusUrl,{credentials:'include',headers:{Accept:'application/json'}});
+      const statusData=await statusRes.json().catch(()=>({}));
+      const existing=statusData.payment||{};
+      const existingStatus=String(existing.status||'').toLowerCase();
+
+      if(existingStatus==='successful'){
+        state.textContent='Payment confirmed.';
+        detail.textContent=existing.type==='credit_purchase'
+          ? 'The payment was captured and your credits have been added to your Nexauren account.'
+          : 'The payment was confirmed. Your subscription will appear in Billing after provider synchronization.';
+        return true;
+      }
+
       const res=await fetch('/api/billing/payment',{
         method:'POST',
         credentials:'include',
@@ -50,7 +65,7 @@
       const status=String(payment.status||'pending').toLowerCase();
 
       if(res.ok && status==='successful'){
-        state.textContent='Payment confirmed';
+        state.textContent='Payment confirmed.';
         detail.textContent=payment.type==='credit_purchase'
           ? 'The payment was captured and your credits have been added to your Nexauren account.'
           : 'The payment was confirmed. Your subscription will appear in Billing after provider synchronization.';
@@ -59,7 +74,7 @@
 
       if(res.status===404){
         state.textContent='Payment not found';
-        detail.textContent=data.error||'The payment reference could not be found. No credits were granted.';
+        detail.textContent=data.error||'The payment reference could not be found. This page does not grant credits from the return URL.';
         return true;
       }
 
@@ -70,7 +85,7 @@
       }
 
       if(res.status===409){
-        state.textContent='Payment pending';
+        state.textContent='Payment pending.';
         detail.textContent=data.error||'PayPal has not confirmed the payment yet. We will check again automatically.';
         return false;
       }
@@ -78,7 +93,7 @@
       throw new Error(data.error||'Unable to verify the payment.');
     }catch(error){
       state.textContent='Verification in progress';
-      detail.textContent=error.message||'Unable to verify the payment right now. We will retry automatically.';
+      detail.textContent=error.message||'Unable to verify the payment right now. We will retry automatically. This page does not grant credits from the return URL.';
       return false;
     }
   }
