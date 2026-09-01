@@ -18,8 +18,8 @@
   <section class="payment-card">
     <span class="nx-kicker">Nexauren Payment</span>
     <h1>Payment status</h1>
-    <div id="state" class="payment-state">Checking…</div>
-    <p id="detail" class="payment-muted">We are checking the payment with Nexauren's backend.</p>
+    <div id="state" class="payment-state">Confirming…</div>
+    <p id="detail" class="payment-muted">We are securely verifying and capturing your PayPal payment with Nexauren's backend.</p>
     <div class="payment-actions">
       <a class="payment-btn primary" href="/billing/">Manage billing</a>
       <a class="payment-btn" href="/dashboard/">Back to dashboard</a>
@@ -36,29 +36,59 @@
   const params=new URLSearchParams(location.search);
   const reference=(params.get('reference')||'').trim();
   if(!reference){state.textContent='Reference missing';detail.textContent='No payment reference was returned. No credits were granted from this page.';return;}
-  try{
-    const res=await fetch('/api/billing/payment?reference='+encodeURIComponent(reference),{credentials:'include',headers:{Accept:'application/json'}});
-    const data=await res.json().catch(()=>({}));
-    if(!res.ok)throw new Error(data.error||'Unable to check payment status.');
-    const payment=data.payment||{};
-    const status=String(payment.status||'pending').toLowerCase();
-    if(status==='successful'){
-      state.textContent='Payment confirmed';
-      detail.textContent='The backend has confirmed the payment. Any credits or subscription changes are granted by the verified webhook flow.';
-    }else if(status==='failed'){
-      state.textContent='Payment failed';
-      detail.textContent='The payment was not confirmed. No credits were granted.';
-    }else if(status==='cancelled'){
-      state.textContent='Payment cancelled';
-      detail.textContent='The payment was cancelled. No credits were granted.';
-    }else{
-      state.textContent='Payment pending';
-      detail.textContent='The payment is not confirmed yet. You can return to Billing and check again later.';
+
+  async function verify(){
+    try{
+      const res=await fetch('/api/billing/payment',{
+        method:'POST',
+        credentials:'include',
+        headers:{'Content-Type':'application/json',Accept:'application/json'},
+        body:JSON.stringify({reference})
+      });
+      const data=await res.json().catch(()=>({}));
+      const payment=data.payment||{};
+      const status=String(payment.status||'pending').toLowerCase();
+
+      if(res.ok && status==='successful'){
+        state.textContent='Payment confirmed';
+        detail.textContent=payment.type==='credit_purchase'
+          ? 'The payment was captured and your credits have been added to your Nexauren account.'
+          : 'The payment was confirmed. Your subscription will appear in Billing after provider synchronization.';
+        return true;
+      }
+
+      if(res.status===404){
+        state.textContent='Payment not found';
+        detail.textContent=data.error||'The payment reference could not be found. No credits were granted.';
+        return true;
+      }
+
+      if(res.status===401){
+        state.textContent='Login required';
+        detail.textContent='Please sign in to Nexauren and return to Billing to verify this payment.';
+        return true;
+      }
+
+      if(res.status===409){
+        state.textContent='Payment pending';
+        detail.textContent=data.error||'PayPal has not confirmed the payment yet. We will check again automatically.';
+        return false;
+      }
+
+      throw new Error(data.error||'Unable to verify the payment.');
+    }catch(error){
+      state.textContent='Verification in progress';
+      detail.textContent=error.message||'Unable to verify the payment right now. We will retry automatically.';
+      return false;
     }
-  }catch(error){
-    state.textContent='Unable to verify payment';
-    detail.textContent=error.message||'Please return to Billing and try again. This page never grants credits.';
   }
+
+  let done=await verify();
+  let attempts=0;
+  const timer=setInterval(async()=>{
+    if(done||++attempts>=12){clearInterval(timer);return;}
+    done=await verify();
+  },5000);
 })();
 </script>
 </body>
