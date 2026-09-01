@@ -130,7 +130,7 @@ if (__billingUrl.pathname === '/api/billing/subscription/resume' && r.method ===
   const u = await currentUser(r, e);
   if (!u) return json({ error: 'Authentication required.' }, 401, cors(r));
   const now = Math.floor(Date.now() / 1000);
-  const sub = await e.DB.prepare("SELECT id,provider,provider_subscription_id,status,cancel_at_period_end FROM subscriptions WHERE user_id=?1 AND status='active' ORDER BY created_at DESC LIMIT 1").bind(u.id, u.id).first();
+  const sub = await e.DB.prepare("SELECT id,provider,provider_subscription_id,status,cancel_at_period_end FROM subscriptions WHERE user_id=?1 AND status='active' ORDER BY created_at DESC LIMIT 1").bind(u.id).first();
   if (!sub) return json({ error: 'No active subscription.' }, 404, cors(r));
   const provider = billingProviderRegistry(e)[clean(sub.provider).toLowerCase()];
   if (!provider?.subscriptionAction) return json({ error: 'Subscription provider does not support resume yet.' }, 503, cors(r));
