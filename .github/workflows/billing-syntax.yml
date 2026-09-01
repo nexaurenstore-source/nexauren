@@ -23,7 +23,10 @@ jobs:
         with:
           node-version: 20
       - run: node --check scripts/worker/billing.js
-      - run: node --check scripts/worker/billing-routes.js
+      # billing-routes.js is an inline route fragment injected inside Worker fetch(r, e), so validate it in an async-function context.
+      - name: Check billing routes syntax
+        run: >-
+          node -e "const fs=require('node:fs'); const source=fs.readFileSync('scripts/worker/billing-routes.js','utf8'); new Function('r','e','return (async function(){\\n'+source+'\\n})');"
       - run: node --check scripts/worker/billing-safety-patch.js
       - run: node --check scripts/worker/payment-providers.js
       - run: node --check scripts/worker/billing-webhooks.js
