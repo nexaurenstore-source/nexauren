@@ -1,8 +1,12 @@
-/* NEXAUREN BILLING WEBHOOK LIFECYCLE v5 */
+/* NEXAUREN BILLING WEBHOOK LIFECYCLE v6 */
 
 async function billingHashWebhook(raw) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function billingIsMissingProcessingAt(error) {
+  return /no column named processing_at|no such column: processing_at/i.test(String(error?.message || error));
 }
 
 async function billingRecordWebhook(e, { provider, eventId, eventType, reference, raw }) {
@@ -12,33 +16,56 @@ async function billingRecordWebhook(e, { provider, eventId, eventType, reference
   const id = `${safeProvider}:${safeEventId}`;
   const now = Math.floor(Date.now() / 1000);
   const payloadHash = await billingHashWebhook(raw);
-  const result = await e.DB.prepare("INSERT OR IGNORE INTO webhook_events(id,provider,event_id,event_type,reference,payload_hash,status,processed_at,processing_at,created_at) VALUES(?1,?2,?3,?4,?5,?6,'received',NULL,NULL,?7)").bind(id, safeProvider, safeEventId, clean(eventType) || 'provider.webhook', reference || null, payloadHash, now).run();
-  if (Number(result?.meta?.changes || 0) === 1) {
-    const claim = await e.DB.prepare("UPDATE webhook_events SET status='processing',processing_at=?1 WHERE id=?2 AND status='received'").bind(now, id).run();
-    return { id, duplicate: Number(claim?.meta?.changes || 0) !== 1, claimed: Number(claim?.meta?.changes || 0) === 1, status: 'processing' };
+
+  try {
+    const result = await e.DB.prepare("INSERT OR IGNORE INTO webhook_events(id,provider,event_id,event_type,reference,payload_hash,status,processed_at,processing_at,created_at) VALUES(?1,?2,?3,?4,?5,?6,'received',NULL,NULL,?7)").bind(id, safeProvider, safeEventId, clean(eventType) || 'provider.webhook', reference || null, payloadHash, now).run();
+    if (Number(result?.meta?.changes || 0) === 1) {
+      const claim = await e.DB.prepare("UPDATE webhook_events SET status='processing',processing_at=?1 WHERE id=?2 AND status='received'").bind(now, id).run();
+      return { id, duplicate: Number(claim?.meta?.changes || 0) !== 1, claimed: Number(claim?.meta?.changes || 0) === 1, status: 'processing' };
+    }
+    const existing = await e.DB.prepare('SELECT id,status,payload_hash,processing_at FROM webhook_events WHERE id=?1 LIMIT 1').bind(id).first();
+    if (!existing) throw new Error('Webhook record could not be loaded.');
+    if (existing.payload_hash && existing.payload_hash !== payloadHash) throw new Error('Webhook event payload mismatch.');
+    if (existing.status === 'processed') return { id, duplicate: true, claimed: false, status: existing.status };
+    if (existing.status === 'processing') {
+      const processingAt = Number(existing.processing_at || 0);
+      if (processingAt > 0 && now - processingAt < 600) return { id, duplicate: true, claimed: false, status: existing.status };
+      const reclaim = await e.DB.prepare("UPDATE webhook_events SET status='processing',processing_at=?1,processed_at=NULL WHERE id=?2 AND status='processing' AND COALESCE(processing_at,0)=?3").bind(now, id, processingAt).run();
+      return { id, duplicate: Number(reclaim?.meta?.changes || 0) === 0, claimed: Number(reclaim?.meta?.changes || 0) === 1, status: 'processing', reclaimed: Number(reclaim?.meta?.changes || 0) === 1 };
+    }
+    const claim = await e.DB.prepare("UPDATE webhook_events SET status='processing',processing_at=?1,processed_at=NULL WHERE id=?2 AND status IN ('received','failed')").bind(now, id).run();
+    return { id, duplicate: Number(claim?.meta?.changes || 0) === 0, claimed: Number(claim?.meta?.changes || 0) === 1, status: 'processing' };
+  } catch (error) {
+    // Migration 0006 adds processing_at. Keep webhook delivery functional while
+    // a deployment is catching up with that migration; idempotency remains based
+    // on provider:event_id and payload_hash. The migration should still be applied
+    // so stale-processing recovery is available.
+    if (!billingIsMissingProcessingAt(error)) throw error;
+    console.warn('Webhook recovery metadata migration is pending; using legacy webhook claim path.');
+    const result = await e.DB.prepare("INSERT OR IGNORE INTO webhook_events(id,provider,event_id,event_type,reference,payload_hash,status,processed_at,created_at) VALUES(?1,?2,?3,?4,?5,?6,'processing',NULL,?7)").bind(id, safeProvider, safeEventId, clean(eventType) || 'provider.webhook', reference || null, payloadHash, now).run();
+    if (Number(result?.meta?.changes || 0) === 1) return { id, duplicate: false, claimed: true, status: 'processing', legacy: true };
+    const existing = await e.DB.prepare('SELECT id,status,payload_hash FROM webhook_events WHERE id=?1 LIMIT 1').bind(id).first();
+    if (!existing) throw new Error('Webhook record could not be loaded.');
+    if (existing.payload_hash && existing.payload_hash !== payloadHash) throw new Error('Webhook event payload mismatch.');
+    if (existing.status === 'processed') return { id, duplicate: true, claimed: false, status: existing.status, legacy: true };
+    const claim = await e.DB.prepare("UPDATE webhook_events SET status='processing',processed_at=NULL WHERE id=?1 AND status IN ('received','failed')").bind(id).run();
+    return { id, duplicate: Number(claim?.meta?.changes || 0) === 0, claimed: Number(claim?.meta?.changes || 0) === 1, status: 'processing', legacy: true };
   }
-  const existing = await e.DB.prepare('SELECT id,status,payload_hash,processing_at FROM webhook_events WHERE id=?1 LIMIT 1').bind(id).first();
-  if (!existing) throw new Error('Webhook record could not be loaded.');
-  if (existing.payload_hash && existing.payload_hash !== payloadHash) throw new Error('Webhook event payload mismatch.');
-  if (existing.status === 'processed') return { id, duplicate: true, claimed: false, status: existing.status };
-  if (existing.status === 'processing') {
-    const processingAt = Number(existing.processing_at || 0);
-    if (processingAt > 0 && now - processingAt < 600) return { id, duplicate: true, claimed: false, status: existing.status };
-    const reclaim = await e.DB.prepare("UPDATE webhook_events SET status='processing',processing_at=?1,processed_at=NULL WHERE id=?2 AND status='processing' AND COALESCE(processing_at,0)=?3").bind(now, id, processingAt).run();
-    return { id, duplicate: Number(reclaim?.meta?.changes || 0) === 0, claimed: Number(reclaim?.meta?.changes || 0) === 1, status: 'processing', reclaimed: Number(reclaim?.meta?.changes || 0) === 1 };
-  }
-  const claim = await e.DB.prepare("UPDATE webhook_events SET status='processing',processing_at=?1,processed_at=NULL WHERE id=?2 AND status IN ('received','failed')").bind(now, id).run();
-  return { id, duplicate: Number(claim?.meta?.changes || 0) === 0, claimed: Number(claim?.meta?.changes || 0) === 1, status: 'processing' };
 }
 
 async function billingMarkWebhook(e, id, status) {
   const normalized = ['received','processing','processed','failed'].includes(status) ? status : 'failed';
   const now = Math.floor(Date.now() / 1000);
-  if (normalized === 'processing') {
-    await e.DB.prepare('UPDATE webhook_events SET status=?1,processing_at=?2 WHERE id=?3').bind(normalized, now, id).run();
-    return;
+  try {
+    if (normalized === 'processing') {
+      await e.DB.prepare('UPDATE webhook_events SET status=?1,processing_at=?2 WHERE id=?3').bind(normalized, now, id).run();
+      return;
+    }
+    await e.DB.prepare('UPDATE webhook_events SET status=?1,processed_at=?2,processing_at=NULL WHERE id=?3').bind(normalized, now, id).run();
+  } catch (error) {
+    if (!billingIsMissingProcessingAt(error)) throw error;
+    await e.DB.prepare('UPDATE webhook_events SET status=?1,processed_at=?2 WHERE id=?3').bind(normalized, now, id).run();
   }
-  await e.DB.prepare('UPDATE webhook_events SET status=?1,processed_at=?2,processing_at=NULL WHERE id=?3').bind(normalized, now, id).run();
 }
 
 async function billingProcessSubscriptionStatus(e, { provider, providerSubscriptionId, status, cancelledAt = null }) {
