@@ -28,13 +28,16 @@ for (const contract of ['createCheckout','captureCheckout','getOrder','createPro
 if (!paypal.includes('PAYPAL_SANDBOX_BASE') || !paypal.includes('/v1/oauth2/token')) throw new Error('[billing] PayPal sandbox OAuth endpoint missing.');
 if (!paypal.includes('/v1/catalogs/products')) throw new Error('[billing] PayPal catalog product endpoint missing.');
 if (!paypal.includes('/v2/checkout/orders')) throw new Error('[billing] PayPal Orders endpoint missing.');
-if (!paypal.includes('/v1/notifications/verify-webhook-signature')) throw new Error('[billing] PayPal webhook signature verification endpoint missing.');
+const hasLocalWebhookVerification = paypal.includes('paypalCrc32Decimal') && paypal.includes('crypto.subtle.verify') && paypal.includes('RSASSA-PKCS1-v1_5') && paypal.includes("hash: 'SHA-256'");
+if (!hasLocalWebhookVerification) throw new Error('[billing] PayPal webhook cryptographic signature verification is missing.');
+if (!paypal.includes('PAYPAL_WEBHOOK_ID') || !paypal.includes('paypal-cert-url') || !paypal.includes('paypal-transmission-sig')) throw new Error('[billing] PayPal webhook verification headers/configuration are incomplete.');
 if (!webhook.includes('payload?.id')) throw new Error('[billing] Webhook idempotency must use the provider event ID.');
 if (!webhook.includes("status IN ('received','failed')")) throw new Error('[billing] Failed webhooks must be retryable.');
 if (!webhook.includes('processing_at') || !webhook.includes('now - processingAt < 600')) throw new Error('[billing] Webhook processing recovery guard missing.');
 if (!webhook.includes('billingProcessPayPalSaleCompleted')) throw new Error('[billing] PayPal sale completion lifecycle missing.');
 if (!webhook.includes("PAYMENT.SALE.COMPLETED")) throw new Error('[billing] PayPal sale completion event missing.');
-if (!paypal.includes('Credits are granted by') || paypal.includes("providerTransactionId: `activation:${event.id}`")) throw new Error('[billing] Subscription activation must not grant recurring credits before a completed sale.');
+const activationBranch = paypal.split("if (type === 'BILLING.SUBSCRIPTION.ACTIVATED' || type === 'BILLING.SUBSCRIPTION.UPDATED')")[1]?.split("if (type === 'PAYMENT.SALE.COMPLETED')")[0] || '';
+if (!activationBranch || /credit|grant/i.test(activationBranch)) throw new Error('[billing] Subscription activation must not grant recurring credits before a completed sale.');
 if (!billing.includes('product.price_minor') || !billing.includes('SELECT credits FROM credit_packages') || !billing.includes('productId')) throw new Error('[billing] Backend must determine product price and credits.');
 if (billing.includes('d?.credits') || billing.includes('d?.amount_minor')) throw new Error('[billing] Frontend-controlled credits/price detected.');
 if (!build.includes('paymentProvidersUrl') || !build.includes('webhookLifecycleUrl')) throw new Error('[billing] Build does not load payment lifecycle modules.');
