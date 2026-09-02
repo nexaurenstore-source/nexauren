@@ -16,6 +16,7 @@ const subscriptionModuleUrl = new URL('./worker/subscription-lifecycle.js', impo
 const webhookLifecycleUrl = new URL('./worker/billing-webhooks.js', import.meta.url);
 const blogRoutesUrl = new URL('./worker/blog-routes.js', import.meta.url);
 const communityMigrationUrl = new URL('./worker/migrate-community-ratings-favorites.mjs', import.meta.url);
+const toolRegistryUrl = new URL('../frontend/data/tools.json', import.meta.url);
 
 const source = await readFile(sourceUrl, 'utf8');
 const notificationModule = await readFile(notificationModuleUrl, 'utf8');
@@ -29,8 +30,21 @@ const paypalProvider = await readFile(paypalProviderUrl, 'utf8');
 const subscriptionModule = await readFile(subscriptionModuleUrl, 'utf8');
 const webhookLifecycle = await readFile(webhookLifecycleUrl, 'utf8');
 const blogRoutes = await readFile(blogRoutesUrl, 'utf8');
+const toolRegistryData = JSON.parse(await readFile(toolRegistryUrl, 'utf8'));
+const activeToolRegistry = (Array.isArray(toolRegistryData?.tools) ? toolRegistryData.tools : [])
+  .filter((tool) => tool?.id && String(tool.status || 'active') === 'active')
+  .map((tool) => ({
+    id: String(tool.id),
+    name: String(tool.name || tool.id),
+    slug: String(tool.slug || tool.id),
+    studio: String(tool.studio || ''),
+    studioName: String(tool.studioName || tool.studio || ''),
+    url: String(tool.url || ''),
+    status: 'active',
+  }));
 
 if (!source.trim()) throw new Error('[worker-build] worker.js is empty. Deployment stopped.');
+if (!activeToolRegistry.length) throw new Error('[worker-build] Active tool registry is empty. Deployment stopped.');
 if (!notificationModule.includes('async function ensureNotificationsSchema')) throw new Error('[worker-build] Notification module is incomplete.');
 if (!notificationRoutes.includes('/api/admin/notifications')) throw new Error('[worker-build] Notification routes module is incomplete.');
 if (!billingModule.includes('async function billingFinalizePayment')) throw new Error('[worker-build] Billing module is incomplete.');
@@ -86,6 +100,13 @@ if (!generated.includes('const __toolBillingUrl')) {
   if (!generated.includes(billingMarker)) throw new Error('[worker-build] Worker structure changed: tool credit admin insertion marker not found.');
   generated = generated.replace(billingMarker, billingMarker + '\n' + toolCreditAdmin + '\n', 1);
 }
+
+const staticRegistryMarker = 'const __toolCreditStaticRegistry = [];';
+if (!generated.includes(staticRegistryMarker)) throw new Error('[worker-build] Tool credit static registry marker not found.');
+generated = generated.replace(
+  staticRegistryMarker,
+  `const __toolCreditStaticRegistry = ${JSON.stringify(activeToolRegistry)};`,
+);
 
 if (!generated.includes('const __blogUrl')) {
   const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
@@ -169,6 +190,7 @@ console.log('[worker-build] Billing core module included once.');
 console.log('[worker-build] Billing safety patch included once.');
 console.log('[worker-build] Billing routes included once.');
 console.log('[worker-build] Tool credit admin routes included once.');
+console.log('[worker-build] Active tool registry embedded in Worker build.');
 console.log('[worker-build] Payment provider registry included once.');
 console.log('[worker-build] PayPal provider included once.');
 console.log('[worker-build] Subscription lifecycle included once.');
