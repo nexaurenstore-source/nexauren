@@ -16,6 +16,6 @@
     "check": "npm run check:architecture",
     "build": "npm run check",
     "db:migrations:apply": "npx wrangler d1 migrations apply nexauren-db --remote --yes",
-    "deploy": "npm run check && npm run db:migrations:apply && npx wrangler deploy"
+    "deploy": "npm run check:worker && npm run db:migrations:apply && npx wrangler deploy"
   }
 }
