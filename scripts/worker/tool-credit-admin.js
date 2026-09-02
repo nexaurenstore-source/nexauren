@@ -1,8 +1,18 @@
-/* NEXAUREN TOOL CREDIT ADMIN ROUTES v4 */
+/* NEXAUREN TOOL CREDIT ADMIN ROUTES v5 */
 // Centralized Admin control for per-tool credit consumption.
 // This module intentionally uses tool_billing only and does not touch payment tables or flows.
 
+const toolBillingError = (message, code, error, request) => {
+  console.error(`[tool-credit-admin:${code}] ${message}`, String(error || '').slice(0, 500));
+  return json(
+    { error: message, code },
+    500,
+    cors(request),
+  );
+};
+
 async function ensureToolBillingSchema(e) {
+  if (!e?.DB) throw new Error('D1 binding is unavailable.');
   await e.DB.prepare(`CREATE TABLE IF NOT EXISTS tool_billing (
     tool_id TEXT PRIMARY KEY,
     credit_cost INTEGER NOT NULL DEFAULT 0,
@@ -66,26 +76,46 @@ async function adminToolBilling(r, e) {
   try {
     await ensureToolBillingSchema(e);
   } catch (error) {
-    console.error(
-      'Tool billing schema initialization failed',
-      String(error).slice(0, 500),
-    );
-    return json(
-      { error: 'Unable to initialize tool credit settings.' },
-      500,
-      cors(r),
+    return toolBillingError(
+      'Unable to initialize tool credit settings.',
+      'tool_billing_schema',
+      error,
+      r,
     );
   }
 
   if (r.method === 'GET') {
+    let tools;
+
     try {
-      const tools = await loadToolBillingRegistry(r, e);
-      const rows = await e.DB
+      tools = await loadToolBillingRegistry(r, e);
+    } catch (error) {
+      return toolBillingError(
+        'Unable to load tool registry.',
+        'tool_billing_registry',
+        error,
+        r,
+      );
+    }
+
+    let rows;
+    try {
+      rows = await e.DB
         .prepare(
           'SELECT tool_id,credit_cost,enabled,updated_at ' +
             'FROM tool_billing',
         )
         .all();
+    } catch (error) {
+      return toolBillingError(
+        'Unable to read tool credit settings.',
+        'tool_billing_query',
+        error,
+        r,
+      );
+    }
+
+    try {
       const configured = new Map(
         (rows?.results || []).map((row) => [String(row.tool_id), row]),
       );
@@ -111,14 +141,11 @@ async function adminToolBilling(r, e) {
 
       return json({ tools: result }, 200, cors(r));
     } catch (error) {
-      console.error(
-        'Admin tool billing load failed',
-        String(error).slice(0, 500),
-      );
-      return json(
-        { error: 'Unable to load tool credit settings.' },
-        500,
-        cors(r),
+      return toolBillingError(
+        'Unable to prepare tool credit settings.',
+        'tool_billing_response',
+        error,
+        r,
       );
     }
   }
@@ -156,11 +183,12 @@ async function adminToolBilling(r, e) {
 
     try {
       tools = await loadToolBillingRegistry(r, e);
-    } catch {
-      return json(
-        { error: 'Unable to validate tool.' },
-        500,
-        cors(r),
+    } catch (error) {
+      return toolBillingError(
+        'Unable to validate tool.',
+        'tool_billing_registry',
+        error,
+        r,
       );
     }
 
@@ -174,18 +202,27 @@ async function adminToolBilling(r, e) {
 
     const now = Math.floor(Date.now() / 1000);
 
-    await e.DB
-      .prepare(
-        'INSERT INTO tool_billing ' +
-          '(tool_id,credit_cost,enabled,updated_at) ' +
-          'VALUES(?1,?2,?3,?4) ' +
-          'ON CONFLICT(tool_id) DO UPDATE SET ' +
-          'credit_cost=excluded.credit_cost,' +
-          'enabled=excluded.enabled,' +
-          'updated_at=excluded.updated_at',
-      )
-      .bind(toolId, cost, enabled, now)
-      .run();
+    try {
+      await e.DB
+        .prepare(
+          'INSERT INTO tool_billing ' +
+            '(tool_id,credit_cost,enabled,updated_at) ' +
+            'VALUES(?1,?2,?3,?4) ' +
+            'ON CONFLICT(tool_id) DO UPDATE SET ' +
+            'credit_cost=excluded.credit_cost,' +
+            'enabled=excluded.enabled,' +
+            'updated_at=excluded.updated_at',
+        )
+        .bind(toolId, cost, enabled, now)
+        .run();
+    } catch (error) {
+      return toolBillingError(
+        'Unable to save tool credit cost.',
+        'tool_billing_write',
+        error,
+        r,
+      );
+    }
 
     return json(
       {
