@@ -9,9 +9,7 @@ if (source.includes('const __communityToolsPatch = true;')) {
 }
 
 const marker = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{\s*/;
-if (!marker.test(source)) {
-  throw new Error('[community-tools] Worker fetch marker not found.');
-}
+if (!marker.test(source)) throw new Error('[community-tools] Worker fetch marker not found.');
 
 const module = String.raw`
     const __communityToolsPatch = true;
@@ -46,7 +44,6 @@ const module = String.raw`
           ]);
           return json({ target_type: 'tool', tool_id: toolId, name: String(tool.name || toolId), url: toolUrl, total: Number(summary?.total || 0), average: Number(summary?.average || 0), latest: Number(summary?.latest || 0), ratings: rows?.results || [] }, 200, cors(r));
         }
-
         if (r.method === 'POST') {
           const u = await currentUser(r, e);
           if (!u) return json({ error: 'Authentication required.' }, 401, cors(r));
@@ -56,20 +53,19 @@ const module = String.raw`
           const displayName = clean(d?.display_name || u.username).slice(0, 50);
           if (rating < 1 || rating > 5) return json({ error: 'Rating must be between 1 and 5.' }, 400, cors(r));
           const now = Math.floor(Date.now() / 1000);
-          await e.DB.prepare(
-            'INSERT INTO ratings (id,target_type,studio_id,experience_id,user_id,display_name,rating,review,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?9) ON CONFLICT(target_type,studio_id,experience_id,user_id) DO UPDATE SET display_name=excluded.display_name,rating=excluded.rating,review=excluded.review,updated_at=excluded.updated_at'
-          ).bind(uuid(), dbTargetType, dbStudioId, dbExperienceId, u.id, displayName, rating, review, now).run();
+          await e.DB.prepare('INSERT INTO ratings (id,target_type,studio_id,experience_id,user_id,display_name,rating,review,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?9) ON CONFLICT(target_type,studio_id,experience_id,user_id) DO UPDATE SET display_name=excluded.display_name,rating=excluded.rating,review=excluded.review,updated_at=excluded.updated_at').bind(uuid(), dbTargetType, dbStudioId, dbExperienceId, u.id, displayName, rating, review, now).run();
           return json({ success: true, target_type: 'tool', tool_id: toolId, rating, review }, 201, cors(r));
         }
         return json({ error: 'Method not allowed.' }, 405, cors(r));
       }
 
-      const u = await currentUser(r, e);
       if (r.method === 'GET') {
+        const u = await currentUser(r, e);
         if (!u) return json({ favorite: false, authenticated: false }, 200, cors(r));
         const row = await e.DB.prepare('SELECT 1 FROM favorites WHERE user_id=?1 AND target_type=?2 AND studio_id=?3 AND experience_id=?4 LIMIT 1').bind(u.id, dbTargetType, dbStudioId, dbExperienceId).first();
         return json({ favorite: !!row, authenticated: true, target_type: 'tool', tool_id: toolId }, 200, cors(r));
       }
+      const u = await currentUser(r, e);
       if (!u) return json({ error: 'Authentication required.' }, 401, cors(r));
       if (r.method === 'POST') {
         const now = Math.floor(Date.now() / 1000);
@@ -89,9 +85,5 @@ const module = String.raw`
 `;
 
 source = source.replace(marker, (match) => match + module, 1);
-await writeFile(workerUrl, source, 'utf8');
-console.log('[community-tools] Tool rating and favorite routes patched.');
-`;
-
 await writeFile(workerUrl, source, 'utf8');
 console.log('[community-tools] Tool rating and favorite routes patched.');
