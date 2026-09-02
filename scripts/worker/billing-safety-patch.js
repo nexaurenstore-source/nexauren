@@ -1,4 +1,4 @@
-/* NEXAUREN BILLING SAFETY PATCH v6 */
+/* NEXAUREN BILLING SAFETY PATCH v5 */
 
 async function billingAccountSafe(r, e) {
   const u = await currentUser(r, e);
@@ -51,98 +51,12 @@ async function billingDebitCreditsSafe(e, { userId, amount, toolId, reference })
   return { applied: false, idempotent: false, insufficient: true };
 }
 
-const SAMPLE_MAKER_PLAN_LIMITS = Object.freeze({
-  free: { daily: 10, max: 10, effects: 0 },
-  starter: { daily: 25, max: 50, effects: 1 },
-  pro: { daily: Infinity, max: 500, effects: 2 },
-  premium: { daily: Infinity, max: 500, effects: 3 },
-});
-
-const SAMPLE_MAKER_EFFECT_TIERS = Object.freeze({
-  gain: 0, eq: 0, lowpass: 0, highpass: 0, reverb: 0, delay: 0,
-  compressor: 1, saturation: 1, distortion: 1, chorus: 1, flanger: 1,
-  phaser: 1, bitcrusher: 1, stereo: 1,
-  transient: 2, stretch: 2, granular: 2,
-  chain: 3,
-});
-
-async function sampleMakerAuthorizeGeneration(r, e) {
-  const u = await currentUser(r, e);
-  if (!u) return json({ error: 'Authentication required.' }, 401, cors(r));
-
-  const d = await body(r);
-  const requested = Math.max(1, Math.floor(Number(d?.count || 1)));
-  const effects = Array.isArray(d?.effects) ? d.effects.map((x) => clean(x).toLowerCase()).filter(Boolean).slice(0, 30) : [];
-  const reference = clean(d?.reference).slice(0, 160) || `sample-maker:${uuid()}`;
-
-  const account = await billingEnsureAccount(e, u.id);
-  let plan = String(account?.plan_id || 'free').toLowerCase();
-  if (!SAMPLE_MAKER_PLAN_LIMITS[plan]) plan = 'free';
-  const limits = SAMPLE_MAKER_PLAN_LIMITS[plan];
-
-  if (requested > limits.max) {
-    return json({ error: `Your ${plan} plan allows up to ${limits.max} samples per generation.`, code: 'sample_limit_exceeded', plan, max_samples: limits.max }, 403, cors(r));
-  }
-
-  const invalidEffects = effects.filter((effect) => !(effect in SAMPLE_MAKER_EFFECT_TIERS));
-  if (invalidEffects.length) {
-    return json({ error: 'One or more selected effects are not available.', code: 'invalid_effect', effects: invalidEffects }, 403, cors(r));
-  }
-  const lockedEffects = effects.filter((effect) => SAMPLE_MAKER_EFFECT_TIERS[effect] > limits.effects);
-  if (lockedEffects.length) {
-    return json({ error: `Some selected effects require a higher Sample Maker plan.`, code: 'effect_locked', effects: lockedEffects, plan }, 403, cors(r));
-  }
-
-  const today = new Date().toISOString().slice(0, 10);
-  await e.DB.prepare(
-    'CREATE TABLE IF NOT EXISTS sample_maker_usage (user_id TEXT NOT NULL, usage_day TEXT NOT NULL, generations INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(user_id,usage_day))',
-  ).run();
-  await e.DB.prepare(
-    'INSERT OR IGNORE INTO sample_maker_usage(user_id,usage_day,generations) VALUES(?1,?2,0)',
-  ).bind(u.id, today).run();
-
-  if (Number.isFinite(limits.daily)) {
-    const updated = await e.DB.prepare(
-      'UPDATE sample_maker_usage SET generations=generations+1 WHERE user_id=?1 AND usage_day=?2 AND generations<?3',
-    ).bind(u.id, today, limits.daily).run();
-    if (Number(updated?.meta?.changes || 0) !== 1) {
-      return json({ error: 'You have reached your daily Sample Maker generation limit.', code: 'daily_limit', plan, daily_limit: limits.daily, remaining: 0 }, 429, cors(r));
-    }
-  } else {
-    await e.DB.prepare(
-      'UPDATE sample_maker_usage SET generations=generations+1 WHERE user_id=?1 AND usage_day=?2',
-    ).bind(u.id, today).run();
-  }
-
-  const row = await e.DB.prepare(
-    'SELECT generations FROM sample_maker_usage WHERE user_id=?1 AND usage_day=?2 LIMIT 1',
-  ).bind(u.id, today).first();
-  const generations = Number(row?.generations || 0);
-  const remaining = Number.isFinite(limits.daily) ? Math.max(0, limits.daily - generations) : null;
-
-  return json({
-    success: true,
-    authorized: true,
-    plan,
-    max_samples: limits.max,
-    daily_limit: Number.isFinite(limits.daily) ? limits.daily : null,
-    generations_used: generations,
-    remaining,
-    reference,
-  }, 200, cors(r));
-}
-
 async function billingUsageSafe(r, e) {
   const u = await currentUser(r, e);
   if (!u) return json({ error: 'Authentication required.' }, 401, cors(r));
 
   const d = await body(r);
   const toolId = clean(d?.tool_id).slice(0, 120);
-
-  if (toolId === 'sample-maker') {
-    return sampleMakerAuthorizeGeneration(r, e);
-  }
-
   const reference = clean(d?.reference).slice(0, 160) || `usage:${uuid()}`;
 
   if (!toolId || !/^[A-Za-z0-9._-]{2,120}$/.test(toolId)) {
