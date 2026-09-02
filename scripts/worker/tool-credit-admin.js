@@ -1,6 +1,9 @@
-/* NEXAUREN TOOL CREDIT ADMIN ROUTES v7 */
+/* NEXAUREN TOOL CREDIT ADMIN ROUTES v8 */
 // Centralized Admin control for per-tool credit consumption.
-// This module intentionally uses tool_billing only and does not touch payment tables or flows.
+// IMPORTANT: this module only manages tool_billing. Payment, PayPal, plans,
+// subscriptions and purchase credits are intentionally outside this module.
+
+const __toolCreditStaticRegistry = [];
 
 const toolBillingError = (message, code, error, request) => {
   console.error(`[tool-credit-admin:${code}] ${message}`, String(error || '').slice(0, 500));
@@ -18,6 +21,13 @@ async function ensureToolBillingSchema(e) {
 }
 
 async function loadToolBillingRegistry(r, e) {
+  // The build embeds the active tools registry into the Worker. This is the
+  // primary source so Admin does not depend on ASSETS routing at runtime.
+  if (Array.isArray(__toolCreditStaticRegistry) && __toolCreditStaticRegistry.length) {
+    return __toolCreditStaticRegistry;
+  }
+
+  // Keep ASSETS as a secondary source for local/development builds.
   try {
     if (e?.ASSETS?.fetch) {
       const response = await e.ASSETS.fetch(
