@@ -2,7 +2,7 @@
   "name": "nexauren",
   "private": true,
   "scripts": {
-    "check:worker": "node scripts/inject-experience-billing.mjs && node scripts/check-experience-billing.mjs && node scripts/inject-experience-ads.mjs && node scripts/patch-subscription-initial-cycle.mjs && node scripts/patch-paypal-subscription-return.mjs && node scripts/build-worker.mjs && node scripts/worker/blog-public-route-patch.mjs",
+    "check:worker": "node scripts/inject-experience-billing.mjs && node scripts/check-experience-billing.mjs && node scripts/inject-experience-ads.mjs && node scripts/patch-subscription-initial-cycle.mjs && node scripts/patch-paypal-subscription-return.mjs && node scripts/worker/patch-paypal-live-plan-replacement.mjs && node scripts/build-worker.mjs && node scripts/worker/blog-public-route-patch.mjs",
     "check:billing": "node scripts/check-billing.mjs",
     "check:billing-ui": "node scripts/check-billing-ui.mjs",
     "check:subscriptions": "node scripts/check-subscriptions.mjs",
