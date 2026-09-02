@@ -32,7 +32,7 @@ const module = String.raw`
       if (!u) return json({ error: 'Authentication required.' }, 401, cors(r));
       if (r.method === 'POST') {
         const d = await body(r);
-        const url = clean(d?.url || tool.url || `/tools/${tool.slug || tool.id}/`).slice(0, 500);
+        const url = clean(d?.url || tool.url || '/tools/' + (tool.slug || tool.id) + '/').slice(0, 500);
         const toolName = clean(d?.tool_name || tool.name || tool.id).slice(0, 120);
         if (!url || !toolName) return json({ error: 'Invalid favorite.' }, 400, cors(r));
         await e.DB.prepare('INSERT OR REPLACE INTO tool_favorites (user_id,tool_id,tool_name,url,created_at) VALUES (?1,?2,?3,?4,?5)').bind(u.id, String(tool.id), toolName, url, Math.floor(Date.now() / 1000)).run();
@@ -56,7 +56,7 @@ const module = String.raw`
       const tool = tools.find((item) => String(item?.id || '') === toolInput || String(item?.slug || '') === toolInput);
       if (!tool || !tool.id) return json({ error: 'Tool not found.' }, 404, cors(r));
       const toolId = String(tool.id), dbTargetType = 'experience', dbStudioId = '__tools__', dbExperienceId = toolId;
-      const toolUrl = clean(tool.url || `/tools/${tool.slug || tool.id}/`).slice(0, 500);
+      const toolUrl = clean(tool.url || ('/tools/' + (tool.slug || tool.id) + '/')).slice(0, 500);
       if (section === 'ratings') {
         if (r.method === 'GET') {
           const u = new URL(r.url), page = Math.max(1, Number(u.searchParams.get('page')) || 1), limit = Math.max(1, Math.min(50, Number(u.searchParams.get('limit')) || 20)), offset = (page - 1) * limit;
