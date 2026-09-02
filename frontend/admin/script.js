@@ -12,7 +12,41 @@ async function load(){
     if(!r.ok)throw new Error(data.error||'Unable to load dashboard.');
     fields.forEach(id=>$(id).textContent=Number(data[id]??0).toLocaleString());
     $('status').textContent='Administrator access verified.';
+    await loadToolCredits();
   }catch(err){$('status').textContent=err.message||'Unable to load dashboard.';toast('Dashboard data could not be loaded.')}
+}
+async function loadToolCredits(){
+  const status=$('tool-credit-status'),list=$('tool-credit-list');
+  if(!status||!list)return;
+  status.className='result';status.textContent='Loading tool credit settings…';list.innerHTML='';
+  try{
+    const r=await fetch('/api/admin/tool-billing?ts='+Date.now(),{credentials:'include',headers:{Accept:'application/json'},cache:'no-store'});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data.error||'Unable to load tool credit settings.');
+    const tools=Array.isArray(data.tools)?data.tools:[];
+    if(!tools.length){status.textContent='No active tools found.';return}
+    tools.forEach(tool=>{
+      const row=document.createElement('div');
+      row.style.cssText='display:grid;grid-template-columns:minmax(180px,1fr) 130px 120px 110px;gap:10px;align-items:center;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.025)';
+      row.innerHTML=`<div><strong>${escapeHtml(tool.name)}</strong><small style="display:block;opacity:.65">${escapeHtml(tool.studio||tool.tool_id)}</small></div><label style="margin:0">Credits<input data-credit-tool="${escapeHtml(tool.tool_id)}" type="number" min="0" max="1000000000" step="1" value="${Number(tool.credit_cost||0)}" style="width:100%"></label><span>${Number(tool.credit_cost||0)===0?'🟢 Free':'🟡 '+Number(tool.credit_cost).toLocaleString()+' credits'}</span><button class="primary" type="button" data-save-tool="${escapeHtml(tool.tool_id)}">Save</button>`;
+      list.appendChild(row);
+    });
+    list.querySelectorAll('[data-save-tool]').forEach(button=>button.addEventListener('click',()=>saveToolCredits(button.dataset.saveTool)));
+    status.className='result success';status.textContent=`${tools.length} active tools loaded. 0 credits means free.`;
+  }catch(err){status.className='result error';status.textContent=err.message||'Unable to load tool credit settings.'}
+}
+async function saveToolCredits(toolId){
+  const input=document.querySelector(`[data-credit-tool="${CSS.escape(toolId)}"]`),status=$('tool-credit-status');
+  const cost=Number(input?.value);
+  if(!Number.isSafeInteger(cost)||cost<0||cost>1000000000){toast('Enter a valid whole-number credit cost.');return}
+  try{
+    const r=await fetch('/api/admin/tool-billing',{method:'PUT',credentials:'include',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({tool_id:toolId,credit_cost:cost,enabled:true})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data.error||'Unable to save tool credit cost.');
+    if(status){status.className='result success';status.textContent=`Saved: ${toolId} now costs ${cost} credit${cost===1?'':'s'}.`}
+    toast('Tool credit cost saved.');
+    await loadToolCredits();
+  }catch(err){if(status){status.className='result error';status.textContent=err.message||'Unable to save tool credit cost.'}toast('Could not save tool credit cost.')}
 }
 async function createPayPalProduct(event){
   event.preventDefault();const result=$('paypal-result'),button=$('paypal-create');
