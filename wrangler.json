@@ -14,7 +14,7 @@
     "PAYMENT_BRAND_NAME": "Nexauren"
   },
   "build": {
-    "command": "node scripts/patch-subscription-initial-cycle.mjs && node scripts/patch-paypal-subscription-return.mjs && node scripts/worker/patch-paypal-live-plan-replacement.mjs && node scripts/build-worker.mjs && node scripts/worker/patch-generated-paypal-live-plan-replacement.mjs && node scripts/worker/blog-route-patch.mjs && node scripts/worker/blog-category-route-patch.mjs && node scripts/worker/blog-article-fallback-patch.mjs",
+    "command": "node scripts/patch-subscription-initial-cycle.mjs && node scripts/patch-paypal-subscription-return.mjs && node scripts/worker/patch-paypal-live-plan-replacement.mjs && node scripts/build-worker.mjs && node scripts/worker/patch-sample-maker-enforcement.mjs && node scripts/worker/patch-generated-paypal-live-plan-replacement.mjs && node scripts/worker/blog-route-patch.mjs && node scripts/worker/blog-category-route-patch.mjs && node scripts/worker/blog-article-fallback-patch.mjs",
     "watch_dir": ["worker.js", "scripts", "frontend"]
   },
   "assets": {
