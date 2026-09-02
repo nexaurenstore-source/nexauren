@@ -2,11 +2,31 @@
 // Worker fetch(r, e) route fragment for centralized per-tool credit costs.
 
 async function loadToolBillingRegistry(r, e) {
-  const response = await e.ASSETS.fetch(new Request(new URL('/data/tools.json', r.url)));
-  if (!response.ok) throw new Error('Unable to load Nexauren tool registry.');
-  const data = await response.json();
-  const tools = Array.isArray(data?.tools) ? data.tools : [];
-  return tools.filter((tool) => tool?.id && String(tool.status || 'active') === 'active');
+  // Prefer the static asset registry, but keep the admin API functional even
+  // when the Assets binding is unavailable during a deployment transition.
+  try {
+    if (e?.ASSETS?.fetch) {
+      const response = await e.ASSETS.fetch(new Request(new URL('/data/tools.json', r.url)));
+      if (response.ok) {
+        const data = await response.json();
+        const tools = Array.isArray(data?.tools) ? data.tools : [];
+        return tools.filter((tool) => tool?.id && String(tool.status || 'active') === 'active');
+      }
+    }
+  } catch (error) {
+    console.warn('Tool registry asset lookup failed; using billing registry fallback.', String(error).slice(0, 300));
+  }
+
+  // The billing table is authoritative for tools that have already been
+  // configured. This fallback prevents the whole Admin page from failing.
+  const rows = await e.DB.prepare('SELECT tool_id,credit_cost,enabled,updated_at FROM tool_billing ORDER BY tool_id').all();
+  return (rows?.results || []).map((row) => ({
+    id: String(row.tool_id),
+    name: String(row.tool_id),
+    studioName: '',
+    url: '',
+    status: 'active',
+  }));
 }
 
 async function adminToolBilling(r, e) {
