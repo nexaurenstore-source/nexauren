@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Document Studio — Create & Edit Documents | Nexauren</title>
+<meta name="description" content="Create and edit professional multi-page documents with rich formatting, tables, images and PDF export directly in your browser.">
+<link rel="canonical" href="https://nexaurenstory.com/tools/document-studio/">
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/tools/document-studio/editor.css">
+<script src="/js/ads.js" defer></script>
+</head>
+<body>
+<main class="dc-app">
+<div class="dc-ad-space" aria-hidden="true"></div>
+<section class="dc-toolbar" aria-label="Document controls">
+<a href="/tools/" class="dc-back">← Tools</a><span class="dc-brand">Document Studio</span><span class="dc-sep"></span>
+<button type="button" id="newBtn">New</button><button type="button" id="exportBtn" class="primary">Export PDF</button>
+<span class="dc-sep"></span><button type="button" id="undoBtn" title="Undo">↶</button><button type="button" id="redoBtn" title="Redo">↷</button>
+<button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-cmd="underline"><u>U</u></button><button type="button" data-cmd="strikeThrough">S̶</button><button type="button" data-cmd="removeFormat">Tx</button>
+<span class="dc-sep"></span>
+<select id="fontFamily" aria-label="Font"><option value="Georgia">Georgia</option><option value="Arial">Arial</option><option value="Verdana">Verdana</option><option value="Tahoma">Tahoma</option><option value="Courier New">Courier New</option><option value="Times New Roman">Times New Roman</option></select>
+<select id="blockFormat" aria-label="Text style"><option value="p">Body</option><option value="h1">Title</option><option value="h2">Heading</option><option value="h3">Subheading</option><option value="blockquote">Quote</option><option value="pre">Code</option></select>
+<select id="fontSize" aria-label="Font size"><option value="3">16</option><option value="4">18</option><option value="5">24</option><option value="6">32</option><option value="7">42</option></select>
+<label class="dc-color" title="Text color">A<input id="textColor" type="color" value="#172033" aria-label="Text color"></label><label class="dc-color dc-highlight" title="Highlight">▰<input id="highlightColor" type="color" value="#fff2a8" aria-label="Highlight color"></label>
+<span class="dc-sep"></span><button type="button" data-cmd="justifyLeft">Left</button><button type="button" data-cmd="justifyCenter">Center</button><button type="button" data-cmd="justifyRight">Right</button><button type="button" data-cmd="justifyFull">Justify</button><button type="button" data-cmd="insertUnorderedList">• List</button><button type="button" data-cmd="insertOrderedList">1. List</button><button type="button" data-cmd="superscript">x²</button><button type="button" data-cmd="subscript">x₂</button>
+<select id="lineHeight" aria-label="Line spacing"><option value="1.4">Line 1.4</option><option value="1.6">Line 1.6</option><option value="1.8">Line 1.8</option><option value="2">Line 2</option></select>
+<span class="dc-sep"></span><button type="button" id="linkBtn">Link</button><button type="button" id="hrBtn">Divider</button><button type="button" id="quoteBtn">Quote</button><button type="button" id="calloutBtn">Callout</button><button type="button" id="checklistBtn">Checklist</button><button type="button" id="tableBtn">Table</button><button type="button" id="imageBtn">Image</button><button type="button" id="imageResizeBtn">Resize image</button><button type="button" id="pageBreakBtn">Page break</button><input id="imageInput" type="file" accept="image/*" hidden>
+<span class="dc-sep"></span><button type="button" id="addPageBtn">+ Page</button><button type="button" id="removePageBtn">− Page</button><button type="button" id="duplicatePageBtn">Duplicate</button><select id="marginSelect" aria-label="Margins"><option value="normal">Margins: Normal</option><option value="small">Margins: Small</option><option value="large">Margins: Large</option></select><button type="button" id="headerBtn">Header</button><button type="button" id="footerBtn">Footer</button>
+</section>
+<div class="dc-status" id="status">Saved locally · Ready</div>
+<section class="dc-stage" id="stage"><article class="dc-page" id="page"><div id="editor" contenteditable="true" spellcheck="true"><h1>Your document title</h1><p>Start writing here. Add pages, blocks, tables, images, links and more.</p><h2>Professional documents in your browser</h2><p>Write naturally, organize your document and export a polished PDF when you are ready.</p></div></article></section>
+</main>
+<script src="/js/app.js" defer></script><script src="/tools/document-studio/editor.js" defer></script>
+</body>
+</html>
