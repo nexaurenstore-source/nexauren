@@ -117,7 +117,7 @@ if (!generated.includes('const __blogUrl')) {
 if (!generated.includes('const __blogRouteActive')) {
   const fetchMarker = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{\s*/;
   if (!fetchMarker.test(generated)) throw new Error('[worker-build] Worker structure changed: blog route marker not found.');
-  const blogDispatch = `\n    if (new URL(r.url).pathname.startsWith('/api/blog/') || new URL(r.url).pathname.startsWith('/api/admin/blog/')) {\n      const __blogResponse = await __handleBlogRoute(r, e);\n      if (__blogResponse) return __blogResponse;\n    }\n    const __blogRouteActive = true;\n`;
+  const blogDispatch = `\n    // Blog article pages are dynamic Worker routes, not static asset paths.\n    // Dispatch both /blog/<slug>/ and /blog/<category>/<slug>/ directly here.\n    if (new URL(r.url).pathname.startsWith('/api/blog/') || new URL(r.url).pathname.startsWith('/api/admin/blog/') || new URL(r.url).pathname.startsWith('/blog/')) {\n      const __blogResponse = await __handleBlogRoute(r, e);\n      if (__blogResponse) return __blogResponse;\n    }\n    const __blogRouteActive = true;\n`;
   generated = generated.replace(fetchMarker, '$&' + blogDispatch, 1);
 }
 
@@ -197,6 +197,7 @@ console.log('[worker-build] Subscription lifecycle included once.');
 console.log('[worker-build] Webhook lifecycle included once.');
 console.log('[worker-build] Blog API module included once.');
 console.log('[worker-build] Blog API dispatcher included once.');
+console.log('[worker-build] Public /blog/* HTML dispatcher included in the primary build.');
 console.log('[worker-build] Unknown API paths fail closed with JSON 404.');
 console.log('[worker-build] Existing Worker source/routes preserved.');
 console.log('[worker-build] JavaScript syntax check passed.');
