@@ -14,7 +14,7 @@
     "PAYMENT_BRAND_NAME": "Nexauren"
   },
   "build": {
-    "command": "node scripts/patch-subscription-initial-cycle.mjs && node scripts/patch-paypal-subscription-return.mjs && node scripts/worker/patch-paypal-live-plan-replacement.mjs && node scripts/build-worker.mjs && node scripts/worker/blog-route-patch.mjs && node scripts/worker/blog-category-route-patch.mjs",
+    "command": "node scripts/patch-subscription-initial-cycle.mjs && node scripts/patch-paypal-subscription-return.mjs && node scripts/worker/patch-paypal-live-plan-replacement.mjs && node scripts/build-worker.mjs && node scripts/worker/patch-generated-paypal-live-plan-replacement.mjs && node scripts/worker/blog-route-patch.mjs && node scripts/worker/blog-category-route-patch.mjs",
     "watch_dir": ["worker.js", "scripts", "frontend"]
   },
   "assets": {
@@ -31,7 +31,7 @@
     {
       "binding": "BLOG_DB",
       "database_name": "nexauren-blog",
-      "database_id": "ddedfb2f-4597-4610-9f03-628076ae15de"
+      "database_id": "ddedfb2f-4591-4610-9f03-628076ae15de"
     }
   ]
 }
