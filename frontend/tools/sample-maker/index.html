@@ -13,63 +13,16 @@
 <body>
 <header id="site-header"></header>
 <main class="sm-app">
-  <section class="sm-hero">
-    <div class="sm-container">
-      <a class="sm-back" href="/tools/">← All tools</a>
-      <div class="sm-hero-copy">
-        <div><span class="sm-eyebrow">Audio • Sample creation</span><h1>Sample Maker</h1><p>Turn one sample into a whole collection of fresh sounds. Upload once, shape the character, then generate your variations.</p></div>
-        <div class="sm-plan"><span class="sm-plan-dot"></span><span id="plan-label">Free plan</span><small id="usage-label">10 generations today</small></div>
-      </div>
-    </div>
-  </section>
-
+  <section class="sm-hero"><div class="sm-container"><a class="sm-back" href="/tools/">← All tools</a><div class="sm-hero-copy"><div><span class="sm-eyebrow">Audio • Sample creation</span><h1>Sample Maker</h1><p>Turn one sample into a whole collection of fresh sounds. Upload once, shape the character, then generate your variations.</p></div><div class="sm-plan"><span class="sm-plan-dot"></span><span id="plan-label">Free plan</span><small id="usage-label">10 generations today</small></div></div></div></section>
   <div class="sm-container sm-layout">
-    <section class="sm-step sm-upload-step" id="upload-step">
-      <div class="sm-step-head"><span class="sm-step-number">01</span><div><span class="sm-kicker">Start with a sound</span><h2>Upload your sample</h2><p>WAV, MP3, OGG or other browser-supported audio.</p></div></div>
-      <label class="sm-dropzone" id="dropzone" for="sample-file">
-        <input id="sample-file" type="file" accept="audio/*,.wav,.mp3,.ogg,.m4a,.aac,.flac" hidden>
-        <span class="sm-upload-icon">↑</span><strong>Drop your sample here</strong><span>or choose an audio file</span><small>Processing happens in your browser</small>
-      </label>
-      <div class="sm-file-card" id="file-card" hidden><div class="sm-file-icon">♫</div><div class="sm-file-info"><strong id="file-name">sample.wav</strong><span id="file-meta">WAV • 0:00</span></div><button id="remove-file" type="button" class="sm-icon-btn" aria-label="Remove sample">×</button></div>
-    </section>
-
-    <div class="sm-ad" aria-label="Advertisement"><div class="sm-ad-label">Advertisement</div><ins class="adsbygoogle" style="display:block" data-ad-format="auto" data-full-width-responsive="true"></ins></div>
-
-    <section class="sm-step" id="setup-step">
-      <div class="sm-step-head"><span class="sm-step-number">02</span><div><span class="sm-kicker">Define the family</span><h2>Shape your variations</h2><p>Choose the sample type first. Available controls depend on your plan.</p></div></div>
-      <div class="sm-grid sm-grid-two">
-        <label class="sm-field"><span>Sample type</span><select id="sample-type"><option value="kick">Kick</option><option value="snare">Snare</option><option value="clap">Clap</option><option value="hihat">Hi-Hat</option><option value="percussion">Percussion</option><option value="tom">Tom</option><option value="808">808</option><option value="bass">Bass</option><option value="vocal">Vocal</option><option value="fx">FX</option><option value="piano">Piano</option><option value="synth">Synth</option><option value="other">Other</option></select></label>
-        <label class="sm-field"><span>Variations <b id="count-value">10</b></span><input id="count" type="range" min="1" max="10" value="10"><small id="count-help">Free: up to 10 samples per generation</small></label>
-      </div>
-      <div class="sm-controls-title"><span>Sound character</span><span class="sm-lock-note" id="control-note">Basic controls available</span></div>
-      <div class="sm-control-grid">
-        <label class="sm-slider"><span>Character <b id="character-value">Balanced</b></span><input id="character" type="range" min="0" max="100" value="50"><small>Dark ↔ Bright</small></label>
-        <label class="sm-slider"><span>Punch <b id="punch-value">50%</b></span><input id="punch" type="range" min="0" max="100" value="50"><small>Soft ↔ Hard</small></label>
-        <label class="sm-slider gated starter"><span>Width <b id="width-value">30%</b></span><input id="width" type="range" min="0" max="100" value="30"><small>Mono ↔ Wide</small></label>
-        <label class="sm-slider gated pro"><span>Pitch range <b id="pitch-value">±2 st</b></span><input id="pitch" type="range" min="0" max="12" value="2"><small>Semitone variation</small></label>
-      </div>
-      <div class="sm-effects-head"><div><span>Effects palette</span><small>Select the effects the generator can use.</small></div><button id="select-effects" type="button" class="sm-text-btn">Select available</button></div>
-      <div class="sm-effects" id="effects"></div>
-    </section>
-
-    <section class="sm-step" id="generate-step">
-      <div class="sm-step-head"><span class="sm-step-number">03</span><div><span class="sm-kicker">Build the pack</span><h2>Generate your samples</h2><p>Each variation receives a descriptive, production-ready filename.</p></div></div>
-      <div class="sm-generate-bar"><div><strong id="ready-title">Ready to make your pack</strong><span id="ready-copy">Upload a sample and choose your sound family.</span></div><button id="generate" type="button" class="sm-primary" disabled>Generate samples <span>→</span></button></div>
-      <div class="sm-progress" id="progress" hidden><div class="sm-progress-top"><span id="progress-label">Preparing…</span><span id="progress-count">0 / 10</span></div><div class="sm-progress-track"><div id="progress-fill"></div></div></div>
-    </section>
-
-    <section class="sm-results" id="results" hidden>
-      <div class="sm-results-head"><div><span class="sm-kicker">Your new sounds</span><h2>Sample pack ready</h2><p id="results-summary">0 variations generated.</p></div><button id="download-all" type="button" class="sm-secondary">Download ZIP</button></div>
-      <div id="sample-list" class="sm-sample-list"></div>
-    </section>
-
-    <section class="sm-upgrade" id="upgrade">
-      <div><span class="sm-kicker">Need more?</span><h3>Unlock a bigger sound palette</h3><p id="upgrade-copy">Starter unlocks more effects and up to 50 samples per generation.</p></div><a href="/billing/" class="sm-secondary">View plans</a>
-    </section>
+    <section class="sm-step sm-upload-step" id="upload-step"><div class="sm-step-head"><span class="sm-step-number">01</span><div><span class="sm-kicker">Start with a sound</span><h2>Upload your sample</h2><p>WAV, MP3, OGG or other browser-supported audio.</p></div></div><label class="sm-dropzone" id="dropzone" for="sample-file"><input id="sample-file" type="file" accept="audio/*,.wav,.mp3,.ogg,.m4a,.aac,.flac" hidden><span class="sm-upload-icon">↑</span><strong>Drop your sample here</strong><span>or choose an audio file</span><small>Processing happens in your browser</small></label><div class="sm-file-card" id="file-card" hidden><div class="sm-file-icon">♫</div><div class="sm-file-info"><strong id="file-name">sample.wav</strong><span id="file-meta">WAV • 0:00</span></div><button id="remove-file" type="button" class="sm-icon-btn" aria-label="Remove sample">×</button></div></section>
+    <section class="sm-step" id="setup-step"><div class="sm-step-head"><span class="sm-step-number">02</span><div><span class="sm-kicker">Define the family</span><h2>Shape your variations</h2><p>Choose the sample type first. Available controls depend on your plan.</p></div></div><div class="sm-grid sm-grid-two"><label class="sm-field"><span>Sample type</span><select id="sample-type"><option value="kick">Kick</option><option value="snare">Snare</option><option value="clap">Clap</option><option value="hihat">Hi-Hat</option><option value="percussion">Percussion</option><option value="tom">Tom</option><option value="808">808</option><option value="bass">Bass</option><option value="vocal">Vocal</option><option value="fx">FX</option><option value="piano">Piano</option><option value="synth">Synth</option><option value="other">Other</option></select></label><label class="sm-field"><span>Variations <b id="count-value">10</b></span><input id="count" type="range" min="1" max="10" value="10"><small id="count-help">Free: up to 10 samples per generation</small></label></div><div class="sm-controls-title"><span>Sound character</span><span class="sm-lock-note" id="control-note">Basic controls available</span></div><div class="sm-control-grid"><label class="sm-slider"><span>Character <b id="character-value">Balanced</b></span><input id="character" type="range" min="0" max="100" value="50"><small>Dark ↔ Bright</small></label><label class="sm-slider"><span>Punch <b id="punch-value">50%</b></span><input id="punch" type="range" min="0" max="100" value="50"><small>Soft ↔ Hard</small></label><label class="sm-slider gated starter"><span>Width <b id="width-value">30%</b></span><input id="width" type="range" min="0" max="100" value="30"><small>Mono ↔ Wide</small></label><label class="sm-slider gated pro"><span>Pitch range <b id="pitch-value">±2 st</b></span><input id="pitch" type="range" min="0" max="12" value="2"><small>Semitone variation</small></label></div><div class="sm-effects-head"><div><span>Effects palette</span><small>Select the effects the generator can use.</small></div><button id="select-effects" type="button" class="sm-text-btn">Select available</button></div><div class="sm-effects" id="effects"></div></section>
+    <section class="sm-step" id="generate-step"><div class="sm-step-head"><span class="sm-step-number">03</span><div><span class="sm-kicker">Build the pack</span><h2>Generate your samples</h2><p>Each variation receives a descriptive, production-ready filename.</p></div></div><div class="sm-generate-bar"><div><strong id="ready-title">Ready to make your pack</strong><span id="ready-copy">Upload a sample and choose your sound family.</span></div><button id="generate" type="button" class="sm-primary" disabled>Generate samples <span>→</span></button></div><div class="sm-progress" id="progress" hidden><div class="sm-progress-top"><span id="progress-label">Preparing…</span><span id="progress-count">0 / 10</span></div><div class="sm-progress-track"><div id="progress-fill"></div></div></div></section>
+    <section class="sm-results" id="results" hidden><div class="sm-results-head"><div><span class="sm-kicker">Your new sounds</span><h2>Sample pack ready</h2><p id="results-summary">0 variations generated.</p></div><button id="download-all" type="button" class="sm-secondary">Download ZIP</button></div><div id="sample-list" class="sm-sample-list"></div></section>
+    <section class="sm-upgrade" id="upgrade"><div><span class="sm-kicker">Need more?</span><h3>Unlock a bigger sound palette</h3><p id="upgrade-copy">Starter unlocks more effects and up to 50 samples per generation.</p></div><a href="/billing/" class="sm-secondary">View plans</a></section>
   </div>
 </main>
 <footer id="site-footer"></footer>
-<script src="/js/app.js" defer></script>
-<script src="/tools/sample-maker/sample-maker.js" defer></script>
+<script src="/js/app.js" defer></script><script src="/tools/sample-maker/sample-maker.js" defer></script><script src="/tools/sample-maker/sample-maker-plan.js" defer></script>
 </body>
 </html>
