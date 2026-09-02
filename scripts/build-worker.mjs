@@ -9,6 +9,7 @@ const notificationRoutesUrl = new URL('./worker/notification-routes.js', import.
 const billingModuleUrl = new URL('./worker/billing.js', import.meta.url);
 const billingSafetyPatchUrl = new URL('./worker/billing-safety-patch.js', import.meta.url);
 const billingRoutesUrl = new URL('./worker/billing-routes.js', import.meta.url);
+const toolCreditAdminUrl = new URL('./worker/tool-credit-admin.js', import.meta.url);
 const paymentProvidersUrl = new URL('./worker/payment-providers.js', import.meta.url);
 const paypalProviderUrl = new URL('./worker/paypal-provider.js', import.meta.url);
 const subscriptionModuleUrl = new URL('./worker/subscription-lifecycle.js', import.meta.url);
@@ -22,6 +23,7 @@ const notificationRoutes = await readFile(notificationRoutesUrl, 'utf8');
 const billingModule = await readFile(billingModuleUrl, 'utf8');
 const billingSafetyPatch = await readFile(billingSafetyPatchUrl, 'utf8');
 const billingRoutes = await readFile(billingRoutesUrl, 'utf8');
+const toolCreditAdmin = await readFile(toolCreditAdminUrl, 'utf8');
 const paymentProviders = await readFile(paymentProvidersUrl, 'utf8');
 const paypalProvider = await readFile(paypalProviderUrl, 'utf8');
 const subscriptionModule = await readFile(subscriptionModuleUrl, 'utf8');
@@ -34,6 +36,8 @@ if (!notificationRoutes.includes('/api/admin/notifications')) throw new Error('[
 if (!billingModule.includes('async function billingFinalizePayment')) throw new Error('[worker-build] Billing module is incomplete.');
 if (!billingSafetyPatch.includes('async function billingUsageSafe')) throw new Error('[worker-build] Billing safety patch is incomplete.');
 if (!billingRoutes.includes('/api/billing/catalog')) throw new Error('[worker-build] Billing routes module is incomplete.');
+if (!toolCreditAdmin.includes("'/api/admin/tool-billing'")) throw new Error('[worker-build] Tool credit admin routes module is incomplete.');
+if (!toolCreditAdmin.includes('async function adminToolBilling')) throw new Error('[worker-build] Tool credit admin handler is incomplete.');
 if (!paymentProviders.includes('NEXAUREN_PAYMENT_PROVIDERS')) throw new Error('[worker-build] Payment provider registry is incomplete.');
 if (!paypalProvider.includes('async function paypalAccessToken')) throw new Error('[worker-build] PayPal provider module is incomplete.');
 if (!subscriptionModule.includes('async function billingProcessSubscriptionCycle')) throw new Error('[worker-build] Subscription lifecycle module is incomplete.');
@@ -77,6 +81,12 @@ if (!generated.includes('const __billingUrl')) {
   generated = generated.replace(fetchMarker, '$&\n' + billingRoutes + '\n', 1);
 }
 
+if (!generated.includes('const __toolBillingUrl')) {
+  const billingMarker = 'const __billingUrl = new URL(r.url);';
+  if (!generated.includes(billingMarker)) throw new Error('[worker-build] Worker structure changed: tool credit admin insertion marker not found.');
+  generated = generated.replace(billingMarker, billingMarker + '\n' + toolCreditAdmin + '\n', 1);
+}
+
 if (!generated.includes('const __blogUrl')) {
   const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
   if (!marker.test(generated)) throw new Error('[worker-build] Worker structure changed: blog insertion marker not found.');
@@ -97,6 +107,8 @@ generated = generated.replace(assetFallbackMarker, "      if (new URL(r.url).pat
 const count = (text, needle) => text.split(needle).length - 1;
 if (count(generated, 'async function billingWebhook(') !== 1) throw new Error('[worker-build] billingWebhook must be included exactly once.');
 if (count(generated, 'const __billingUrl') !== 1) throw new Error('[worker-build] Billing route module must be included exactly once.');
+if (count(generated, 'const __toolBillingUrl') !== 1) throw new Error('[worker-build] Tool credit admin routes must be included exactly once.');
+if (count(generated, 'async function adminToolBilling(') !== 1) throw new Error('[worker-build] Admin tool billing handler must be included exactly once.');
 if (count(generated, 'async function billingFinalizePayment(') !== 1) throw new Error('[worker-build] billingFinalizePayment must be included exactly once.');
 if (count(generated, 'async function paypalAccessToken(') !== 1) throw new Error('[worker-build] PayPal provider must be included exactly once.');
 if (count(generated, 'async function __handleBlogRoute(') !== 1) throw new Error('[worker-build] Blog route module must be included exactly once.');
@@ -156,6 +168,7 @@ console.log('[worker-build] Notification routes included once.');
 console.log('[worker-build] Billing core module included once.');
 console.log('[worker-build] Billing safety patch included once.');
 console.log('[worker-build] Billing routes included once.');
+console.log('[worker-build] Tool credit admin routes included once.');
 console.log('[worker-build] Payment provider registry included once.');
 console.log('[worker-build] PayPal provider included once.');
 console.log('[worker-build] Subscription lifecycle included once.');
