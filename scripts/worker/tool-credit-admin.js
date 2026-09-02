@@ -1,4 +1,4 @@
-/* NEXAUREN TOOL CREDIT ADMIN ROUTES v8 */
+/* NEXAUREN TOOL CREDIT ADMIN ROUTES v9 */
 // Centralized Admin control for per-tool credit consumption.
 // IMPORTANT: this module only manages tool_billing. Payment, PayPal, plans,
 // subscriptions and purchase credits are intentionally outside this module.
@@ -9,6 +9,15 @@ const toolBillingError = (message, code, error, request) => {
   console.error(`[tool-credit-admin:${code}] ${message}`, String(error || '').slice(0, 500));
   return json({ error: message, code }, 500, cors(request));
 };
+
+function defaultToolCreditCost(tool) {
+  const studio = String(tool?.studio || '').toLowerCase();
+  if (studio === 'audio-studio') return 10;
+  if (studio === 'video-studio') return 10;
+  if (studio === 'image-studio') return 8;
+  if (studio === 'pdf-studio') return 8;
+  return 5;
+}
 
 async function ensureToolBillingSchema(e) {
   if (!e?.DB) throw new Error('D1 binding is unavailable.');
@@ -69,9 +78,12 @@ async function adminToolBilling(r, e) {
 
     try {
       const now = Math.floor(Date.now() / 1000);
-      const statements = tools.map((tool) => e.DB.prepare(
-        'INSERT INTO tool_billing(tool_id,credit_cost,enabled,updated_at) VALUES(?1,0,1,?2) ON CONFLICT(tool_id) DO NOTHING',
-      ).bind(String(tool.id), now));
+      const statements = tools.map((tool) => {
+        const defaultCost = defaultToolCreditCost(tool);
+        return e.DB.prepare(
+          'INSERT INTO tool_billing(tool_id,credit_cost,enabled,updated_at) VALUES(?1,?2,1,?3) ON CONFLICT(tool_id) DO UPDATE SET credit_cost=CASE WHEN tool_billing.credit_cost=0 THEN excluded.credit_cost ELSE tool_billing.credit_cost END',
+        ).bind(String(tool.id), defaultCost, now);
+      });
       if (statements.length) await e.DB.batch(statements);
     } catch (error) { return toolBillingError('Unable to initialize tool credit costs.', 'tool_billing_seed', error, r); }
 
@@ -82,8 +94,9 @@ async function adminToolBilling(r, e) {
     const configured = new Map((rows?.results || []).map((row) => [String(row.tool_id), row]));
     const result = tools.map((tool) => {
       const row = configured.get(String(tool.id));
-      const rawCost = Number(row?.credit_cost ?? 0);
-      const cost = Number.isSafeInteger(rawCost) && rawCost >= 0 ? rawCost : 0;
+      const fallbackCost = defaultToolCreditCost(tool);
+      const rawCost = Number(row?.credit_cost ?? fallbackCost);
+      const cost = Number.isSafeInteger(rawCost) && rawCost >= 0 ? rawCost : fallbackCost;
       return {
         tool_id: String(tool.id), name: String(tool.name || tool.id),
         studio: String(tool.studioName || tool.studio || ''), url: String(tool.url || ''),
