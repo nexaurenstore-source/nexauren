@@ -1,6 +1,15 @@
 /* NEXAUREN TOOL CREDIT ADMIN ROUTES */
 // Worker fetch(r, e) route fragment for centralized per-tool credit costs.
 
+async function ensureToolBillingSchema(e) {
+  await e.DB.prepare(`CREATE TABLE IF NOT EXISTS tool_billing (
+    tool_id TEXT PRIMARY KEY,
+    credit_cost INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    updated_at INTEGER NOT NULL
+  )`).run();
+}
+
 async function loadToolBillingRegistry(r, e) {
   // Prefer the static asset registry, but keep the admin API functional even
   // when the Assets binding is unavailable during a deployment transition.
@@ -19,6 +28,7 @@ async function loadToolBillingRegistry(r, e) {
 
   // The billing table is authoritative for tools that have already been
   // configured. This fallback prevents the whole Admin page from failing.
+  await ensureToolBillingSchema(e);
   const rows = await e.DB.prepare('SELECT tool_id,credit_cost,enabled,updated_at FROM tool_billing ORDER BY tool_id').all();
   return (rows?.results || []).map((row) => ({
     id: String(row.tool_id),
@@ -32,6 +42,13 @@ async function loadToolBillingRegistry(r, e) {
 async function adminToolBilling(r, e) {
   const admin = await isAdmin(r, e);
   if (!admin) return json({ error: 'Admin access required.' }, 403, cors(r));
+
+  try {
+    await ensureToolBillingSchema(e);
+  } catch (error) {
+    console.error('Tool billing schema initialization failed', String(error).slice(0, 500));
+    return json({ error: 'Unable to initialize tool credit settings.' }, 500, cors(r));
+  }
 
   if (r.method === 'GET') {
     try {
