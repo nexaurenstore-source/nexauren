@@ -45,7 +45,7 @@
     setMessage('Signing in…');
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('/api/account/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'include',
