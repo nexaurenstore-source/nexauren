@@ -2,9 +2,19 @@
 
 Nexauren Store is a separate marketplace experience intended to launch later at:
 
-`https://nexaurenstor.com/nexauren-store/`
+`https://nexaurenstory.com/nexauren-store/`
 
 It is deliberately not added to the main Nexauren navigation yet.
+
+## Data architecture
+
+The Marketplace catalog uses a dedicated Cloudflare D1 database named `nexauren-marketplace`.
+
+- `nexauren-db`: shared Nexauren identity, sessions, billing, subscriptions and credits
+- `nexauren-tools`: tool-specific data
+- `nexauren-marketplace`: Store catalog and, in later phases, carts, orders, entitlements, reviews and download records
+
+The Store does not create a second user/login system. Authenticated Store operations reuse the existing Nexauren session from `nexauren-db`.
 
 ## Included in the foundation
 
