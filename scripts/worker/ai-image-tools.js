@@ -77,13 +77,15 @@ function aiImageFeatureModel(feature) {
   return feature.slug === 'premium-generation' ? AI_IMAGE_MODEL : AI_IMAGE_MODEL;
 }
 
-async function aiImageRunModel(e, { prompt, steps, seed }) {
+async function aiImageRunModel(e, { prompt, steps }) {
   if (!e?.AI || typeof e.AI.run !== 'function') throw new Error('Workers AI binding is not configured.');
   try {
+    // Do not send seed to the deployed FLUX.1 Schnell schema. The current
+    // runtime is rejecting that property with "Additional or unevaluated
+    // properties '/seed' at '/'" even though some Cloudflare docs show seed.
     const response = await e.AI.run(aiImageFeatureModel({ slug: 'generation' }), {
       prompt,
       steps: Math.max(1, Math.min(8, Number(steps) || 4)),
-      seed: Number.isSafeInteger(seed) ? seed : Math.floor(Math.random() * 2147483647),
     });
     return aiImageDataUri(response?.image);
   } catch (error) {
@@ -174,7 +176,7 @@ async function aiImageGenerate(r, e) {
     }
 
     const steps = feature.slug === 'basic-generation' || feature.slug === 'fast-generation' ? 4 : 8;
-    const dataUri = await aiImageRunModel(e, { prompt, steps, seed });
+    const dataUri = await aiImageRunModel(e, { prompt, steps });
     const result = {
       tool: AI_IMAGE_TOOL_ID,
       feature: feature.slug,
