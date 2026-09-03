@@ -15,6 +15,9 @@
     "binding": "ASSETS",
     "not_found_handling": "404-page"
   },
+  "build": {
+    "command": "node scripts/marketplace/harden-marketplace.mjs"
+  },
   "d1_databases": [
     {
       "binding": "DB",
