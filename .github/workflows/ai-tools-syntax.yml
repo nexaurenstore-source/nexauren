@@ -1,0 +1,40 @@
+name: Nexauren AI Tools Syntax Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Check AI runtime syntax
+        run: node --check scripts/worker/ai-tools.js
+
+      - name: Check AI build patch syntax
+        run: node --check scripts/worker/ai-tools-patch.mjs
+
+      - name: Verify AI binding and patch command
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const wrangler = JSON.parse(fs.readFileSync('wrangler.json', 'utf8'));
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (wrangler.ai?.binding !== 'AI') throw new Error('Workers AI binding is missing.');
+          if (!String(wrangler.build?.command || '').includes('scripts/worker/ai-tools-patch.mjs')) throw new Error('AI patch missing from wrangler build command.');
+          if (!String(pkg.scripts?.['check:worker'] || '').includes('scripts/worker/ai-tools-patch.mjs')) throw new Error('AI patch missing from worker validation.');
+          console.log('AI integration configuration checks passed.');
+          NODE
