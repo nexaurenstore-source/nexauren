@@ -12,6 +12,7 @@
   "d1_databases": [
     {"binding":"DB","database_name":"nexauren-db","database_id":"b521297c-ada5-4818-bb66-9bde85bee2a1"},
     {"binding":"BLOG_DB","database_name":"nexauren-blog","database_id":"ddedfb2f-4597-4610-9f03-628076ae15de"},
-    {"binding":"TOOLS_DB","database_name":"nexauren-tools","database_id":"8bcc172e-bbf1-4fd8-90ce-11e3ea721b6a"}
+    {"binding":"TOOLS_DB","database_name":"nexauren-tools","database_id":"8bcc172e-bbf1-4fd8-90ce-11e3ea721b6a"},
+    {"binding":"MARKETPLACE_DB","database_name":"nexauren-marketplace","database_id":"3ec2d1f4-7a4a-443f-ade5-f6e7cf0941fe"}
   ]
 }
