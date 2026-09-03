@@ -32,6 +32,11 @@
       "binding": "BLOG_DB",
       "database_name": "nexauren-blog",
       "database_id": "ddedfb2f-4597-4610-9f03-628076ae15de"
+    },
+    {
+      "binding": "TOOLS_DB",
+      "database_name": "nexauren-tools",
+      "database_id": "8bcc172e-bbf1-4fd8-90ce-11e3ea721b6a"
     }
   ]
 }
