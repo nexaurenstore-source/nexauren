@@ -64,7 +64,7 @@ async function aiToolMonthlyUsage(e, userId, featureId) {
 
 async function aiToolJobByRequest(e, requestId) {
   return e.TOOLS_DB.prepare(
-    'SELECT id,status,output_json,error_message,credits_used FROM tool_jobs WHERE request_id=?1 LIMIT 1',
+    'SELECT id,status,output_json,error_message FROM tool_jobs WHERE request_id=?1 LIMIT 1',
   ).bind(requestId).first();
 }
 
