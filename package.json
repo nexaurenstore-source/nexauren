@@ -14,8 +14,8 @@
     "check:final": "node scripts/final-audit.mjs",
     "check:architecture": "npm run check:studios && npm run check:billing && npm run check:billing-ui && npm run check:subscriptions && npm run check:experience-billing && npm run check:worker && npm run check:security && npm run check:runtime && npm run check:seo && npm run check:final",
     "check": "npm run check:architecture",
-    "build": "npm run check",
     "db:migrations:apply": "npx wrangler d1 migrations apply nexauren-db --remote --yes",
-    "deploy": "npm run check:worker && npm run db:migrations:apply && npx wrangler deploy"
+    "db:marketplace:migrations:apply": "npx wrangler d1 migrations apply nexauren-marketplace --remote --yes",
+    "deploy": "npm run check:worker && npm run db:migrations:apply && npm run db:marketplace:migrations:apply && npx wrangler deploy"
   }
 }
