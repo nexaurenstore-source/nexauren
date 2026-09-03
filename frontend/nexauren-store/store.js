@@ -1,5 +1,5 @@
 const state={products:[],categories:[],q:'',category:'',price:'',format:'',rating:'',sort:'relevance',cart:[],wish:[]};
-const $=s=>document.querySelector(s);const API='/api/store/';
+const $=s=>document.querySelector(s);const API='/nexauren-store/api/store/';
 function money(v,currency='USD'){return Number(v)===0?'Free':new Intl.NumberFormat(undefined,{style:'currency',currency}).format(Number(v)||0)}
 function loginRedirect(){location.href='/login/?next='+encodeURIComponent(location.pathname+location.search+location.hash)}
 function updateCounts(){$('#cartCount').textContent=state.cart.length;$('#wishlistCount').textContent=state.wish.length}
