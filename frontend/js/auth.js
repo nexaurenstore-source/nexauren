@@ -5,7 +5,7 @@
   const form = $('#auth-form');
   if (!form) return;
 
-  const API = '/api/auth';
+  const API = '/api/account';
   let mode = 'login';
   const loginTab = $('#login-tab');
   const registerTab = $('#register-tab');
