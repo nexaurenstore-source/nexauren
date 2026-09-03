@@ -174,7 +174,6 @@ for (const script of [
   new URL('./worker/inject-seo.mjs', import.meta.url).pathname,
   new URL('./worker/enforce-admin-routes.mjs', import.meta.url).pathname,
   new URL('./worker/harden-security.mjs', import.meta.url).pathname,
-  new URL('./worker/harden-auth.mjs', import.meta.url).pathname,
   new URL('./extend-admin-users.mjs', import.meta.url).pathname,
   new URL('./protect-admin-user.mjs', import.meta.url).pathname,
   new URL('./extend-blocked-users.mjs', import.meta.url).pathname,
