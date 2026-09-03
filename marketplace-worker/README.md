@@ -59,3 +59,7 @@ The production routes are:
 - `nexaurenstory.com/api/store/*`
 
 The main Nexauren Worker no longer needs the Marketplace D1 binding or Marketplace runtime patches.
+
+## Production API routing note
+
+The `/api/store/*` route must be served by the dedicated `nexauren-marketplace` Worker. If a product page reports `Unexpected token '<'` while parsing JSON, the request is receiving an HTML response instead of the Marketplace API JSON. Redeploy this Worker with `marketplace-worker/wrangler.json` so the `/api/store/*` route is active before troubleshooting product data in D1.
