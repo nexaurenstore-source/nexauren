@@ -5,153 +5,55 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>AI PDF Summarizer — Nexauren</title>
   <meta name="description" content="Summarize PDF documents with Nexauren AI. Extract key points, notes, flashcards, quizzes and more.">
+  <link rel="stylesheet" href="/css/style.css"><link rel="stylesheet" href="/css/menu.css"><link rel="stylesheet" href="/css/nexauren-redesign.css">
   <style>
-    :root{--nx-border:rgba(127,127,127,.22);--nx-muted:#68707d}
-    body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--background,#fff);color:var(--foreground,#111)}
-    main{max-width:980px;margin:0 auto;padding:32px 18px 64px}.crumb{display:inline-block;margin-bottom:28px;text-decoration:none}.hero{text-align:center;margin-bottom:28px}.kicker{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.7}.hero h1{font-size:clamp(2rem,6vw,4rem);margin:.25rem 0}.hero p{max-width:680px;margin:0 auto;color:var(--nx-muted);line-height:1.6}
-    .workspace{border:1px solid var(--nx-border);border-radius:22px;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.06)}
-    .upload{border:2px dashed var(--nx-border);border-radius:18px;padding:30px;text-align:center}.upload input{display:block;width:100%;margin:16px 0}.hint{font-size:.9rem;color:var(--nx-muted)}
-    .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:20px 0}.feature{border:1px solid var(--nx-border);border-radius:15px;padding:15px;text-align:left;background:transparent;cursor:pointer;color:inherit}.feature.selected{outline:2px solid currentColor}.feature strong{display:block}.feature small{display:block;margin-top:5px;color:var(--nx-muted);line-height:1.45}.badge{display:inline-block;margin-top:10px;font-size:.75rem;padding:3px 7px;border:1px solid var(--nx-border);border-radius:999px}.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:12px;padding:11px 16px;cursor:pointer;font-weight:700}.primary{background:#111;color:#fff}.secondary{background:transparent;border:1px solid var(--nx-border)}.status{min-height:24px;color:var(--nx-muted)}.result{display:none;margin-top:24px;border-top:1px solid var(--nx-border);padding-top:22px}.result pre{white-space:pre-wrap;word-break:break-word;font:inherit;line-height:1.7}.meta{color:var(--nx-muted);font-size:.9rem}.error{color:#b42318}.question{display:none;margin:15px 0}.question textarea{width:100%;box-sizing:border-box;min-height:90px;padding:12px;border:1px solid var(--nx-border);border-radius:12px;background:transparent;color:inherit}
+    :root{--ai-border:rgba(127,127,127,.18);--ai-muted:#737b88;--ai-card:rgba(255,255,255,.78);--ai-shadow:0 24px 70px rgba(20,24,40,.10)}
+    body{min-height:100vh;background:radial-gradient(circle at 10% 0%,rgba(99,91,255,.13),transparent 30%),radial-gradient(circle at 90% 10%,rgba(0,180,255,.10),transparent 28%),var(--background,#f7f8fb);color:var(--foreground,#111)}
+    .ai-page{max-width:1120px;margin:0 auto;padding:34px 18px 72px}.ai-top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:28px}.crumb{text-decoration:none;opacity:.8}.billing-link{display:inline-flex;align-items:center;gap:7px;text-decoration:none;border:1px solid var(--ai-border);padding:10px 14px;border-radius:12px;background:var(--ai-card);font-weight:750;box-shadow:0 8px 24px rgba(20,24,40,.05)}
+    .hero{text-align:center;margin:24px auto 34px;max-width:820px}.kicker{font-size:.74rem;font-weight:850;letter-spacing:.16em;text-transform:uppercase;opacity:.68}.hero h1{font-size:clamp(2.2rem,6vw,4.6rem);line-height:1.02;margin:9px 0 14px;letter-spacing:-.055em}.hero p{margin:0 auto;color:var(--ai-muted);line-height:1.7;font-size:1.04rem}.hero-badge{display:inline-flex;margin-top:18px;padding:7px 11px;border-radius:999px;background:rgba(99,91,255,.09);border:1px solid rgba(99,91,255,.16);font-size:.82rem;font-weight:750}
+    .workspace{border:1px solid var(--ai-border);border-radius:28px;padding:20px;background:var(--ai-card);box-shadow:var(--ai-shadow);backdrop-filter:blur(18px)}.upload{border:1.5px dashed rgba(99,91,255,.35);border-radius:22px;padding:30px;text-align:center;background:linear-gradient(135deg,rgba(99,91,255,.07),rgba(0,180,255,.04))}.upload-icon{font-size:2rem;margin-bottom:7px}.upload strong{font-size:1.05rem}.upload input{display:block;width:100%;max-width:520px;margin:17px auto 9px}.hint{font-size:.87rem;color:var(--ai-muted)}
+    .section-title{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:28px 2px 12px}.section-title h2{margin:0;font-size:1.05rem}.section-title span{font-size:.82rem;color:var(--ai-muted)}.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.feature{position:relative;text-align:left;border:1px solid var(--ai-border);border-radius:18px;padding:17px;background:rgba(255,255,255,.35);cursor:pointer;color:inherit;transition:.18s transform,.18s border-color,.18s box-shadow}.feature:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(20,24,40,.07)}.feature.selected{border-color:rgba(99,91,255,.62);box-shadow:0 0 0 2px rgba(99,91,255,.12)}.feature.locked{opacity:.82}.feature strong{display:block;font-size:.98rem}.feature small{display:block;margin-top:7px;color:var(--ai-muted);line-height:1.48;min-height:40px}.badge{display:inline-flex;margin-top:12px;font-size:.72rem;padding:5px 8px;border:1px solid var(--ai-border);border-radius:999px;font-weight:750}.badge.paid{background:rgba(99,91,255,.08)}
+    .question{display:none;margin:18px 0}.question label{display:block;margin-bottom:8px}.question textarea{width:100%;box-sizing:border-box;min-height:110px;padding:14px;border:1px solid var(--ai-border);border-radius:16px;background:rgba(255,255,255,.5);color:inherit;resize:vertical;outline:none}.question textarea:focus{border-color:rgba(99,91,255,.65);box-shadow:0 0 0 3px rgba(99,91,255,.1)}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}.btn{border:0;border-radius:13px;padding:12px 17px;cursor:pointer;font-weight:800}.primary{background:#111;color:#fff;box-shadow:0 9px 22px rgba(0,0,0,.13)}.secondary{background:transparent;border:1px solid var(--ai-border);color:inherit}.btn:disabled{opacity:.55;cursor:not-allowed}.status{min-height:24px;color:var(--ai-muted);margin:14px 2px 0}.error{color:#b42318}
+    .result{display:none;margin-top:28px;border:1px solid var(--ai-border);border-radius:22px;overflow:hidden;background:rgba(255,255,255,.62)}.result-head{padding:20px 20px 14px;border-bottom:1px solid var(--ai-border)}.result-head-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.result h2{margin:4px 0 6px}.meta{color:var(--ai-muted);font-size:.86rem}.response-box{margin:18px;padding:18px;min-height:260px;max-height:620px;overflow:auto;border:1px solid var(--ai-border);border-radius:16px;background:rgba(0,0,0,.025);white-space:pre-wrap;word-break:break-word;line-height:1.75;font:inherit}.copy-btn{border:1px solid var(--ai-border);background:transparent;color:inherit;border-radius:10px;padding:8px 11px;cursor:pointer;font-weight:700}
+    .upgrade-note{margin-top:18px;padding:14px 16px;border-radius:15px;background:rgba(99,91,255,.07);border:1px solid rgba(99,91,255,.13);font-size:.9rem;color:var(--ai-muted)}.upgrade-note a{font-weight:800;color:inherit}
+    @media(max-width:650px){.ai-top{align-items:flex-start}.billing-link{padding:9px 11px}.ai-page{padding-top:20px}.workspace{padding:13px;border-radius:22px}.upload{padding:24px 14px}.result-head-row{align-items:flex-start}.response-box{margin:12px;min-height:220px}}
   </style>
 </head>
 <body>
-<main>
-  <a class="crumb" href="/tools/">← Tools</a>
-  <section class="hero">
-    <span class="kicker">AI</span>
-    <h1>AI PDF Summarizer.</h1>
-    <p>Upload a PDF and use Nexauren AI to summarize it, extract important ideas, create study material, or ask questions about the document.</p>
-  </section>
+<header id="site-header"></header>
+<main class="ai-page">
+  <div class="ai-top"><a class="crumb" href="/tools/">← Tools</a><a class="billing-link" href="/billing/">⚡ Credits & Plans</a></div>
+  <section class="hero"><span class="kicker">Nexauren AI</span><h1>Turn PDFs into useful answers.</h1><p>Upload a document and let Google Gemma, running through Cloudflare Workers AI, summarize, explain and transform it into study material.</p><span class="hero-badge">✦ AI PDF Studio · Up to 25 MB</span></section>
   <section class="workspace">
-    <div class="upload">
-      <strong>Choose your PDF</strong>
-      <input id="file" type="file" accept="application/pdf">
-      <div class="hint">Maximum file size: 25 MB.</div>
-    </div>
+    <div class="upload"><div class="upload-icon">⌁</div><strong>Choose your PDF</strong><input id="file" type="file" accept="application/pdf"><div class="hint">Maximum file size: 25 MB · Your document is processed by Nexauren AI.</div></div>
+    <div class="section-title"><h2>Choose an AI mode</h2><span id="planLabel">Checking your plan…</span></div>
     <div id="features" class="features" aria-label="AI features"></div>
-    <div id="questionBox" class="question">
-      <label for="question"><strong>Your question</strong></label>
-      <textarea id="question" placeholder="Ask something about this PDF..."></textarea>
-    </div>
-    <div class="actions">
-      <button id="run" class="btn primary" type="button">Analyze PDF</button>
-      <button id="reset" class="btn secondary" type="button">Reset</button>
-    </div>
+    <div id="questionBox" class="question"><label for="question"><strong>Ask about this PDF</strong></label><textarea id="question" placeholder="What would you like to know about this document?"></textarea></div>
+    <div id="upgradeNote" class="upgrade-note" style="display:none">Some advanced modes require a higher plan or credits. <a href="/billing/">Upgrade your plan or buy credits →</a></div>
+    <div class="actions"><button id="run" class="btn primary" type="button">Analyze PDF</button><button id="reset" class="btn secondary" type="button">Reset</button></div>
     <p id="status" class="status">Loading AI features…</p>
-    <section id="result" class="result">
-      <div class="kicker">Result</div>
-      <h2 id="resultTitle">AI analysis</h2>
-      <p id="resultMeta" class="meta"></p>
-      <pre id="resultText"></pre>
-    </section>
+    <section id="result" class="result"><div class="result-head"><div class="result-head-row"><div><div class="kicker">AI Response</div><h2 id="resultTitle">Analysis</h2><p id="resultMeta" class="meta"></p></div><button id="copy" class="copy-btn" type="button">Copy</button></div></div><div id="resultText" class="response-box" aria-live="polite"></div></section>
   </section>
 </main>
+<footer id="site-footer"></footer>
+<script src="/js/app.js" defer></script><script src="/auth/auth.js"></script>
 <script>
 (() => {
-  const file = document.getElementById('file');
-  const features = document.getElementById('features');
-  const questionBox = document.getElementById('questionBox');
-  const question = document.getElementById('question');
-  const run = document.getElementById('run');
-  const reset = document.getElementById('reset');
-  const status = document.getElementById('status');
-  const result = document.getElementById('result');
-  const resultTitle = document.getElementById('resultTitle');
-  const resultMeta = document.getElementById('resultMeta');
-  const resultText = document.getElementById('resultText');
-  let selected = 'basic-summary';
-  let featureMap = new Map();
-
-  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-  async function readApiResponse(res) {
-    const text = await res.text();
-    const contentType = res.headers.get('content-type') || '';
-    if (!text.trim()) throw new Error(`AI API returned an empty response (HTTP ${res.status}).`);
-    if (!contentType.toLowerCase().includes('application/json')) {
-      if (text.trim().startsWith('<!doctype') || text.trim().startsWith('<html')) {
-        throw new Error(`AI API route is not active on the deployed Worker (HTTP ${res.status}). Redeploy the latest Nexauren Worker.`);
-      }
-      throw new Error(`AI API returned a non-JSON response (HTTP ${res.status}).`);
-    }
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new Error(`AI API returned invalid JSON (HTTP ${res.status}).`);
-    }
-  }
-
-  const selectFeature = (slug) => {
-    selected = slug;
-    document.querySelectorAll('.feature').forEach(el => el.classList.toggle('selected', el.dataset.slug === slug));
-    questionBox.style.display = slug === 'pdf-chat' ? 'block' : 'none';
-  };
-
-  async function loadFeatures() {
-    try {
-      const res = await fetch('/api/ai/tools', { credentials: 'include', headers: { 'Accept': 'application/json' } });
-      const data = await readApiResponse(res);
-      const tool = (data.tools || []).find(t => t.id === 'ai_pdf_summarizer');
-      if (!res.ok || !tool) throw new Error(data.error || 'AI tool is unavailable.');
-      featureMap = new Map((tool.features || []).map(f => [f.slug, f]));
-      features.innerHTML = (tool.features || []).map(f => `
-        <button class="feature${f.slug === selected ? ' selected' : ''}" type="button" data-slug="${esc(f.slug)}">
-          <strong>${esc(f.name)}</strong>
-          <small>${esc(f.description || '')}</small>
-          <span class="badge">${esc(f.access_level)}${Number(f.credit_cost) > 0 ? ` · ${Number(f.credit_cost)} credits` : ' · included'}</span>
-        </button>`).join('');
-      features.querySelectorAll('.feature').forEach(el => el.addEventListener('click', () => selectFeature(el.dataset.slug)));
-      selectFeature(selected);
-      status.textContent = 'Choose a feature and upload your PDF.';
-    } catch (error) {
-      status.textContent = error.message || 'Unable to load AI features.';
-      status.className = 'status error';
-    }
-  }
-
-  run.addEventListener('click', async () => {
-    if (!file.files[0]) { status.textContent = 'Choose a PDF first.'; return; }
-    if (file.files[0].size > 25 * 1024 * 1024) { status.textContent = 'PDF is larger than 25 MB.'; return; }
-    if (selected === 'pdf-chat' && !question.value.trim()) { status.textContent = 'Enter a question for PDF Chat.'; return; }
-    run.disabled = true;
-    status.className = 'status';
-    status.textContent = 'Nexauren AI is analyzing your PDF…';
-    result.style.display = 'none';
-    try {
-      const form = new FormData();
-      form.append('file', file.files[0]);
-      form.append('feature', selected);
-      form.append('request_id', crypto.randomUUID());
-      if (selected === 'pdf-chat') form.append('question', question.value.trim());
-      const res = await fetch('/api/ai/pdf-summarizer', { method: 'POST', body: form, credentials: 'include', headers: { 'Accept': 'application/json' } });
-      const data = await readApiResponse(res);
-      if (!res.ok) {
-        const detail = data.details ? ` (${data.details})` : '';
-        throw new Error(`${data.error || 'The AI request failed.'}${detail}`);
-      }
-      resultTitle.textContent = featureMap.get(selected)?.name || 'AI analysis';
-      resultMeta.textContent = `${data.result.filename} · ${data.result.plan} plan · ${data.result.credits_used || 0} credits used`;
-      resultText.textContent = data.result.content || '';
-      result.style.display = 'block';
-      status.textContent = 'Analysis completed.';
-    } catch (error) {
-      status.textContent = error.message || 'The AI request failed.';
-      status.className = 'status error';
-    } finally {
-      run.disabled = false;
-    }
-  });
-
-  reset.addEventListener('click', () => {
-    file.value = '';
-    question.value = '';
-    result.style.display = 'none';
-    status.className = 'status';
-    status.textContent = 'Choose a feature and upload your PDF.';
-    selectFeature('basic-summary');
-  });
-
-  loadFeatures();
+  const $=s=>document.querySelector(s), file=$('#file'), features=$('#features'), questionBox=$('#questionBox'), question=$('#question'), run=$('#run'), reset=$('#reset'), status=$('#status'), result=$('#result'), resultTitle=$('#resultTitle'), resultMeta=$('#resultMeta'), resultText=$('#resultText'), copy=$('#copy'), planLabel=$('#planLabel'), upgradeNote=$('#upgradeNote');
+  let selected='basic-summary', featureMap=new Map(), userPlan='free';
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const planNames={free:'Free',starter:'Starter',pro:'Pro',premium:'Premium'};
+  function normalizePlan(v){const x=String(v||'').toLowerCase();if(x==='premium'||x.startsWith('premium_')||x.startsWith('premium-'))return'premium';if(x==='pro'||x.startsWith('pro_')||x.startsWith('pro-'))return'pro';if(x==='starter'||x.startsWith('starter_')||x.startsWith('starter-'))return'starter';return'free'}
+  function level(v){return {free:0,starter:1,pro:2,premium:3}[normalizePlan(v)]||0}
+  async function readApiResponse(res){const text=await res.text(),type=res.headers.get('content-type')||'';if(!text.trim())throw new Error(`AI API returned an empty response (HTTP ${res.status}).`);if(!type.toLowerCase().includes('application/json')){if(/^\s*<(?:!doctype|html)/i.test(text))throw new Error(`AI API route is not active on the deployed Worker (HTTP ${res.status}).`);throw new Error(`AI API returned a non-JSON response (HTTP ${res.status}).`)}try{return JSON.parse(text)}catch{throw new Error(`AI API returned invalid JSON (HTTP ${res.status}).`)}}
+  function selectFeature(slug){selected=slug;document.querySelectorAll('.feature').forEach(el=>el.classList.toggle('selected',el.dataset.slug===slug));questionBox.style.display=slug==='pdf-chat'?'block':'none';const f=featureMap.get(slug);upgradeNote.style.display=f&&level(userPlan)<level(f.access_level)?'block':'none'}
+  async function loadPlan(){try{const res=await fetch('/api/billing/account',{credentials:'include',headers:{Accept:'application/json'}});const data=await readApiResponse(res);userPlan=normalizePlan(data?.account?.plan_id||data?.account?.plan_name);planLabel.textContent=`${planNames[userPlan]||'Free'} plan`;return true}catch{planLabel.textContent='Plan unavailable';return false}}
+  async function loadFeatures(){try{const res=await fetch('/api/ai/tools',{credentials:'include',headers:{Accept:'application/json'}});const data=await readApiResponse(res);const tool=(data.tools||[]).find(t=>t.id==='ai_pdf_summarizer');if(!res.ok||!tool)throw new Error(data.error||'AI tool is unavailable.');featureMap=new Map((tool.features||[]).map(f=>[f.slug,f]));features.innerHTML=(tool.features||[]).map(f=>{const locked=level(userPlan)<level(f.access_level);return `<button class="feature${f.slug===selected?' selected':''}${locked?' locked':''}" type="button" data-slug="${esc(f.slug)}"><strong>${esc(f.name)}</strong><small>${esc(f.description||'')}</small><span class="badge${Number(f.credit_cost)>0?' paid':''}">${locked?'🔒 ':''}${esc(f.access_level)}${Number(f.credit_cost)>0?` · ${Number(f.credit_cost)} credits`:' · included'}</span></button>`}).join('');features.querySelectorAll('.feature').forEach(el=>el.addEventListener('click',()=>selectFeature(el.dataset.slug)));selectFeature(selected);status.textContent='Choose a feature and upload your PDF.'}catch(error){status.textContent=error.message||'Unable to load AI features.';status.className='status error'}}
+  run.addEventListener('click',async()=>{if(!file.files[0]){status.textContent='Choose a PDF first.';return}if(file.files[0].size>25*1024*1024){status.textContent='PDF is larger than 25 MB.';return}if(selected==='pdf-chat'&&!question.value.trim()){status.textContent='Enter a question for PDF Chat.';return}run.disabled=true;status.className='status';status.textContent='Nexauren AI is analyzing your PDF…';result.style.display='none';try{const form=new FormData();form.append('file',file.files[0]);form.append('feature',selected);form.append('request_id',crypto.randomUUID());if(selected==='pdf-chat')form.append('question',question.value.trim());const res=await fetch('/api/ai/pdf-summarizer',{method:'POST',body:form,credentials:'include',headers:{Accept:'application/json'}}),data=await readApiResponse(res);if(!res.ok){const detail=data.details?` (${data.details})`:'';throw new Error(`${data.error||'The AI request failed.'}${detail}`)}resultTitle.textContent=featureMap.get(selected)?.name||'AI analysis';resultMeta.textContent=`${data.result.filename} · ${planNames[normalizePlan(data.result.plan)]||data.result.plan} plan · ${data.result.credits_used||0} credits used`;resultText.textContent=data.result.content||'';result.style.display='block';status.textContent='Analysis completed.'}catch(error){status.textContent=error.message||'The AI request failed.';status.className='status error'}finally{run.disabled=false}});
+  copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(resultText.textContent);copy.textContent='Copied';setTimeout(()=>copy.textContent='Copy',1400)}catch{copy.textContent='Copy failed';setTimeout(()=>copy.textContent='Copy',1400)}});
+  reset.addEventListener('click',()=>{file.value='';question.value='';result.style.display='none';status.className='status';status.textContent='Choose a feature and upload your PDF.';selectFeature('basic-summary')});
+  (async()=>{await loadPlan();await loadFeatures()})();
 })();
 </script>
 </body>
