@@ -1,0 +1,27 @@
+name: Nexa AI Syntax Check
+on:
+  push:
+    paths:
+      - 'scripts/worker/nexa-ai.js'
+      - 'scripts/worker/nexa-ai-patch*.mjs'
+      - 'frontend/ai/nexa/**'
+      - 'wrangler.json'
+  pull_request:
+    paths:
+      - 'scripts/worker/nexa-ai.js'
+      - 'scripts/worker/nexa-ai-patch*.mjs'
+      - 'frontend/ai/nexa/**'
+      - 'wrangler.json'
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: |
+          node --check scripts/worker/nexa-ai.js
+          node --check scripts/worker/nexa-ai-patch-v2.mjs
+          node --check frontend/ai/nexa/nexa-widget.js
