@@ -62,7 +62,7 @@
     const username = (baseUsername || 'user') + '-' + Math.random().toString(36).slice(2, 7);
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/api/account/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'include',
