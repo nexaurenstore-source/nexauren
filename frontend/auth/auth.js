@@ -1,6 +1,8 @@
 (() => {
   'use strict';
-  const API = '/api/auth';
+  // Account endpoints intentionally live outside the legacy /api/auth path.
+  // This avoids stale edge rate-limit rules that were applied to the old auth namespace.
+  const API = '/api/account';
 
   async function request(path, options = {}) {
     let response;
