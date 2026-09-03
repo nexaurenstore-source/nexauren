@@ -55,10 +55,10 @@ async function __storeProducts(r, e) {
   }[sort] || 'p.featured DESC,p.sort_order ASC,p.created_at DESC,p.id DESC';
   const filterSql = where.join(' AND ');
   const count = await e.MARKETPLACE_DB.prepare(
-    `SELECT COUNT(*) AS total FROM store_products p JOIN store_categories c ON c.id=p.category_id WHERE ${filterSql}`
+    \`SELECT COUNT(*) AS total FROM store_products p JOIN store_categories c ON c.id=p.category_id WHERE \${filterSql}\`
   ).bind(...params).first();
   const rows = await e.MARKETPLACE_DB.prepare(
-    `SELECT p.id,p.name,p.slug,p.category_id,c.name AS category,p.description,p.format,p.price_minor,p.currency,p.rating,p.icon,p.tag,p.featured,p.metadata_json,p.created_at,p.updated_at FROM store_products p JOIN store_categories c ON c.id=p.category_id WHERE ${filterSql} ORDER BY ${orderBy} LIMIT ? OFFSET ?`
+    \`SELECT p.id,p.name,p.slug,p.category_id,c.name AS category,p.description,p.format,p.price_minor,p.currency,p.rating,p.icon,p.tag,p.featured,p.metadata_json,p.created_at,p.updated_at FROM store_products p JOIN store_categories c ON c.id=p.category_id WHERE \${filterSql} ORDER BY \${orderBy} LIMIT ? OFFSET ?\`
   ).bind(...params, limit, offset).all();
 
   const products = (rows.results || []).map((p) => ({
@@ -92,7 +92,7 @@ async function __handleStoreMarketplaceRoute(r, e) {
   return json({ error: 'Not found' }, 404, cors(r));
 }
 `;
-  const marker = /async\\s+fetch\\(\\s*r\\s*,\\s*e\\s*\\)\\s*\\{\\s*/;
+  const marker = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{\s*/;
   if (!marker.test(source)) throw new Error('[store-patch] Worker fetch marker not found.');
   source = source.replace(marker, '$&' + module + '\n', 1);
   source = source.replace(marker, '$&\n    const __storeResponse = await __handleStoreMarketplaceRoute(r, e);\n    if (__storeResponse) return __storeResponse;\n', 1);
