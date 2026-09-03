@@ -18,10 +18,15 @@
       id: 'ai-pdf-summarizer', name: 'AI PDF Summarizer', slug: 'ai-pdf-summarizer', studio: 'ai', studioName: 'AI Tools',
       description: 'Summarize PDF documents, extract key points and analyze content with Nexauren AI.', url: '/ai/pdf-summarizer/', icon: 'pdf', image: '', socialImage: '', status: 'active', featured: true, popular: true, rankScore: 108,
       tags: ['ai','pdf','summarizer','summary','document','analysis','key-points']
+    },
+    {
+      id: 'ai_video_generator', name: 'AI Video Generator', slug: 'ai-video-generator', studio: 'ai', studioName: 'AI Tools',
+      description: 'Create short AI videos from text prompts or animate a reference image with Nexauren AI.', url: '/ai/video-generator/', icon: 'video', image: '', socialImage: '', status: 'active', featured: true, popular: true, rankScore: 112,
+      tags: ['ai','video','generator','text-to-video','image-to-video','pixverse','generation']
     }
   ];
   const fetchJSON = async path => {
-    const response = await fetch(`${path}${path.includes('?') ? '&' : '?'}v=8`, { cache: 'no-store', headers: { Accept: 'application/json' } });
+    const response = await fetch(`${path}${path.includes('?') ? '&' : '?'}v=9`, { cache: 'no-store', headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error(`Registry request failed: ${response.status}`);
     return response.json();
   };
