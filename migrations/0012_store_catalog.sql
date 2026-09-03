@@ -1,3 +1,0 @@
--- Reserved migration slot.
--- Store / Marketplace data must NOT live in the shared nexauren-db.
--- Marketplace schema lives in migrations-marketplace/ and is applied to nexauren-marketplace.
