@@ -26,7 +26,7 @@ if (!generated.includes('const __aiToolsRouteActive = true;')) {
     throw new Error('[ai-tools-patch] Worker structure changed: fetch(r, e) marker not found.');
   }
 
-  const dispatch = `\n    const __aiToolsRouteActive = true;\n    if (u.pathname === '/api/ai/tools' || u.pathname === '/api/ai/pdf-summarizer') {\n      const __aiToolsResponse = await __handleAiToolsRoute(r, e);\n      if (__aiToolsResponse) return __aiToolsResponse;\n    }\n`;
+  const dispatch = `\n    const __aiToolsRouteActive = true;\n    const __aiToolsPath = new URL(r.url).pathname;\n    if (__aiToolsPath === '/api/ai/tools' || __aiToolsPath === '/api/ai/pdf-summarizer') {\n      const __aiToolsResponse = await __handleAiToolsRoute(r, e);\n      if (__aiToolsResponse) return __aiToolsResponse;\n    }\n`;
   generated = generated.replace(fetchMarker, '$&' + dispatch, 1);
 }
 
