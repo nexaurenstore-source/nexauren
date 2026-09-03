@@ -1,6 +1,10 @@
-/* NEXAUREN AI VIDEO GENERATOR v1
+/* NEXAUREN AI VIDEO GENERATOR v2
  * Text-to-video and image-to-video through Cloudflare Workers AI.
- * Access is controlled by TOOLS_DB; credits remain authoritative in DB.
+ * TOOLS_DB defines tools/features; the main DB (DB) is authoritative for
+ * subscriptions and credit balances. Plans and credits are separate:
+ * - included feature for the user's plan => no credits charged
+ * - feature above the user's plan => allowed when the user has enough credits
+ * - Premium => every registered feature is included, so no credit purchase
  */
 
 const AI_VIDEO_TOOL_ID = 'ai_video_generator';
@@ -34,13 +38,15 @@ function aiVideoLimits(value) {
   } catch { return {}; }
 }
 
-function aiVideoBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Unable to read reference image.'));
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.readAsDataURL(file);
-  });
+async function aiVideoBase64(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunk, bytes.length)));
+  }
+  const base64 = btoa(binary);
+  return `data:${String(file.type || 'application/octet-stream')};base64,${base64}`;
 }
 
 async function aiVideoJob(e, requestId) {
@@ -114,13 +120,17 @@ async function aiVideoGenerate(r, e) {
   const planAccount = typeof billingEnsureAccount === 'function' ? await billingEnsureAccount(e, user.id) : null;
   const planId = aiVideoPlan(planAccount?.plan_id || planAccount?.plan_name);
   const requiredLevel = AI_VIDEO_PLAN_LEVELS[clean(feature.access_level).toLowerCase()] ?? 0;
-  if ((AI_VIDEO_PLAN_LEVELS[planId] ?? 0) < requiredLevel) return aiVideoError('Your current plan does not include this feature.', 'plan_required', 403, r, { required: clean(feature.access_level).toLowerCase(), plan: planId });
+  const included = (AI_VIDEO_PLAN_LEVELS[planId] ?? 0) >= requiredLevel;
+
+  // Plan controls inclusion; it does not deny access by itself. A user whose
+  // plan is below the feature level may use the feature by paying its credit
+  // cost. Premium includes every registered feature and therefore pays 0.
+  const cost = included ? 0 : Math.max(0, Math.floor(Number(feature.credit_cost) || 0));
 
   const limits = aiVideoLimits(feature.limits_json);
   const maxDuration = Math.min(15, Math.max(1, Number(limits.max_duration || 15)));
   if (duration > maxDuration) return aiVideoError(`Maximum duration for this feature is ${maxDuration} seconds.`, 'duration_limit', 400, r);
 
-  const cost = Math.max(0, Math.floor(Number(feature.credit_cost) || 0));
   let imageInput = null;
   if (featureSlug === 'image-to-video') {
     try { imageInput = await aiVideoBase64(referenceImage); }
@@ -133,7 +143,7 @@ async function aiVideoGenerate(r, e) {
       userId: user.id,
       featureId: feature.id,
       requestId,
-      input: { feature: featureSlug, prompt, duration, aspect_ratio: aspectRatio, quality, generate_audio: generateAudio, has_reference_image: !!imageInput },
+      input: { feature: featureSlug, prompt, duration, aspect_ratio: aspectRatio, quality, generate_audio: generateAudio, has_reference_image: !!imageInput, plan: planId, included, credit_cost: cost },
     });
   } catch (error) {
     return aiVideoError('Unable to create the AI video job.', 'job_create_failed', 500, r, aiVideoDetail(error));
@@ -146,7 +156,8 @@ async function aiVideoGenerate(r, e) {
       const debit = await billingDebitCredits(e, { userId: user.id, amount: cost, toolId: AI_VIDEO_TOOL_ID, reference: `ai:${AI_VIDEO_TOOL_ID}:${requestId}` });
       if (debit?.insufficient) {
         await aiVideoFinishJob(e, job.id, 'failed', null, 'Insufficient credits.');
-        return aiVideoError('Insufficient credits.', 'insufficient_credits', 402, r, { required: cost, balance: Number((await billingEnsureAccount(e, user.id))?.balance || 0) });
+        const balanceAccount = typeof billingEnsureAccount === 'function' ? await billingEnsureAccount(e, user.id) : null;
+        return aiVideoError('Insufficient credits.', 'insufficient_credits', 402, r, { required: cost, balance: Number(balanceAccount?.balance || 0), plan: planId, included: false });
       }
       charged = !debit?.idempotent;
     }
@@ -178,11 +189,12 @@ async function aiVideoGenerate(r, e) {
       quality,
       generate_audio: generateAudio,
       plan: planId,
+      included,
       credits_used: charged ? cost : 0,
     };
 
     await aiVideoFinishJob(e, job.id, 'completed', result);
-    await aiVideoLogUsage(e, { userId: user.id, featureId: feature.id, jobId: job.id, requestId, creditsUsed: charged ? cost : 0, status: 'completed', metadata: { plan: planId, feature: featureSlug, duration, quality, aspect_ratio: aspectRatio } });
+    await aiVideoLogUsage(e, { userId: user.id, featureId: feature.id, jobId: job.id, requestId, creditsUsed: charged ? cost : 0, status: 'completed', metadata: { plan: planId, included, feature: featureSlug, duration, quality, aspect_ratio: aspectRatio } });
     const account = typeof billingEnsureAccount === 'function' ? await billingEnsureAccount(e, user.id) : null;
     return json({ success: true, result, balance: Number(account?.balance || 0) }, 200, cors(r));
   } catch (error) {
@@ -194,7 +206,7 @@ async function aiVideoGenerate(r, e) {
     }
     try {
       await aiVideoFinishJob(e, job.id, 'failed', null, detail);
-      await aiVideoLogUsage(e, { userId: user.id, featureId: feature.id, jobId: job.id, requestId, creditsUsed: charged ? cost : 0, status: charged ? 'refunded' : 'failed', metadata: { plan: planId, feature: featureSlug, refunded: charged, error: detail } });
+      await aiVideoLogUsage(e, { userId: user.id, featureId: feature.id, jobId: job.id, requestId, creditsUsed: charged ? cost : 0, status: charged ? 'refunded' : 'failed', metadata: { plan: planId, included, feature: featureSlug, refunded: charged, error: detail } });
     } catch (logError) { console.error('AI video failure logging failed', aiVideoDetail(logError)); }
     return aiVideoError('The AI video generation failed.', 'ai_video_execution_failed', 502, r, detail);
   }
