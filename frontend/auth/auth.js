@@ -1,8 +1,10 @@
 (() => {
   'use strict';
-  // Account endpoints intentionally live outside the legacy /api/auth path.
-  // This avoids stale edge rate-limit rules that were applied to the old auth namespace.
   const API = '/api/account';
+
+  const clearAuthCache = () => {
+    try { sessionStorage.removeItem('nexauren_auth_state_v1'); } catch {}
+  };
 
   async function request(path, options = {}) {
     let response;
@@ -30,9 +32,9 @@
   }
 
   window.NexaurenAuth = {
-    register(data) { return request('/register', { method: 'POST', body: JSON.stringify(data) }); },
-    login(data) { return request('/login', { method: 'POST', body: JSON.stringify(data) }); },
-    logout() { return request('/logout', { method: 'POST', body: '{}' }); },
+    register: async (data) => { const result = await request('/register', { method: 'POST', body: JSON.stringify(data) }); clearAuthCache(); return result; },
+    login: async (data) => { const result = await request('/login', { method: 'POST', body: JSON.stringify(data) }); clearAuthCache(); return result; },
+    logout: async () => { const result = await request('/logout', { method: 'POST', body: '{}' }); clearAuthCache(); return result; },
     me() { return request('/me', { method: 'GET', headers: {} }); },
     forgotPassword(email) { return request('/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }); },
     resetPassword(token, password) { return request('/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }); }
