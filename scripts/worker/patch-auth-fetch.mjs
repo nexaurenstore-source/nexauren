@@ -4,6 +4,10 @@ const workerPath = 'worker.js';
 const authPath = 'frontend/auth/auth.js';
 
 let worker = fs.readFileSync(workerPath, 'utf8');
+
+// Keep the auth API on a dedicated namespace. The old /api/auth namespace can
+// remain for backward compatibility, while the account namespace avoids stale
+// edge/WAF rules that may have been attached to the legacy path.
 const oldCors = [
   "const cors = (r) => ({",
   "  'access-control-allow-origin': r.headers.get('Origin') || '*',",
@@ -35,14 +39,107 @@ const newCors = [
 if (worker.includes(oldCors)) {
   worker = worker.replace(oldCors, newCors);
 }
-fs.writeFileSync(workerPath, worker);
 
-// frontend/auth/auth.js is already the canonical auth client. Do not rewrite it
-// here: nested template literals in a generated source string can break Node's
-// build parser. This patch only handles the Worker CORS compatibility layer.
-const auth = fs.readFileSync(authPath, 'utf8');
-if (!auth.includes("const API = '/api/auth';")) {
-  throw new Error('[auth] Canonical auth client marker not found.');
+const authRoutes = [
+  "      if (",
+  "        u.pathname === '/api/auth/register' &&",
+  "        r.method === 'POST'",
+  "      ) {",
+  "        return register(r, e);",
+  "      }",
+  "",
+  "      if (",
+  "        u.pathname === '/api/auth/login' &&",
+  "        r.method === 'POST'",
+  "      ) {",
+  "        return login(r, e);",
+  "      }",
+  "",
+  "      if (",
+  "        u.pathname === '/api/auth/forgot-password' &&",
+  "        r.method === 'POST'",
+  "      ) {",
+  "        return forgotPassword(r, e);",
+  "      }",
+  "",
+  "      if (",
+  "        u.pathname === '/api/auth/reset-password' &&",
+  "        r.method === 'POST'",
+  "      ) {",
+  "        return resetPassword(r, e);",
+  "      }",
+  "",
+  "      if (",
+  "        u.pathname === '/api/auth/logout' &&",
+  "        r.method === 'POST'",
+  "      ) {",
+  "        return logout(r, e);",
+  "      }",
+  "",
+  "      if (",
+  "        u.pathname === '/api/auth/me' &&",
+  "        r.method === 'GET'",
+  "      ) {",
+  "        return me(r, e);",
+  "      }"
+].join('\n');
+
+const accountRoutes = [
+  "      if (",
+  "        u.pathname === '/api/account/register' &&",
+  "        r.method === 'POST'",
+  "      ) {",
+  "        return register(r, e);",
+  "      }",
+  "",
+  "      if (",
+  "        u.pathname === '/api/account/login' &&",
+  "        r.method === 'POST'",
+  "      ) {",
+  "        return login(r, e);",
+  "      }",
+  "",
+  "      if (",
+  "        u.pathname === '/api/account/forgot-password' &&",
+  "        r.method === 'POST'",
+  "      ) {",
+  "        return forgotPassword(r, e);",
+  "      }",
+  "",
+  "      if (",
+  "        u.pathname === '/api/account/reset-password' &&",
+  "        r.method === 'POST'",
+  "      ) {",
+  "        return resetPassword(r, e);",
+  "      }",
+  "",
+  "      if (",
+  "        u.pathname === '/api/account/logout' &&",
+  "        r.method === 'POST'",
+  "      ) {",
+  "        return logout(r, e);",
+  "      }",
+  "",
+  "      if (",
+  "        u.pathname === '/api/account/me' &&",
+  "        r.method === 'GET'",
+  "      ) {",
+  "        return me(r, e);",
+  "      }"
+].join('\n');
+
+if (!worker.includes("u.pathname === '/api/account/login'")) {
+  if (!worker.includes(authRoutes)) {
+    throw new Error('[auth] Auth route marker not found. Build stopped.');
+  }
+  worker = worker.replace(authRoutes, `${authRoutes}\n\n${accountRoutes}`);
 }
 
-console.log('Auth fetch/CORS patch applied.');
+fs.writeFileSync(workerPath, worker);
+
+const auth = fs.readFileSync(authPath, 'utf8');
+if (!auth.includes("const API = '/api/account';")) {
+  throw new Error('[auth] Dedicated account auth client marker not found.');
+}
+
+console.log('Auth fetch/CORS/account namespace patch applied.');
