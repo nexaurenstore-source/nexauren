@@ -23,11 +23,13 @@
   };
 
   const showMessage = (text, type = 'error') => {
+    if (!message) return;
     message.textContent = text;
     message.className = `auth-message ${type}`;
   };
 
   const setLoading = loading => {
+    if (!button) return;
     button.disabled = loading;
     button.setAttribute('aria-busy', String(loading));
     button.textContent = loading ? 'Creating account…' : 'Create account';
@@ -41,7 +43,7 @@
     const confirm = confirmPasswordInput.value;
 
     if (!name || name.length > 100) { errors.name.textContent = 'Please enter a valid name.'; valid = false; }
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errors.email.textContent = 'Please enter a valid email.'; valid = false; }
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) { errors.email.textContent = 'Please enter a valid email.'; valid = false; }
     if (password.length < 8 || password.length > 200) { errors.password.textContent = 'Password must contain between 8 and 200 characters.'; valid = false; }
     if (confirm !== password) { errors.confirm.textContent = 'Passwords do not match.'; valid = false; }
     return valid;
@@ -55,20 +57,26 @@
     setLoading(true);
     showMessage('Creating your account…', '');
 
+    const name = nameInput.value.trim();
+    const baseUsername = name.toLowerCase().replace(/[^a-z0-9_.-]+/g, '').slice(0, 24);
+    const username = (baseUsername || 'user') + '-' + Math.random().toString(36).slice(2, 7);
+
     try {
-      const response = await fetch('/api/register', {
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'include',
         cache: 'no-store',
         body: JSON.stringify({
-          name: nameInput.value.trim(),
+          username,
           email: emailInput.value.trim().toLowerCase(),
           password: passwordInput.value
         })
       });
       const result = await response.json().catch(() => null);
-      if (!response.ok || !result?.success) throw new Error(result?.message || 'Unable to create account.');
+      if (!response.ok || !result?.authenticated) {
+        throw new Error(result?.error || result?.message || `Registration failed (${response.status}).`);
+      }
 
       showMessage('Account created successfully. Opening your dashboard…', 'success');
       passwordInput.value = '';
