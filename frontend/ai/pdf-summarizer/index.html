@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI PDF Summarizer — Nexauren</title>
+  <meta name="description" content="Summarize PDF documents with Nexauren AI. Extract key points, notes, flashcards, quizzes and more.">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    :root{--nx-border:rgba(127,127,127,.22);--nx-muted:#68707d}
+    body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--background,#fff);color:var(--foreground,#111)}
+    main{max-width:980px;margin:0 auto;padding:32px 18px 64px}.crumb{display:inline-block;margin-bottom:28px;text-decoration:none}.hero{text-align:center;margin-bottom:28px}.kicker{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.7}.hero h1{font-size:clamp(2rem,6vw,4rem);margin:.25rem 0}.hero p{max-width:680px;margin:0 auto;color:var(--nx-muted);line-height:1.6}
+    .workspace{border:1px solid var(--nx-border);border-radius:22px;padding:22px;box-shadow:0 10px 35px rgba(0,0,0,.06)}
+    .upload{border:2px dashed var(--nx-border);border-radius:18px;padding:30px;text-align:center}.upload input{display:block;width:100%;margin:16px 0}.hint{font-size:.9rem;color:var(--nx-muted)}
+    .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:20px 0}.feature{border:1px solid var(--nx-border);border-radius:15px;padding:15px;text-align:left;background:transparent;cursor:pointer;color:inherit}.feature.selected{outline:2px solid currentColor}.feature strong{display:block}.feature small{display:block;margin-top:5px;color:var(--nx-muted);line-height:1.45}.badge{display:inline-block;margin-top:10px;font-size:.75rem;padding:3px 7px;border:1px solid var(--nx-border);border-radius:999px}.actions{display:flex;gap:10px;flex-wrap:wrap}.btn{border:0;border-radius:12px;padding:11px 16px;cursor:pointer;font-weight:700}.primary{background:#111;color:#fff}.secondary{background:transparent;border:1px solid var(--nx-border)}.status{min-height:24px;color:var(--nx-muted)}.result{display:none;margin-top:24px;border-top:1px solid var(--nx-border);padding-top:22px}.result pre{white-space:pre-wrap;word-break:break-word;font:inherit;line-height:1.7}.meta{color:var(--nx-muted);font-size:.9rem}.error{color:#b42318}.question{display:none;margin:15px 0}.question textarea{width:100%;box-sizing:border-box;min-height:90px;padding:12px;border:1px solid var(--nx-border);border-radius:12px;background:transparent;color:inherit}
+  </style>
+</head>
+<body>
+<main>
+  <a class="crumb" href="/tools/">← Tools</a>
+  <section class="hero">
+    <span class="kicker">AI</span>
+    <h1>AI PDF Summarizer.</h1>
+    <p>Upload a PDF and use Nexauren AI to summarize it, extract important ideas, create study material, or ask questions about the document.</p>
+  </section>
+
+  <section class="workspace">
+    <div class="upload">
+      <strong>Choose your PDF</strong>
+      <input id="file" type="file" accept="application/pdf">
+      <div class="hint">Maximum file size: 25 MB.</div>
+    </div>
+
+    <div id="features" class="features" aria-label="AI features"></div>
+
+    <div id="questionBox" class="question">
+      <label for="question"><strong>Your question</strong></label>
+      <textarea id="question" placeholder="Ask something about this PDF..."></textarea>
+    </div>
+
+    <div class="actions">
+      <button id="run" class="btn primary" type="button">Analyze PDF</button>
+      <button id="reset" class="btn secondary" type="button">Reset</button>
+    </div>
+    <p id="status" class="status">Loading AI features…</p>
+
+    <section id="result" class="result">
+      <div class="kicker">Result</div>
+      <h2 id="resultTitle">AI analysis</h2>
+      <p id="resultMeta" class="meta"></p>
+      <pre id="resultText"></pre>
+    </section>
+  </section>
+</main>
+<script>
+(() => {
+  const file = document.getElementById('file');
+  const features = document.getElementById('features');
+  const questionBox = document.getElementById('questionBox');
+  const question = document.getElementById('question');
+  const run = document.getElementById('run');
+  const reset = document.getElementById('reset');
+  const status = document.getElementById('status');
+  const result = document.getElementById('result');
+  const resultTitle = document.getElementById('resultTitle');
+  const resultMeta = document.getElementById('resultMeta');
+  const resultText = document.getElementById('resultText');
+  let selected = 'basic-summary';
+  let featureMap = new Map();
+
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const selectFeature = (slug) => {
+    selected = slug;
+    document.querySelectorAll('.feature').forEach(el => el.classList.toggle('selected', el.dataset.slug === slug));
+    questionBox.style.display = slug === 'pdf-chat' ? 'block' : 'none';
+  };
+
+  async function loadFeatures() {
+    try {
+      const res = await fetch('/api/ai/tools', { credentials: 'include' });
+      const data = await res.json();
+      const tool = (data.tools || []).find(t => t.id === 'ai_pdf_summarizer');
+      if (!res.ok || !tool) throw new Error(data.error || 'AI tool is unavailable.');
+      featureMap = new Map((tool.features || []).map(f => [f.slug, f]));
+      features.innerHTML = (tool.features || []).map(f => `
+        <button class="feature${f.slug === selected ? ' selected' : ''}" type="button" data-slug="${esc(f.slug)}">
+          <strong>${esc(f.name)}</strong>
+          <small>${esc(f.description || '')}</small>
+          <span class="badge">${esc(f.access_level)}${Number(f.credit_cost) > 0 ? ` · ${Number(f.credit_cost)} credits` : ' · included'}</span>
+        </button>`).join('');
+      features.querySelectorAll('.feature').forEach(el => el.addEventListener('click', () => selectFeature(el.dataset.slug)));
+      selectFeature(selected);
+      status.textContent = 'Choose a feature and upload your PDF.';
+    } catch (error) {
+      status.textContent = error.message || 'Unable to load AI features.';
+      status.className = 'status error';
+    }
+  }
+
+  run.addEventListener('click', async () => {
+    if (!file.files[0]) { status.textContent = 'Choose a PDF first.'; return; }
+    if (file.files[0].size > 25 * 1024 * 1024) { status.textContent = 'PDF is larger than 25 MB.'; return; }
+    if (selected === 'pdf-chat' && !question.value.trim()) { status.textContent = 'Enter a question for PDF Chat.'; return; }
+    run.disabled = true;
+    status.className = 'status';
+    status.textContent = 'Nexauren AI is analyzing your PDF…';
+    result.style.display = 'none';
+    try {
+      const form = new FormData();
+      form.append('file', file.files[0]);
+      form.append('feature', selected);
+      form.append('request_id', crypto.randomUUID());
+      if (selected === 'pdf-chat') form.append('question', question.value.trim());
+      const res = await fetch('/api/ai/pdf-summarizer', { method: 'POST', body: form, credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'The AI request failed.');
+      resultTitle.textContent = featureMap.get(selected)?.name || 'AI analysis';
+      resultMeta.textContent = `${data.result.filename} · ${data.result.plan} plan · ${data.result.credits_used || 0} credits used`;
+      resultText.textContent = data.result.content || '';
+      result.style.display = 'block';
+      status.textContent = 'Analysis completed.';
+    } catch (error) {
+      status.textContent = error.message || 'The AI request failed.';
+      status.className = 'status error';
+    } finally {
+      run.disabled = false;
+    }
+  });
+
+  reset.addEventListener('click', () => {
+    file.value = '';
+    question.value = '';
+    result.style.display = 'none';
+    status.className = 'status';
+    status.textContent = 'Choose a feature and upload your PDF.';
+    selectFeature('basic-summary');
+  });
+
+  loadFeatures();
+})();
+</script>
+</body>
+</html>
