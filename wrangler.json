@@ -7,12 +7,11 @@
   "observability": {"enabled": true,"head_sampling_rate": 1},
   "vars": {"PAYMENT_PROVIDER":"paypal","PAYPAL_ENVIRONMENT":"live","PAYMENT_BRAND_NAME":"Nexauren"},
   "ai": {"binding":"AI"},
-  "build": {"command":"node scripts/patch-frontend-network.mjs && node scripts/patch-subscription-initial-cycle.mjs && node scripts/patch-paypal-subscription-return.mjs && node scripts/worker/patch-paypal-live-plan-replacement.mjs && node scripts/patch-tools-ai-category.mjs && node scripts/worker/patch-auth-fetch.mjs && node scripts/worker/patch-lightweight-mode.mjs && node scripts/build-worker.mjs && node scripts/worker/ai-tools-patch.mjs && node scripts/worker/ai-video-patch.mjs && node scripts/worker/nexa-ai-patch-v2.mjs && node scripts/worker/patch-sample-maker-enforcement.mjs && node scripts/worker/patch-generated-paypal-live-plan-replacement.mjs && node scripts/worker/blog-route-patch.mjs && node scripts/worker/blog-category-route-patch.mjs && node scripts/worker/blog-article-fallback-patch.mjs && node scripts/worker/patch-billing-credit-semantics.mjs && node scripts/worker/patch-runtime-schema.mjs && node scripts/worker/store-marketplace-patch.mjs","watch_dir":["worker.js","scripts","frontend"]},
+  "build": {"command":"node scripts/patch-frontend-network.mjs && node scripts/patch-subscription-initial-cycle.mjs && node scripts/patch-paypal-subscription-return.mjs && node scripts/worker/patch-paypal-live-plan-replacement.mjs && node scripts/patch-tools-ai-category.mjs && node scripts/worker/patch-auth-fetch.mjs && node scripts/worker/patch-lightweight-mode.mjs && node scripts/build-worker.mjs && node scripts/worker/ai-tools-patch.mjs && node scripts/worker/ai-video-patch.mjs && node scripts/worker/nexa-ai-patch-v2.mjs && node scripts/worker/patch-sample-maker-enforcement.mjs && node scripts/worker/patch-generated-paypal-live-plan-replacement.mjs && node scripts/worker/blog-route-patch.mjs && node scripts/worker/blog-category-route-patch.mjs && node scripts/worker/blog-article-fallback-patch.mjs && node scripts/worker/patch-billing-credit-semantics.mjs && node scripts/worker/patch-runtime-schema.mjs","watch_dir":["worker.js","scripts","frontend"]},
   "assets": {"directory":"./frontend","binding":"ASSETS","not_found_handling":"404-page"},
   "d1_databases": [
     {"binding":"DB","database_name":"nexauren-db","database_id":"b521297c-ada5-4818-bb66-9bde85bee2a1"},
     {"binding":"BLOG_DB","database_name":"nexauren-blog","database_id":"ddedfb2f-4597-4610-9f03-628076ae15de"},
-    {"binding":"TOOLS_DB","database_name":"nexauren-tools","database_id":"8bcc172e-bbf1-4fd8-90ce-11e3ea721b6a"},
-    {"binding":"MARKETPLACE_DB","database_name":"nexauren-marketplace","database_id":"3ec2d1f4-7a4a-443f-ade5-f6e7cf0941fe","migrations_dir":"migrations-marketplace"}
+    {"binding":"TOOLS_DB","database_name":"nexauren-tools","database_id":"8bcc172e-bbf1-4fd8-90ce-11e3ea721b6a"}
   ]
 }
