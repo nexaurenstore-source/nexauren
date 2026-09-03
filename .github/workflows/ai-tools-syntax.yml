@@ -22,10 +22,15 @@ jobs:
           node-version: 24
 
       - name: Check AI runtime syntax
-        run: node --check scripts/worker/ai-tools.js
+        run: |
+          node --check scripts/worker/ai-tools.js
+          node --check scripts/worker/ai-image-tools.js
 
       - name: Check AI build patch syntax
         run: node --check scripts/worker/ai-tools-patch.mjs
+
+      - name: Check AI image frontend
+        run: node -e "const fs=require('fs'); const p='frontend/ai/image-generator/index.html'; const s=fs.readFileSync(p,'utf8'); if(!s.includes('/api/ai/image-generator')) throw new Error('AI image frontend route missing.'); if(!s.includes('Generate Image')) throw new Error('AI image UI missing.'); console.log('AI image frontend checks passed.');"
 
       - name: Verify AI binding and patch command
         run: |
