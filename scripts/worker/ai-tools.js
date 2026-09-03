@@ -6,9 +6,16 @@
 const AI_TOOL_ID = 'ai_pdf_summarizer';
 const AI_MODEL = '@cf/google/gemma-4-26b-a4b-it';
 const PLAN_LEVELS = Object.freeze({ free: 0, starter: 1, pro: 2, premium: 3 });
+const AI_INPUT_MAX_CHARS = 120000;
+const AI_OUTPUT_MAX_TOKENS = 3000;
 
-const aiToolsError = (message, code, status = 500, request) =>
-  json({ error: message, code }, status, cors(request));
+const aiToolsError = (message, code, status = 500, request, details = null) =>
+  json({ error: message, code, ...(details ? { details } : {}) }, status, cors(request));
+
+function aiToolErrorDetail(error) {
+  const raw = error instanceof Error ? error.message : String(error || 'Unknown error');
+  return raw.replace(/\s+/g, ' ').slice(0, 600);
+}
 
 async function aiToolUser(r, e) {
   return currentUser(r, e);
@@ -30,16 +37,10 @@ async function aiToolFeatures(e, toolId) {
 }
 
 async function aiToolPlan(e, userId) {
-  if (typeof billingEnsureAccount !== 'function') {
-    throw new Error('Billing core is unavailable.');
-  }
+  if (typeof billingEnsureAccount !== 'function') throw new Error('Billing core is unavailable.');
   const account = await billingEnsureAccount(e, userId);
   const plan = clean(account?.plan_id).toLowerCase() || 'free';
-  return {
-    id: plan,
-    level: PLAN_LEVELS[plan] ?? 0,
-    account,
-  };
+  return { id: plan, level: PLAN_LEVELS[plan] ?? 0, account };
 }
 
 function aiToolParseLimits(value) {
@@ -108,12 +109,10 @@ async function aiToolRefund(e, userId, credits, requestId) {
 
 function aiToolExtractText(result) {
   const item = Array.isArray(result) ? result[0] : result;
-  if (!item || item.format === 'error') {
-    throw new Error(item?.error || 'Unable to read the PDF.');
-  }
+  if (!item || item.format === 'error') throw new Error(item?.error || 'Unable to read the PDF.');
   const text = clean(item.data);
   if (!text) throw new Error('No readable text was found in this PDF.');
-  return text;
+  return { text, tokens: Number(item.tokens || 0) };
 }
 
 function aiToolPrompt(feature, documentText, question) {
@@ -143,19 +142,29 @@ function aiToolPrompt(feature, documentText, question) {
 }
 
 async function aiToolRunModel(e, prompt) {
-  if (!e?.AI || typeof e.AI.run !== 'function') {
-    throw new Error('Workers AI binding is not configured.');
+  if (!e?.AI || typeof e.AI.run !== 'function') throw new Error('Workers AI binding is not configured.');
+
+  let response;
+  try {
+    response = await e.AI.run(AI_MODEL, {
+      messages: [
+        { role: 'system', content: 'You are a precise document analysis assistant.' },
+        { role: 'user', content: prompt },
+      ],
+      max_completion_tokens: AI_OUTPUT_MAX_TOKENS,
+      chat_template_kwargs: { enable_thinking: false },
+    });
+  } catch (error) {
+    throw new Error(`AI_MODEL_REQUEST_FAILED: ${aiToolErrorDetail(error)}`);
   }
-  const response = await e.AI.run(AI_MODEL, {
-    messages: [
-      { role: 'system', content: 'You are a precise document analysis assistant.' },
-      { role: 'user', content: prompt },
-    ],
-    max_tokens: 5000,
-    chat_template_kwargs: { enable_thinking: false },
-  });
-  const text = clean(response?.response || response?.choices?.[0]?.message?.content);
-  if (!text) throw new Error('The AI model returned an empty response.');
+
+  const text = clean(
+    response?.response ||
+    response?.choices?.[0]?.message?.content ||
+    response?.result?.response ||
+    response?.result?.choices?.[0]?.message?.content,
+  );
+  if (!text) throw new Error('AI_MODEL_EMPTY_RESPONSE');
   return text;
 }
 
@@ -169,7 +178,7 @@ async function aiToolsCatalog(r, e) {
     }
     return json({ tools: result }, 200, cors(r));
   } catch (error) {
-    console.error('AI tools catalog failed', String(error).slice(0, 500));
+    console.error('AI tools catalog failed', aiToolErrorDetail(error));
     return aiToolsError('Unable to load AI tools.', 'ai_tools_catalog', 500, r);
   }
 }
@@ -177,10 +186,15 @@ async function aiToolsCatalog(r, e) {
 async function aiPdfSummarizer(r, e) {
   const user = await aiToolUser(r, e);
   if (!user) return aiToolsError('Authentication required.', 'authentication_required', 401, r);
-
   if (!e?.TOOLS_DB) return aiToolsError('AI tools database is unavailable.', 'tools_db_unavailable', 503, r);
 
-  const form = await r.formData();
+  let form;
+  try {
+    form = await r.formData();
+  } catch (error) {
+    return aiToolsError('Invalid upload request.', 'invalid_form_data', 400, r, aiToolErrorDetail(error));
+  }
+
   const file = form.get('file');
   const featureSlug = clean(form.get('feature') || 'basic-summary');
   const requestId = clean(form.get('request_id') || uuid()).slice(0, 120);
@@ -196,8 +210,7 @@ async function aiPdfSummarizer(r, e) {
 
   const existing = await aiToolJobByRequest(e, requestId);
   if (existing?.status === 'completed' && existing.output_json) {
-    try { return json({ success: true, idempotent: true, result: JSON.parse(existing.output_json) }, 200, cors(r)); }
-    catch {}
+    try { return json({ success: true, idempotent: true, result: JSON.parse(existing.output_json) }, 200, cors(r)); } catch {}
   }
   if (existing?.status === 'processing') return aiToolsError('This request is already being processed.', 'request_in_progress', 409, r);
 
@@ -215,26 +228,27 @@ async function aiPdfSummarizer(r, e) {
 
   if (monthlyLimit > 0) {
     const used = await aiToolMonthlyUsage(e, user.id, feature.id);
-    if (used >= monthlyLimit) {
-      return aiToolsError(`Monthly limit reached for ${feature.name}.`, 'monthly_limit_reached', 429, r);
-    }
+    if (used >= monthlyLimit) return aiToolsError(`Monthly limit reached for ${feature.name}.`, 'monthly_limit_reached', 429, r);
   }
 
   let markdown;
+  let convertedTokens = 0;
   try {
     const converted = await e.AI.toMarkdown(
       { name: String(file.name || 'document.pdf').slice(0, 200), blob: file },
       { conversionOptions: { output: { format: 'text' }, pdf: { metadata: false } } },
     );
-    markdown = aiToolExtractText(converted);
+    const extracted = aiToolExtractText(converted);
+    markdown = extracted.text;
+    convertedTokens = extracted.tokens;
   } catch (error) {
-    console.error('PDF conversion failed', String(error).slice(0, 500));
-    return aiToolsError('Unable to read this PDF.', 'pdf_conversion_failed', 422, r);
+    const detail = aiToolErrorDetail(error);
+    console.error('PDF conversion failed', detail);
+    return aiToolsError('Unable to read this PDF.', 'pdf_conversion_failed', 422, r, detail);
   }
 
-  const maxChars = requiredLevel >= 3 ? 900000 : requiredLevel >= 2 ? 700000 : 450000;
-  if (markdown.length > maxChars) {
-    return aiToolsError('This PDF is too large for the selected feature. Try a smaller document or a higher plan.', 'document_too_large', 413, r);
+  if (markdown.length > AI_INPUT_MAX_CHARS) {
+    markdown = `${markdown.slice(0, AI_INPUT_MAX_CHARS)}\n\n[Document text truncated to fit the AI request safely.]`;
   }
 
   if (feature.slug === 'pdf-chat' && !question) return aiToolsError('A question is required for PDF Chat.', 'question_required', 400, r);
@@ -245,11 +259,12 @@ async function aiPdfSummarizer(r, e) {
       userId: user.id,
       featureId: feature.id,
       requestId,
-      input: { filename: String(file.name || 'document.pdf').slice(0, 200), size: file.size, feature: feature.slug },
+      input: { filename: String(file.name || 'document.pdf').slice(0, 200), size: file.size, feature: feature.slug, source_tokens: convertedTokens },
     });
   } catch (error) {
-    console.error('AI job creation failed', String(error).slice(0, 500));
-    return aiToolsError('Unable to create the AI job.', 'job_create_failed', 500, r);
+    const detail = aiToolErrorDetail(error);
+    console.error('AI job creation failed', detail);
+    return aiToolsError('Unable to create the AI job.', 'job_create_failed', 500, r, detail);
   }
 
   let charged = false;
@@ -288,18 +303,19 @@ async function aiPdfSummarizer(r, e) {
       requestId,
       creditsUsed: charged ? cost : 0,
       status: 'completed',
-      metadata: { plan: plan.id, included, filename: String(file.name || 'document.pdf'), size: file.size },
+      metadata: { plan: plan.id, included, filename: String(file.name || 'document.pdf'), size: file.size, source_tokens: convertedTokens },
     });
 
     const account = await billingEnsureAccount(e, user.id);
     return json({ success: true, result, balance: Number(account?.balance || 0) }, 200, cors(r));
   } catch (error) {
-    console.error('AI PDF tool failed', String(error).slice(0, 500));
+    const detail = aiToolErrorDetail(error);
+    console.error('AI PDF tool failed', detail);
     if (charged) {
-      try { await aiToolRefund(e, user.id, cost, requestId); } catch (refundError) { console.error('AI credit refund failed', String(refundError).slice(0, 500)); }
+      try { await aiToolRefund(e, user.id, cost, requestId); } catch (refundError) { console.error('AI credit refund failed', aiToolErrorDetail(refundError)); }
     }
     try {
-      await aiToolFinishJob(e, job.id, 'failed', null, String(error).slice(0, 500));
+      await aiToolFinishJob(e, job.id, 'failed', null, detail);
       await aiToolLogUsage(e, {
         userId: user.id,
         featureId: feature.id,
@@ -307,10 +323,10 @@ async function aiPdfSummarizer(r, e) {
         requestId,
         creditsUsed: charged ? cost : 0,
         status: charged ? 'refunded' : 'failed',
-        metadata: { plan: plan.id, included, refunded: charged },
+        metadata: { plan: plan.id, included, refunded: charged, error: detail },
       });
-    } catch (logError) { console.error('AI failure logging failed', String(logError).slice(0, 500)); }
-    return aiToolsError('The AI tool could not complete the request.', 'ai_execution_failed', 502, r);
+    } catch (logError) { console.error('AI failure logging failed', aiToolErrorDetail(logError)); }
+    return aiToolsError('The AI request failed.', 'ai_execution_failed', 502, r, detail);
   }
 }
 
