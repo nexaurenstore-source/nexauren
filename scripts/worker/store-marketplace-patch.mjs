@@ -3,10 +3,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 const workerUrl = new URL('../../.worker-build/worker.js', import.meta.url);
 let source = await readFile(workerUrl, 'utf8');
 
-if (!source.includes('const __storeMarketplaceUrl')) {
+if (!source.includes('async function __handleStoreMarketplaceRoute')) {
   const module = `
-const __storeMarketplaceUrl = new URL(r.url);
-
 async function __storeCategories(r, e) {
   if (!e.MARKETPLACE_DB) return json({ error: 'Marketplace database is not configured.' }, 503, cors(r));
   const rows = await e.MARKETPLACE_DB.prepare(
