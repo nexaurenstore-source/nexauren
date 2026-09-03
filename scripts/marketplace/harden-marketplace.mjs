@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const file = path.resolve('marketplace-worker/src/index.js');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const file = path.join(root, 'marketplace-worker/src/index.js');
 if (!fs.existsSync(file)) throw new Error(`Marketplace Worker source not found: ${file}`);
 let source = fs.readFileSync(file, 'utf8');
 
