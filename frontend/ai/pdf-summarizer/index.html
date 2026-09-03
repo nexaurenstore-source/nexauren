@@ -63,6 +63,24 @@
   let featureMap = new Map();
 
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  async function readApiResponse(res) {
+    const text = await res.text();
+    const contentType = res.headers.get('content-type') || '';
+    if (!text.trim()) throw new Error(`AI API returned an empty response (HTTP ${res.status}).`);
+    if (!contentType.toLowerCase().includes('application/json')) {
+      if (text.trim().startsWith('<!doctype') || text.trim().startsWith('<html')) {
+        throw new Error(`AI API route is not active on the deployed Worker (HTTP ${res.status}). Redeploy the latest Nexauren Worker.`);
+      }
+      throw new Error(`AI API returned a non-JSON response (HTTP ${res.status}).`);
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`AI API returned invalid JSON (HTTP ${res.status}).`);
+    }
+  }
+
   const selectFeature = (slug) => {
     selected = slug;
     document.querySelectorAll('.feature').forEach(el => el.classList.toggle('selected', el.dataset.slug === slug));
@@ -71,8 +89,8 @@
 
   async function loadFeatures() {
     try {
-      const res = await fetch('/api/ai/tools', { credentials: 'include' });
-      const data = await res.json();
+      const res = await fetch('/api/ai/tools', { credentials: 'include', headers: { 'Accept': 'application/json' } });
+      const data = await readApiResponse(res);
       const tool = (data.tools || []).find(t => t.id === 'ai_pdf_summarizer');
       if (!res.ok || !tool) throw new Error(data.error || 'AI tool is unavailable.');
       featureMap = new Map((tool.features || []).map(f => [f.slug, f]));
@@ -105,8 +123,8 @@
       form.append('feature', selected);
       form.append('request_id', crypto.randomUUID());
       if (selected === 'pdf-chat') form.append('question', question.value.trim());
-      const res = await fetch('/api/ai/pdf-summarizer', { method: 'POST', body: form, credentials: 'include' });
-      const data = await res.json();
+      const res = await fetch('/api/ai/pdf-summarizer', { method: 'POST', body: form, credentials: 'include', headers: { 'Accept': 'application/json' } });
+      const data = await readApiResponse(res);
       if (!res.ok) throw new Error(data.error || 'The AI request failed.');
       resultTitle.textContent = featureMap.get(selected)?.name || 'AI analysis';
       resultMeta.textContent = `${data.result.filename} · ${data.result.plan} plan · ${data.result.credits_used || 0} credits used`;
