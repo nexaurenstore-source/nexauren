@@ -5,6 +5,10 @@ const root = path.resolve('frontend');
 const replacements = [
   ['/api/auth/me', '/api/account/me'],
   ['/api/auth/logout', '/api/account/logout'],
+  [
+    "const auth=()=>fetch('/api/account/me',{credentials:'include',cache:'no-store'}).then(r=>r.json()).catch(()=>({}));",
+    "let authCache=null,authCacheAt=0,authInFlight=null;const auth=async()=>{const now=Date.now();if(authCache&&now-authCacheAt<30000)return authCache;if(authInFlight)return authInFlight;authInFlight=fetch('/api/account/me',{credentials:'include',cache:'no-store'}).then(r=>r.json()).catch(()=>({})).then(d=>{authCache=d;authCacheAt=Date.now();return d}).finally(()=>{authInFlight=null});return authInFlight};"
+  ],
 ];
 
 function walk(dir) {
@@ -28,4 +32,4 @@ for (const file of walk(root)) {
   }
 }
 
-console.log(`Frontend auth route normalization: ${changed} file(s) updated.`);
+console.log(`Frontend network optimization: ${changed} file(s) updated.`);
