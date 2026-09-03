@@ -6,39 +6,28 @@
 
 const PIXVERSE_DIRECT_BASE = 'https://app-api.pixverse.ai/openapi/v2';
 
-function pixVerseErrorDetail(error) {
-  const raw = error instanceof Error ? error.message : String(error || 'Unknown error');
-  return raw.replace(/\s+/g, ' ').slice(0, 600);
+function pixVerseJson(response) {
+  return response.json().then((data) => {
+    if (!response.ok) {
+      const msg = data?.ErrMsg || data?.error || `PixVerse HTTP ${response.status}`;
+      throw new Error(`PIXVERSE_HTTP_${response.status}: ${String(msg).slice(0, 400)}`);
+    }
+    if (!data || Number(data.ErrCode || 0) !== 0) {
+      throw new Error(`PIXVERSE_API_${Number(data?.ErrCode || -1)}: ${String(data?.ErrMsg || 'PixVerse request failed').slice(0, 400)}`);
+    }
+    return data;
+  });
 }
 
-async function pixVerseJson(response) {
-  let data = null;
-  try { data = await response.json(); } catch {}
-  if (!response.ok) {
-    const msg = data?.ErrMsg || data?.error || `PixVerse HTTP ${response.status}`;
-    throw new Error(`PIXVERSE_HTTP_${response.status}: ${String(msg).slice(0, 400)}`);
-  }
-  if (!data || Number(data.ErrCode || 0) !== 0) {
-    throw new Error(`PIXVERSE_API_${Number(data?.ErrCode || -1)}: ${String(data?.ErrMsg || 'PixVerse request failed').slice(0, 400)}`);
-  }
-  return data;
-}
-
-async function pixVerseHeaders(apiKey, traceId) {
-  return {
-    'API-KEY': apiKey,
-    'Ai-trace-id': traceId,
-    Accept: 'application/json',
-  };
+function pixVerseHeaders(apiKey, traceId) {
+  return { 'API-KEY': apiKey, 'Ai-trace-id': traceId, Accept: 'application/json' };
 }
 
 async function pixVerseUploadImage(apiKey, traceId, file) {
   const body = new FormData();
-  body.append('image', file, file.name || 'reference-image');
+  body.append('image', file, file.name || 'reference-image.jpg');
   const response = await fetch(`${PIXVERSE_DIRECT_BASE}/image/upload`, {
-    method: 'POST',
-    headers: await pixVerseHeaders(apiKey, traceId),
-    body,
+    method: 'POST', headers: pixVerseHeaders(apiKey, traceId), body,
   });
   const data = await pixVerseJson(response);
   const imageId = Number(data?.Resp?.img_id);
@@ -46,30 +35,37 @@ async function pixVerseUploadImage(apiKey, traceId, file) {
   return imageId;
 }
 
+function pixVerseDataUriFile(dataUri) {
+  const match = String(dataUri || '').match(/^data:([^;]+);base64,(.+)$/s);
+  if (!match) throw new Error('PIXVERSE_REFERENCE_IMAGE_INVALID');
+  const binary = atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const mime = match[1] || 'image/jpeg';
+  const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+  return new File([bytes], `reference.${ext}`, { type: mime });
+}
+
 async function pixVerseSubmit(apiKey, traceId, input) {
   let endpoint = `${PIXVERSE_DIRECT_BASE}/video/text/generate`;
   const payload = {
-    model: 'v6',
-    prompt: input.prompt,
-    duration: input.duration,
-    quality: input.quality,
-    aspect_ratio: input.aspect_ratio,
-    seed: Number.isInteger(input.seed) ? input.seed : 0,
+    model: 'v6', prompt: input.prompt, duration: input.duration, quality: input.quality,
+    aspect_ratio: input.aspect_ratio, seed: Number.isInteger(input.seed) ? input.seed : 0,
     motion_mode: 'normal',
   };
-
   if (input.negative_prompt) payload.negative_prompt = input.negative_prompt;
-  if (input.image_file instanceof File) {
-    const imageTrace = crypto.randomUUID();
-    const imgId = await pixVerseUploadImage(apiKey, imageTrace, input.image_file);
+
+  const imageData = input.image_input || input.image_file;
+  if (imageData) {
+    const file = imageData instanceof File ? imageData : pixVerseDataUriFile(imageData);
+    const imgId = await pixVerseUploadImage(apiKey, crypto.randomUUID(), file);
     endpoint = `${PIXVERSE_DIRECT_BASE}/video/img/generate`;
     delete payload.aspect_ratio;
     payload.img_id = imgId;
   }
 
   const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { ...(await pixVerseHeaders(apiKey, traceId)), 'Content-Type': 'application/json' },
+    method: 'POST', headers: { ...pixVerseHeaders(apiKey, traceId), 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
   const data = await pixVerseJson(response);
@@ -79,11 +75,9 @@ async function pixVerseSubmit(apiKey, traceId, input) {
 }
 
 async function pixVerseWaitForResult(apiKey, videoId) {
-  const maxAttempts = 60;
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
     const response = await fetch(`${PIXVERSE_DIRECT_BASE}/video/result/${videoId}`, {
-      method: 'GET',
-      headers: await pixVerseHeaders(apiKey, crypto.randomUUID()),
+      method: 'GET', headers: pixVerseHeaders(apiKey, crypto.randomUUID()),
     });
     const data = await pixVerseJson(response);
     const result = data?.Resp || {};
@@ -103,10 +97,7 @@ async function pixVerseWaitForResult(apiKey, videoId) {
 
 async function pixVerseDirectGenerate(e, input) {
   const apiKey = clean(e?.PIXVERSE_API_KEY);
-  if (!apiKey) {
-    throw new Error('PIXVERSE_API_KEY_NOT_CONFIGURED: configure the PixVerse API key in the Worker secret.');
-  }
-
+  if (!apiKey) throw new Error('PIXVERSE_API_KEY_NOT_CONFIGURED: configure the PixVerse API key in the Worker secret.');
   const traceId = crypto.randomUUID();
   const videoId = await pixVerseSubmit(apiKey, traceId, input);
   const video = await pixVerseWaitForResult(apiKey, videoId);
