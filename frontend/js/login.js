@@ -16,6 +16,7 @@
   };
 
   const setLoading = loading => {
+    if (!button) return;
     button.disabled = loading;
     button.setAttribute('aria-busy', String(loading));
     button.textContent = loading ? 'Signing in…' : 'Sign in';
@@ -28,7 +29,7 @@
     const emailValue = email.value.trim().toLowerCase();
     const passwordValue = password.value;
 
-    if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+    if (!emailValue || !/^\S+@\S+\.\S+$/.test(emailValue)) {
       setMessage('Please enter a valid email.', 'error');
       email.focus();
       return;
@@ -44,17 +45,17 @@
     setMessage('Signing in…');
 
     try {
-      const response = await fetch('/api/login', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'include',
         cache: 'no-store',
         body: JSON.stringify({ email: emailValue, password: passwordValue })
       });
 
       const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.success) {
-        throw new Error(data?.message || 'Email or password is incorrect.');
+      if (!response.ok || !data?.authenticated) {
+        throw new Error(data?.error || data?.message || `Authentication failed (${response.status}).`);
       }
 
       const next = new URLSearchParams(location.search).get('next');
