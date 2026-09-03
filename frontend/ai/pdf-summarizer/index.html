@@ -125,7 +125,10 @@
       if (selected === 'pdf-chat') form.append('question', question.value.trim());
       const res = await fetch('/api/ai/pdf-summarizer', { method: 'POST', body: form, credentials: 'include', headers: { 'Accept': 'application/json' } });
       const data = await readApiResponse(res);
-      if (!res.ok) throw new Error(data.error || 'The AI request failed.');
+      if (!res.ok) {
+        const detail = data.details ? ` (${data.details})` : '';
+        throw new Error(`${data.error || 'The AI request failed.'}${detail}`);
+      }
       resultTitle.textContent = featureMap.get(selected)?.name || 'AI analysis';
       resultMeta.textContent = `${data.result.filename} · ${data.result.plan} plan · ${data.result.credits_used || 0} credits used`;
       resultText.textContent = data.result.content || '';
