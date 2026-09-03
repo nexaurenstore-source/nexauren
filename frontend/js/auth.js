@@ -5,6 +5,7 @@
   const form = $('#auth-form');
   if (!form) return;
 
+  const API = '/api/auth';
   let mode = 'login';
   const loginTab = $('#login-tab');
   const registerTab = $('#register-tab');
@@ -16,6 +17,26 @@
     if (!message) return;
     message.textContent = text;
     message.className = type;
+  };
+
+  const request = async (path, options = {}) => {
+    let response;
+    try {
+      response = await fetch(`${API}${path}`, {
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        ...options
+      });
+    } catch (error) {
+      throw new Error('Não foi possível contactar o servidor de autenticação. Verifique a ligação e tente novamente.');
+    }
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(data?.error || data?.message || `Erro de autenticação (${response.status}).`);
+    }
+    return data || {};
   };
 
   const setMode = next => {
@@ -37,24 +58,33 @@
   form.addEventListener('submit', async event => {
     event.preventDefault();
     setMessage('Processando…');
+    if (submit) submit.disabled = true;
 
-    const body = { email: $('#email')?.value.trim().toLowerCase(), password: $('#password')?.value || '' };
-    if (mode === 'register') body.name = $('#name')?.value.trim() || '';
+    const email = $('#email')?.value.trim().toLowerCase() || '';
+    const password = $('#password')?.value || '';
 
     try {
-      const response = await fetch(mode === 'login' ? '/api/login' : '/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        cache: 'no-store',
-        body: JSON.stringify(body)
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data?.success) throw new Error(data?.message || 'Não foi possível concluir.');
-      setMessage(data.message || 'Concluído.', 'success');
-      if (mode === 'login' || mode === 'register') location.href = '/dashboard/';
+      if (mode === 'login') {
+        const data = await request('/login', {
+          method: 'POST',
+          body: JSON.stringify({ email, password })
+        });
+        setMessage('Login concluído. A abrir o seu painel…', 'success');
+        if (data.authenticated) location.href = '/dashboard/';
+      } else {
+        const name = $('#name')?.value.trim() || '';
+        const baseUsername = name.toLowerCase().replace(/[^a-z0-9_.-]+/g, '').slice(0, 24);
+        const username = (baseUsername || 'user') + '-' + Math.random().toString(36).slice(2, 7);
+        const data = await request('/register', {
+          method: 'POST',
+          body: JSON.stringify({ email, username, password })
+        });
+        setMessage('Conta criada. A abrir o seu painel…', 'success');
+        if (data.authenticated) location.href = '/dashboard/';
+      }
     } catch (error) {
       setMessage(error.message || 'Não foi possível concluir.', 'error');
+      if (submit) submit.disabled = false;
     }
   });
 
