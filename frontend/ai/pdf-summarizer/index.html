@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>AI PDF Summarizer — Nexauren</title>
   <meta name="description" content="Summarize PDF documents with Nexauren AI. Extract key points, notes, flashcards, quizzes and more.">
-  <link rel="stylesheet" href="/styles.css">
   <style>
     :root{--nx-border:rgba(127,127,127,.22);--nx-muted:#68707d}
     body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--background,#fff);color:var(--foreground,#111)}
@@ -23,27 +22,22 @@
     <h1>AI PDF Summarizer.</h1>
     <p>Upload a PDF and use Nexauren AI to summarize it, extract important ideas, create study material, or ask questions about the document.</p>
   </section>
-
   <section class="workspace">
     <div class="upload">
       <strong>Choose your PDF</strong>
       <input id="file" type="file" accept="application/pdf">
       <div class="hint">Maximum file size: 25 MB.</div>
     </div>
-
     <div id="features" class="features" aria-label="AI features"></div>
-
     <div id="questionBox" class="question">
       <label for="question"><strong>Your question</strong></label>
       <textarea id="question" placeholder="Ask something about this PDF..."></textarea>
     </div>
-
     <div class="actions">
       <button id="run" class="btn primary" type="button">Analyze PDF</button>
       <button id="reset" class="btn secondary" type="button">Reset</button>
     </div>
     <p id="status" class="status">Loading AI features…</p>
-
     <section id="result" class="result">
       <div class="kicker">Result</div>
       <h2 id="resultTitle">AI analysis</h2>
