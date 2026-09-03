@@ -26,5 +26,12 @@ if (source.includes(aiHeading) && !source.includes('AI tools are grouped')) {
   );
 }
 
+if (!source.includes('.nx-ai-category-note')) {
+  source = source.replace(
+    '</style>',
+    '.nx-ai-category-note{margin:.35rem 0 0;color:var(--muted,#667085);font-size:.82rem}.nx-tool-filter[data-category="ai"]{background:linear-gradient(100deg,rgba(114,87,255,.14),rgba(0,184,217,.14));border-color:rgba(114,87,255,.35)}\n</style>',
+  );
+}
+
 await writeFile(file, source, 'utf8');
 console.log('[tools-ai-category] AI category enabled in Tools directory.');
