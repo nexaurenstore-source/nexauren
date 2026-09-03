@@ -1,6 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "tools": [
-    {"id":"image-upscaler","name":"AI Image Upscaler","slug":"image-upscaler","studio":"image-studio","studioName":"Image Studio","description":"Upscale images with Real-ESRGAN detail reconstruction, tiled processing and browser GPU acceleration.","url":"/studios/image/image-upscaler/","icon":"enhance","image":"","socialImage":"","status":"active","featured":true,"popular":true,"rankScore":65,"tags":["image","upscaler","ai","super-resolution","realesrgan","enhance","quality","resolution"]}
+    {"id":"image-upscaler","name":"AI Image Upscaler","slug":"image-upscaler","studio":"image-studio","studioName":"Image Studio","description":"Upscale images with Real-ESRGAN detail reconstruction, tiled processing and browser GPU acceleration.","url":"/studios/image/image-upscaler/","icon":"enhance","image":"","socialImage":"","status":"active","featured":true,"popular":true,"rankScore":65,"tags":["image","upscaler","ai","super-resolution","realesrgan","enhance","quality","resolution"]},
+    {"id":"document-creator","name":"Document Creator","slug":"document-creator","studio":"document-studio","studioName":"Document Studio","description":"Create polished documents with rich text, layout controls and PDF export.","url":"/studios/document/document-creator/","icon":"file","image":"","socialImage":"","status":"active","featured":true,"popular":true,"rankScore":64,"tags":["document","creator","rich-text","pdf","writing"]},
+    {"id":"document-templates","name":"Document Templates","slug":"templates","studio":"document-studio","studioName":"Document Studio","description":"Start from practical document templates and customize them for your needs.","url":"/studios/document/templates/","icon":"file","image":"","socialImage":"","status":"active","featured":false,"popular":true,"rankScore":63,"tags":["document","templates","letters","reports","business"]}
   ]
 }
