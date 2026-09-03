@@ -25,33 +25,4 @@ if (!source.includes('.nx-ai-category-note')) {
 }
 
 await writeFile(toolsPage, source, 'utf8');
-
-// Keep the build-time static registry in sync with the D1 registration so
-// admin/tool billing views also know about the new AI video tool.
-const registryFile = new URL('../frontend/data/tools.json', import.meta.url);
-const registry = JSON.parse(await readFile(registryFile, 'utf8'));
-registry.tools = Array.isArray(registry.tools) ? registry.tools : [];
-if (!registry.tools.some((tool) => tool?.id === 'ai_video_generator')) {
-  registry.tools.push({
-    id: 'ai_video_generator',
-    name: 'AI Video Generator',
-    slug: 'ai-video-generator',
-    studio: 'ai',
-    studioName: 'AI Tools',
-    description: 'Create short AI videos from text prompts or reference images with Nexauren AI.',
-    url: '/ai/video-generator/',
-    icon: 'video',
-    image: '',
-    socialImage: '',
-    status: 'active',
-    featured: true,
-    popular: true,
-    rankScore: 112,
-    tags: ['ai','video','generator','text-to-video','image-to-video','pixverse','generation'],
-  });
-  registry.version = Math.max(Number(registry.version) || 0, 8);
-  await writeFile(registryFile, JSON.stringify(registry, null, 2) + '\n', 'utf8');
-}
-
 console.log('[tools-ai-category] AI category enabled in Tools directory.');
-console.log('[tools-ai-category] AI video generator synced into static tool registry.');
