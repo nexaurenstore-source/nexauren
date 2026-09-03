@@ -30,7 +30,7 @@
   ],
   "vars": {
     "PAYMENT_PROVIDER": "paypal",
-    "PAYPAL_ENVIRONMENT": "sandbox",
+    "PAYPAL_ENVIRONMENT": "live",
     "PAYMENT_BRAND_NAME": "Nexauren"
   }
 }
