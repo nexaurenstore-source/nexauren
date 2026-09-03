@@ -1,1 +1,0 @@
-Legacy authentication hardening patch preserved as a backup. The active harden-auth.mjs was replaced with a syntax-safe compatibility patch because the previous patch generated duplicate declarations in the Worker build.
