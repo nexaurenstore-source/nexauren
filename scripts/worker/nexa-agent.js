@@ -1,4 +1,4 @@
-/* NEXA AI AGENT v2
+/* NEXA AI AGENT v3
  * Nexa is an action/orchestration assistant for EXISTING Nexauren tools.
  * It never creates tools, code, URLs or arbitrary capabilities.
  * Tool definitions remain owned by Nexauren; Nexa only selects and invokes them.
@@ -12,15 +12,16 @@ function nexaAgentPlanFeature(plan) {
 }
 
 function nexaAgentWantsImageGeneration(text) {
-  const s = String(text || '').toLowerCase();
-  return /(cria|crie|gera|gerar|faz|faça|faca|desenha|desenhe|create|generate|draw|make|design)/.test(s) &&
-    /(imagem|image|picture|photo|foto|ilustra|illustration|arte|artwork|poster|logo)/.test(s) &&
-    !/(comprime|compress|reduz.*tamanho|resize|redimension|crop|corta|converter|converte)/.test(s);
+  const s = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const asks = /(cria|crie|criar|gera|gerar|faz|faca|fazer|desenha|desenhe|desenhar|quero|preciso|gostaria|podes|pode|create|generate|draw|make|design)/.test(s);
+  const image = /(imagem|imagens|image|picture|photo|foto|ilustra|illustration|arte|artwork|poster|logo|thumbnail|wallpaper)/.test(s);
+  const editing = /(comprime|compress|reduz.*tamanho|diminui.*tamanho|resize|redimension|crop|corta|converter|converte|melhora.*imagem|remove.*fundo|fundo.*imagem)/.test(s);
+  return asks && image && !editing;
 }
 
 function nexaAgentWantsToolAction(text) {
   const s = String(text || '').toLowerCase();
-  return /(usa|use|utiliza|utilize|faz|faça|faca|quero|preciso|podes|pode|can you|please|make|do|convert|compress|resize|redimension|crop|corta|merge|junta|split|divide|trim|corta|edit|editar|clean|limpa|count|conta|compare|compara|format|formata|enhance|melhora|record|grava|transform|transforma)/.test(s);
+  return /(usa|use|utiliza|utilize|faz|faca|fazer|quero|preciso|podes|pode|gostaria|can you|please|make|do|convert|compress|resize|redimension|crop|corta|merge|junta|split|divide|trim|edit|editar|clean|limpa|count|conta|compare|compara|format|formata|enhance|melhora|record|grava|transform|transforma|converter|converte|pdf)/.test(s);
 }
 
 function nexaAgentImagePrompt(text) {
@@ -84,7 +85,8 @@ function nexaAgentScoreTool(tool, tokens) {
     [['redimension'],['resizer']], [['converter'],['converter']], [['converte'],['converter']],
     [['junta'],['merger']], [['divide'],['splitter']], [['corta'],['cutter','trimmer']],
     [['limpa'],['cleaner']], [['conta'],['counter']], [['compara'],['diff']],
-    [['formata'],['formatter']], [['melhora'],['enhancer']],
+    [['formata'],['formatter']], [['melhora'],['enhancer']], [['gera','imagem'],['image-generator','image_generator']],
+    [['cria','imagem'],['image-generator','image_generator']], [['desenha','imagem'],['image-generator','image_generator']],
   ];
   for (const [words, hints] of pairs) if (words.every(w => tokens.includes(w)) && hints.some(h => hay.includes(h))) score += 8;
   return score;
@@ -97,6 +99,15 @@ async function nexaAgentPickTool(e, r, message) {
   if (!ranked[0] || ranked[0].score < 4) return null;
   if (ranked[1] && ranked[1].score === ranked[0].score) return null;
   return ranked[0].tool;
+}
+
+function nexaAgentAccountAction(message) {
+  const s=String(message||'').toLowerCase();
+  if (/(comprar|buy|adquir|credit|credito|crédito|saldo)/.test(s)) return { label:'Buy credits', url:'/billing/#credits' };
+  if (/(plano|plan|upgrade|upgrad|assinatura|subscription|subscri)/.test(s)) return { label:'Manage plan', url:'/billing/#plans' };
+  if (/(conta|account|perfil|profile|minha conta)/.test(s)) return { label:'Open my account', url:'/account/' };
+  if (/(ferramenta|ferramentas|tool|tools)/.test(s)) return { label:'Open Nexauren tools', url:'/tools/' };
+  return null;
 }
 
 async function nexaAgentChat(r, e) {
@@ -112,6 +123,8 @@ async function nexaAgentChat(r, e) {
   if (!chatResponse.ok) return chatResponse;
   const chatPayload = await chatResponse.clone().json().catch(() => ({}));
 
+  const accountAction = nexaAgentAccountAction(message);
+
   if (nexaAgentWantsImageGeneration(message)) {
     try {
       const imagePayload = await nexaAgentGenerateImage(r, e, user.id, account.plan, message);
@@ -121,16 +134,16 @@ async function nexaAgentChat(r, e) {
         await e.TOOLS_DB.prepare(`INSERT INTO nexa_messages(id,conversation_id,user_id,role,content,created_at) VALUES(?1,?2,?3,'assistant',?4,?5)`).bind(uuid(),chatPayload.conversation_id,user.id,`Generated image: ${image.filename || 'nexauren-image.jpg'}`,now).run();
         await nexaLog(e,user.id,chatPayload.conversation_id,'agent_action',{action:'image_generation',feature:image.feature,tool:'ai_image_generator'});
       }
-      return json({...chatPayload,agent_action:{type:'image_generation',success:true,result:image}},200,cors(r));
+      return json({...chatPayload,account_action:accountAction,agent_action:{type:'image_generation',success:true,result:image}},200,cors(r));
     } catch(error) {
       console.error('Nexa agent image action failed',nexaDetail(error));
-      return json({...chatPayload,agent_action:{type:'image_generation',success:false,error:error?.payload?.error||error?.message||'Image generation failed.'}},200,cors(r));
+      return json({...chatPayload,account_action:accountAction,agent_action:{type:'image_generation',success:false,error:error?.payload?.error||error?.message||'Image generation failed.'}},200,cors(r));
     }
   }
 
-  if (!nexaAgentWantsToolAction(message)) return chatResponse;
+  if (!nexaAgentWantsToolAction(message)) return accountAction ? json({...chatPayload,account_action:accountAction},200,cors(r)) : chatResponse;
   const tool = await nexaAgentPickTool(e, r, message);
-  if (!tool) return chatResponse;
+  if (!tool) return accountAction ? json({...chatPayload,account_action:accountAction},200,cors(r)) : chatResponse;
 
   const action = {
     type: 'tool_execution',
@@ -143,7 +156,7 @@ async function nexaAgentChat(r, e) {
   if (chatPayload?.conversation_id) {
     try { await nexaLog(e,user.id,chatPayload.conversation_id,'agent_action',{action:'tool_execution',tool:tool.id,slug:tool.slug}); } catch {}
   }
-  return json({...chatPayload,agent_action:action},200,cors(r));
+  return json({...chatPayload,account_action:accountAction,agent_action:action},200,cors(r));
 }
 
 async function __handleNexaAgentRoute(r,e) {
