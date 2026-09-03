@@ -20,6 +20,21 @@ if (!generated.includes('async function __handleAiToolsRoute(')) {
   generated = generated.replace(marker, moduleSource + '\n\n$&', 1);
 }
 
+// Keep the Google Gemma model through Cloudflare Workers AI, but make the
+// request safer for large PDFs and expose the real failure reason to the UI.
+generated = generated.replace(
+  "const maxChars = requiredLevel >= 3 ? 900000 : requiredLevel >= 2 ? 700000 : 450000;",
+  "const maxChars = 450000;",
+);
+generated = generated.replace(
+  '    max_tokens: 5000,',
+  '    max_completion_tokens: 3000,',
+);
+generated = generated.replace(
+  "    return aiToolsError('The AI tool could not complete the request.', 'ai_execution_failed', 502, r);",
+  "    return json({ error: 'The AI tool could not complete the request.', code: 'ai_execution_failed', details: String(error?.message || error || 'Unknown AI error').slice(0, 500) }, 502, cors(r));",
+);
+
 if (!generated.includes('const __aiToolsRouteActive = true;')) {
   const fetchMarker = /async\s+fetch\(\s*r\s*,\s*e\s*\)\s*\{\s*/;
   if (!fetchMarker.test(generated)) {
@@ -41,4 +56,5 @@ if (count(generated, 'const __aiToolsRouteActive = true;') !== 1) {
 await writeFile(workerUrl, generated, 'utf8');
 console.log('[ai-tools-patch] AI tools runtime included once.');
 console.log('[ai-tools-patch] AI tools API dispatcher included once.');
+console.log('[ai-tools-patch] Gemma request safeguards applied.');
 console.log('[ai-tools-patch] Existing Worker source preserved.');
