@@ -1,7 +1,5 @@
 /* NEXAUREN INTEGRATION CENTER — secure user connections */
-// Route fragment injected into Worker fetch(r, e). Secrets are encrypted before D1 storage.
-const __integrationUrl = new URL(r.url);
-
+// Functions are injected into Worker scope; dispatch is injected inside fetch(r, e).
 const __integrationProviders = {
   'cloudflare-r2': ['Storage', 'API / Access Keys'],
   'amazon-s3': ['Storage', 'Access Keys'],
@@ -53,18 +51,6 @@ const __integrationEncrypt = async (payload, e) => {
   const plaintext = new TextEncoder().encode(JSON.stringify(payload));
   const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext);
   return `v1:${__integrationB64(iv)}:${__integrationB64(ciphertext)}`;
-};
-
-const __integrationDecrypt = async (value, e) => {
-  const parts = String(value || '').split(':');
-  if (parts.length !== 3 || parts[0] !== 'v1') throw new Error('Invalid integration ciphertext');
-  const key = await __integrationKey(e);
-  const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: __integrationFromB64(parts[1]) },
-    key,
-    __integrationFromB64(parts[2]),
-  );
-  return JSON.parse(new TextDecoder().decode(plaintext));
 };
 
 const __integrationPublic = (row) => ({
@@ -133,10 +119,11 @@ async function __integrationDelete(r, e, id) {
   return json({ success: true }, 200, cors(r));
 }
 
+const __integrationDispatch = `const __integrationUrl = new URL(r.url);
 if (__integrationUrl.pathname === '/api/integrations' && r.method === 'GET') return __integrationList(r, e);
 if (__integrationUrl.pathname === '/api/integrations' && r.method === 'POST') return __integrationCreate(r, e);
 if (__integrationUrl.pathname.startsWith('/api/integrations/') && r.method === 'DELETE') {
   const id = decodeURIComponent(__integrationUrl.pathname.slice('/api/integrations/'.length)).trim();
   if (!id || id.includes('/')) return json({ error: 'Invalid integration id.' }, 400, cors(r));
   return __integrationDelete(r, e, id);
-}
+}`;
