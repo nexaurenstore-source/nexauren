@@ -13,10 +13,13 @@ if (!source.includes('async function currentUser(')) {
   throw new Error('[integrations] Worker auth helper currentUser not found.');
 }
 
-const dispatchStart = integrationModule.indexOf("if (__integrationUrl.pathname === '/api/integrations'");
+const dispatchMarker = 'const __integrationDispatch = `';
+const dispatchStart = integrationModule.indexOf(dispatchMarker);
 if (dispatchStart < 0) throw new Error('[integrations] Route dispatch marker not found.');
+const dispatchEnd = integrationModule.lastIndexOf('`;');
+if (dispatchEnd <= dispatchStart) throw new Error('[integrations] Route dispatch closing marker not found.');
 const functions = integrationModule.slice(0, dispatchStart).trim();
-const dispatch = integrationModule.slice(dispatchStart).trim();
+const dispatch = integrationModule.slice(dispatchStart + dispatchMarker.length, dispatchEnd).replaceAll('\\n', '\n');
 
 if (!source.includes('async function __integrationCreate(')) {
   const marker = /async\s+function\s+enhanceHTML\s*\(\s*response\s*,\s*request\s*\)\s*\{/;
