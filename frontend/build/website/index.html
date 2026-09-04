@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Website Builder — Nexauren</title>
+  <meta name="description" content="Create a simple website with sections. Your builder data stays in this browser session and is never sent to Nexauren.">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    :root{--wb-bg:#f6f7fb;--wb-card:#fff;--wb-text:#151823;--wb-muted:#6d7280;--wb-border:#e4e6ec;--wb-primary:#635bff;--wb-primary-dark:#5048dc;--wb-radius:16px}
+    *{box-sizing:border-box}.wb-body{margin:0;background:var(--wb-bg);color:var(--wb-text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wb-app{min-height:100vh;display:flex;flex-direction:column}.wb-top{height:64px;background:#fff;border-bottom:1px solid var(--wb-border);display:flex;align-items:center;gap:14px;padding:0 18px;position:sticky;top:0;z-index:20}.wb-brand{font-weight:800;font-size:18px;letter-spacing:-.02em}.wb-back{border:0;background:transparent;color:var(--wb-muted);font-size:14px;cursor:pointer}.wb-name{margin-left:8px;padding:8px 10px;border:1px solid transparent;border-radius:9px;background:transparent;font-weight:650;min-width:140px}.wb-name:focus{outline:2px solid #d9d7ff;border-color:var(--wb-primary);background:#fff}.wb-spacer{flex:1}.wb-device{display:flex;gap:4px;background:#f1f2f6;padding:4px;border-radius:10px}.wb-device button,.wb-ghost,.wb-primary{border:0;border-radius:9px;padding:9px 12px;font-weight:700;cursor:pointer}.wb-device button{background:transparent;color:var(--wb-muted)}.wb-device button.active{background:#fff;color:var(--wb-text);box-shadow:0 1px 4px #00000012}.wb-ghost{background:#fff;border:1px solid var(--wb-border);color:var(--wb-text)}.wb-primary{background:var(--wb-primary);color:#fff}.wb-primary:hover{background:var(--wb-primary-dark)}.wb-main{display:grid;grid-template-columns:270px minmax(420px,1fr) 310px;min-height:calc(100vh - 64px)}.wb-panel{background:#fff;padding:18px;border-right:1px solid var(--wb-border);overflow:auto}.wb-panel.right{border-right:0;border-left:1px solid var(--wb-border)}.wb-panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;margin:2px 0 14px;color:var(--wb-muted)}.wb-help{font-size:13px;color:var(--wb-muted);line-height:1.5;margin:-4px 0 16px}.section-list{display:flex;flex-direction:column;gap:8px}.section-row{display:grid;grid-template-columns:1fr auto;gap:7px;padding:10px;border:1px solid var(--wb-border);border-radius:12px;background:#fff}.section-row.selected{border-color:#bdb9ff;background:#f8f7ff}.section-main{display:flex;align-items:center;gap:9px;min-width:0;border:0;background:transparent;text-align:left;cursor:pointer}.section-icon{width:30px;height:30px;border-radius:8px;background:#f0efff;display:grid;place-items:center;font-size:14px}.section-title{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.section-actions{display:flex;gap:3px}.mini{width:28px;height:28px;padding:0;border:1px solid var(--wb-border);border-radius:7px;background:#fff;cursor:pointer;color:var(--wb-muted)}.mini:disabled{opacity:.35;cursor:not-allowed}.add-section{margin-top:14px;width:100%;padding:11px;border:1px dashed #b9b6ff;border-radius:11px;background:#faf9ff;color:var(--wb-primary);font-weight:800;cursor:pointer}.wb-canvas-wrap{padding:28px;overflow:auto;display:flex;justify-content:center}.wb-canvas{width:100%;max-width:980px;background:#fff;min-height:760px;border-radius:14px;box-shadow:0 5px 24px #18204b12;overflow:hidden;transition:max-width .2s}.wb-canvas.tablet{max-width:720px}.wb-canvas.mobile{max-width:390px}.site-section{position:relative;padding:58px 8%;border-bottom:1px solid #eef0f4}.site-section:last-child{border-bottom:0}.site-section.active{outline:2px solid #bbb8ff;outline-offset:-2px}.site-nav{padding:18px 8%;display:flex;align-items:center;justify-content:space-between}.site-nav strong{font-size:18px}.site-nav span{font-size:13px;color:var(--wb-muted)}.hero{text-align:center;padding-top:90px;padding-bottom:90px}.hero h1{font-size:clamp(34px,5vw,62px);line-height:1.04;margin:0 auto 18px;letter-spacing:-.045em;max-width:760px}.hero p,.text-block p{font-size:17px;line-height:1.65;color:#626878;max-width:680px;margin:0 auto 25px}.site-button{display:inline-flex;background:#171923;color:#fff;padding:12px 18px;border-radius:10px;font-weight:750}.image-text{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center}.fake-image{height:220px;border-radius:18px;background:linear-gradient(135deg,#eeeefe,#e9edf7);display:grid;place-items:center;color:#8b90a0;font-weight:700}.features{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.feature{padding:20px;border:1px solid var(--wb-border);border-radius:14px}.feature b{display:block;margin-bottom:8px}.feature span{color:#6d7280;font-size:14px;line-height:1.5}.products{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.product{border:1px solid var(--wb-border);border-radius:14px;padding:18px}.product .price{font-size:24px;font-weight:800;margin:12px 0}.quote{text-align:center;background:#fafaff}.quote blockquote{font-size:25px;line-height:1.4;margin:0 auto 15px;max-width:680px;font-weight:650}.faq-item{padding:15px 0;border-bottom:1px solid var(--wb-border);display:flex;justify-content:space-between;font-weight:650}.newsletter{background:#171923;color:#fff;border-radius:18px;margin:28px 8%;padding:32px}.newsletter p{color:#c6c9d2}.input-row{display:flex;gap:8px}.input-row input{flex:1;border:0;border-radius:9px;padding:12px}.site-footer{padding:35px 8%;color:#737887;font-size:13px;display:flex;justify-content:space-between}.empty-canvas{min-height:700px;display:grid;place-items:center;color:var(--wb-muted);text-align:center;padding:40px}.empty-canvas strong{display:block;color:var(--wb-text);font-size:18px;margin-bottom:7px}.field{margin-bottom:16px}.field label{display:block;font-size:12px;font-weight:800;color:var(--wb-muted);margin-bottom:7px}.field input,.field textarea,.field select{width:100%;border:1px solid var(--wb-border);border-radius:9px;padding:10px;font:inherit;background:#fff}.field textarea{min-height:90px;resize:vertical}.color-row{display:flex;gap:8px}.color-row input{width:48px;height:38px;padding:3px}.property-title{font-size:18px;font-weight:800;margin:0 0 4px}.property-sub{font-size:12px;color:var(--wb-muted);margin:0 0 18px}.notice{padding:11px 12px;background:#f5f5f8;border-radius:10px;color:#656a78;font-size:12px;line-height:1.45}.wb-modal-backdrop{position:fixed;inset:0;background:#12152266;display:none;align-items:center;justify-content:center;z-index:40;padding:20px}.wb-modal-backdrop.open{display:flex}.wb-modal{width:min(760px,100%);max-height:85vh;overflow:auto;background:#fff;border-radius:18px;padding:22px;box-shadow:0 20px 70px #0003}.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.modal-head h3{margin:0}.section-options{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.section-option{padding:15px;text-align:left;border:1px solid var(--wb-border);background:#fff;border-radius:12px;cursor:pointer}.section-option:hover{border-color:#bcb8ff;background:#faf9ff}.section-option b{display:block;margin-bottom:5px}.section-option span{font-size:12px;color:var(--wb-muted)}.wb-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;background:#171923;color:#fff;padding:11px 15px;border-radius:10px;font-size:13px;transition:.2s;z-index:60}.wb-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}@media(max-width:1050px){.wb-main{grid-template-columns:230px minmax(360px,1fr)}.wb-panel.right{position:fixed;right:0;top:64px;bottom:0;width:310px;z-index:15;transform:translateX(100%);transition:.2s}.wb-panel.right.open{transform:translateX(0)}.features,.products{grid-template-columns:1fr}.wb-canvas-wrap{padding:18px}}@media(max-width:760px){.wb-main{grid-template-columns:1fr}.wb-panel.left{display:none}.wb-canvas-wrap{padding:10px}.wb-top{gap:7px}.wb-name{min-width:100px}.wb-device{display:none}.image-text{grid-template-columns:1fr}.site-section{padding-left:6%;padding-right:6%}.newsletter{margin-left:6%;margin-right:6%}}
+  </style>
+</head>
+<body class="wb-body">
+<div class="wb-app">
+  <header class="wb-top">
+    <button class="wb-back" type="button" onclick="history.back()">← Back</button>
+    <div class="wb-brand">Nexauren</div>
+    <input id="siteName" class="wb-name" value="My Website" aria-label="Website name">
+    <div class="wb-spacer"></div>
+    <div class="wb-device" aria-label="Preview size">
+      <button data-device="desktop" class="active">Desktop</button><button data-device="tablet">Tablet</button><button data-device="mobile">Mobile</button>
+    </div>
+    <button id="previewBtn" class="wb-ghost" type="button">Preview</button>
+    <button id="exportBtn" class="wb-primary" type="button">Export</button>
+  </header>
+  <main class="wb-main">
+    <aside class="wb-panel left">
+      <h2>Sections</h2>
+      <p class="wb-help">Build your site by adding sections. No dragging, no complicated layout tools.</p>
+      <div id="sectionList" class="section-list"></div>
+      <button id="addSectionBtn" class="add-section" type="button">＋ Add section</button>
+    </aside>
+    <section class="wb-canvas-wrap">
+      <div id="canvas" class="wb-canvas" aria-label="Website preview"></div>
+    </section>
+    <aside id="propertiesPanel" class="wb-panel right">
+      <div id="properties"></div>
+    </aside>
+  </main>
+</div>
+<div id="sectionModal" class="wb-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="wb-modal">
+    <div class="modal-head"><h3 id="modalTitle">Add section</h3><button id="closeModal" class="wb-ghost" type="button">Close</button></div>
+    <div id="sectionOptions" class="section-options"></div>
+  </div>
+</div>
+<div id="toast" class="wb-toast" role="status" aria-live="polite"></div>
+<script src="/build/website/builder.js" defer></script>
+</body>
+</html>
