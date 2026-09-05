@@ -16,6 +16,10 @@ if(!worker.includes(marker)){
 }
 if((worker.match(/const BUSINESS_TOOLS_FREE_DAILY/g)||[]).length!==1) throw new Error('business tools module injected incorrectly');
 if((worker.match(/__businessToolsUrl/g)||[]).length!==3) throw new Error('business tools routes injected incorrectly');
-new vm.Script(worker,{filename:workerPath});
+// The generated Worker is an ES module and therefore contains `export default`.
+// vm.Script parses classic scripts, so normalize only that module export for the
+// syntax-only validation instead of executing or changing the deploy artifact.
+const syntaxSource=worker.replace(/\bexport\s+default\s+/, 'const __worker_default__ = ');
+new vm.Script(syntaxSource,{filename:workerPath});
 fs.writeFileSync(workerPath,worker);
 console.log('Business tools enforcement patched successfully.');
