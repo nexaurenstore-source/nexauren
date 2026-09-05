@@ -40,9 +40,12 @@ async function businessCopywriterConsume(r, e) {
   }
 
   const existing = await e.DB.prepare(
-    'SELECT id,credits,status FROM tool_usage WHERE user_id=? AND reference=? LIMIT 1'
+    'SELECT id,credits,status FROM business_copywriter_generations WHERE user_id=? AND reference=? LIMIT 1'
   ).bind(user.id, reference).first();
   if (existing) {
+    if (String(existing.status) === 'pending') {
+      return businessCopywriterJson({ error: 'This generation is already being processed.', code: 'GENERATION_IN_PROGRESS' }, 409, r);
+    }
     const usageDate = new Date().toISOString().slice(0, 10);
     const row = await e.DB.prepare(
       'SELECT free_generations FROM business_copywriter_daily_usage WHERE user_id=? AND usage_date=? LIMIT 1'
@@ -71,6 +74,13 @@ async function businessCopywriterConsume(r, e) {
   }
 
   try {
+    const reservation = await e.DB.prepare(
+      'INSERT OR IGNORE INTO business_copywriter_generations (id,user_id,reference,credits,status,created_at) VALUES (?,?,?,?,?,?)'
+    ).bind(uuid(), user.id, reference, 0, 'pending', now).run();
+    if (Number(reservation?.meta?.changes || 0) === 0) {
+      return businessCopywriterJson({ error: 'This generation is already being processed.', code: 'GENERATION_IN_PROGRESS' }, 409, r);
+    }
+
     await e.DB.prepare(
       'INSERT OR IGNORE INTO business_copywriter_daily_usage (user_id,usage_date,free_generations,updated_at) VALUES (?,?,0,?)'
     ).bind(user.id, usageDate, now).run();
@@ -80,16 +90,20 @@ async function businessCopywriterConsume(r, e) {
     ).bind(now, user.id, usageDate, NEXAUREN_BUSINESS_COPYWRITER_FREE_DAILY).run();
 
     if (Number(freeUpdate?.meta?.changes || 0) > 0) {
+      await e.DB.prepare(
+        'UPDATE business_copywriter_generations SET status=?,credits=? WHERE user_id=? AND reference=?'
+      ).bind('completed', 0, user.id, reference).run();
       const row = await e.DB.prepare(
         'SELECT free_generations FROM business_copywriter_daily_usage WHERE user_id=? AND usage_date=? LIMIT 1'
       ).bind(user.id, usageDate).first();
       const balance = await e.DB.prepare('SELECT balance FROM credit_balances WHERE user_id=? LIMIT 1').bind(user.id).first();
+      const used = Number(row?.free_generations || 0);
       return businessCopywriterJson({
         success: true,
         charged: false,
         credits_used: 0,
-        free_generations_used: Number(row?.free_generations || 0),
-        free_generations_remaining: Math.max(0, NEXAUREN_BUSINESS_COPYWRITER_FREE_DAILY - Number(row?.free_generations || 0)),
+        free_generations_used: used,
+        free_generations_remaining: Math.max(0, NEXAUREN_BUSINESS_COPYWRITER_FREE_DAILY - used),
         balance: Number(balance?.balance || 0),
       }, 200, r);
     }
@@ -100,6 +114,7 @@ async function businessCopywriterConsume(r, e) {
     ).bind(creditCost, now, user.id, creditCost).run();
 
     if (Number(paidUpdate?.meta?.changes || 0) === 0) {
+      await e.DB.prepare('DELETE FROM business_copywriter_generations WHERE user_id=? AND reference=?').bind(user.id, reference).run();
       const balance = await e.DB.prepare('SELECT balance FROM credit_balances WHERE user_id=? LIMIT 1').bind(user.id).first();
       return businessCopywriterJson({
         error: 'Insufficient credits. Buy credits to continue.',
@@ -116,6 +131,9 @@ async function businessCopywriterConsume(r, e) {
       e.DB.prepare(
         'INSERT INTO tool_usage (id,user_id,tool_id,credits,status,reference,created_at) VALUES (?,?,?,?,?,?,?)'
       ).bind(uuid(), user.id, NEXAUREN_BUSINESS_COPYWRITER_TOOL, creditCost, 'completed', reference, now),
+      e.DB.prepare(
+        'UPDATE business_copywriter_generations SET status=?,credits=? WHERE user_id=? AND reference=?'
+      ).bind('completed', creditCost, user.id, reference),
     ]);
 
     const balance = await e.DB.prepare('SELECT balance FROM credit_balances WHERE user_id=? LIMIT 1').bind(user.id).first();
@@ -129,6 +147,7 @@ async function businessCopywriterConsume(r, e) {
     }, 200, r);
   } catch (error) {
     console.error('Business Copywriter consumption failed:', error);
+    await e.DB.prepare('DELETE FROM business_copywriter_generations WHERE user_id=? AND reference=? AND status=?').bind(user.id, reference, 'pending').run().catch(() => {});
     return businessCopywriterJson({ error: 'Unable to authorize this generation.', code: 'CONSUMPTION_FAILED' }, 500, r);
   }
 }
