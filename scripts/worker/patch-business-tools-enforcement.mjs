@@ -8,7 +8,9 @@ if(!worker.includes('const BUSINESS_TOOLS_FREE_DAILY')) worker='\n'+module+'\n'+
 const marker='const __businessToolsUrl = new URL(r.url);';
 if(!worker.includes(marker)){
  const routes=`const __businessToolsUrl = new URL(r.url);\n    if (__businessToolsUrl.pathname === '/api/business/tools/usage' && r.method === 'GET') return businessToolsUsage(r, e);\n    if (__businessToolsUrl.pathname === '/api/business/tools/consume' && r.method === 'POST') return businessToolsConsume(r, e);`;
- const m=worker.match(/async function fetch\s*\(r\s*,\s*e\)\s*\{/);
+ // Support both the current module-style Cloudflare Worker handler and the
+ // older standalone function form. The build pipeline uses `async fetch(...)`.
+ const m=worker.match(/async\s+fetch\s*\(\s*r\s*,\s*e\s*\)\s*\{|async\s+function\s+fetch\s*\(\s*r\s*,\s*e\s*\)\s*\{/);
  if(!m) throw new Error('fetch handler not found');
  worker=worker.slice(0,m.index+m[0].length)+'\n    '+routes+worker.slice(m.index+m[0].length);
 }
