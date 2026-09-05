@@ -4,38 +4,51 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Business — Nexauren</title>
-<meta name="description" content="Ferramentas Nexauren para negócios: catálogos, documentos, marketing e produtividade.">
+<meta name="description" content="Ferramentas simples da Nexauren para criar, organizar e gerir um negócio.">
 <link rel="stylesheet" href="/css/style.css">
 <style>
-body{background:#f7f7f8}.biz-wrap{max-width:1100px;margin:0 auto;padding:32px 18px 60px}.biz-hero{margin-bottom:28px}.biz-hero h1{margin:0 0 8px;font-size:32px}.biz-hero p{margin:0;color:#666}.biz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.biz-card{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid #e5e5e7;border-radius:16px;padding:20px;transition:.18s}.biz-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.08)}.biz-icon{font-size:28px;margin-bottom:12px}.biz-card h2{font-size:18px;margin:0 0 7px}.biz-card p{font-size:14px;line-height:1.5;color:#666;margin:0}.coming{opacity:.65;cursor:default}
+.biz-page{max-width:1180px;margin:0 auto;padding:42px 16px 70px}
+.biz-hero{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:30px}
+.biz-hero h1{margin:0 0 8px;font-size:clamp(30px,5vw,44px);letter-spacing:-.04em}
+.biz-hero p{margin:0;max-width:650px;color:#667085;line-height:1.6}
+.biz-section{margin-top:34px}.biz-section h2{margin:0 0 7px;font-size:20px}.biz-section>p{margin:0 0 16px;color:#667085}
+.biz-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.biz-card{display:flex;flex-direction:column;min-height:170px;padding:20px;border:1px solid #e4e7ec;border-radius:18px;background:#fff;color:inherit;text-decoration:none;box-shadow:0 2px 8px rgba(16,24,40,.03);transition:transform .18s,box-shadow .18s,border-color .18s}
+.biz-card:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(16,24,40,.08);border-color:#cfd5dd}
+.biz-icon{font-size:28px;margin-bottom:14px}.biz-card h3{margin:0 0 7px;font-size:17px}.biz-card p{margin:0;color:#667085;line-height:1.5;font-size:14px}.biz-open{margin-top:auto;padding-top:16px;font-size:13px;font-weight:800}.biz-card.soon{opacity:.62;cursor:default}.biz-card.soon:hover{transform:none;box-shadow:0 2px 8px rgba(16,24,40,.03)}
+.biz-note{margin-top:18px;padding:14px 16px;border-radius:14px;background:#f7f8fa;color:#667085;font-size:13px}
+@media(max-width:850px){.biz-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.biz-page{padding-top:28px}.biz-grid{grid-template-columns:1fr}.biz-hero{display:block}}
 </style>
 </head>
 <body>
 <header id="site-header"></header>
-<main class="biz-wrap">
-<section class="biz-hero">
-<h1>Business</h1>
-<p>Ferramentas simples para criar, organizar e gerir o seu negócio.</p>
+<main class="biz-page">
+<section class="biz-hero"><div><h1>Business</h1><p>Ferramentas simples para criar, organizar e gerir o seu negócio.</p></div></section>
+<section class="biz-section">
+<h2>Disponíveis agora</h2><p>Ferramentas prontas para tarefas administrativas e de produtividade.</p>
+<div class="biz-grid">
+<a class="biz-card" href="/business/invoice/"><span class="biz-icon">🧾</span><h3>Invoice Maker</h3><p>Crie faturas profissionais com itens, preços, impostos e totais.</p><span class="biz-open">Abrir ferramenta →</span></a>
+<a class="biz-card" href="/business/receipt/"><span class="biz-icon">🧾</span><h3>Receipt Maker</h3><p>Gere recibos simples e prontos para partilhar ou imprimir.</p><span class="biz-open">Abrir ferramenta →</span></a>
+<a class="biz-card" href="/business/quote/"><span class="biz-icon">💵</span><h3>Quote Maker</h3><p>Prepare orçamentos claros com serviços, quantidades, preços e totais.</p><span class="biz-open">Abrir ferramenta →</span></a>
+<a class="biz-card" href="/business/expense/"><span class="biz-icon">📊</span><h3>Expense Tracker</h3><p>Organize despesas e acompanhe os seus custos de negócio.</p><span class="biz-open">Abrir ferramenta →</span></a>
+<a class="biz-card" href="/business/copywriter/"><span class="biz-icon">✍️</span><h3>Business Copywriter</h3><p>Crie textos comerciais para produtos, serviços e campanhas.</p><span class="biz-open">Abrir ferramenta →</span></a>
+<a class="biz-card" href="/studios/business/"><span class="biz-icon">🏢</span><h3>Business Studio</h3><p>Explore experiências para documentos, reuniões e cálculos empresariais.</p><span class="biz-open">Abrir Studio →</span></a>
+</div>
 </section>
-<section class="biz-grid">
-<a class="biz-card" href="/business/catalog/"><div class="biz-icon">📦</div><h2>Business Catalog</h2><p>Crie e apresente um catálogo dos seus produtos.</p></a>
-<a class="biz-card" href="/business/social-posts/"><div class="biz-icon">📱</div><h2>Social Post Maker</h2><p>Crie publicações para redes sociais.</p></a>
-<a class="biz-card" href="/business/flyer/"><div class="biz-icon">🎨</div><h2>Flyer Maker</h2><p>Crie flyers para divulgar produtos e serviços.</p></a>
-<a class="biz-card" href="/business/invoice/"><div class="biz-icon">🧾</div><h2>Invoice &amp; Receipt</h2><p>Crie faturas e recibos de forma rápida.</p></a>
-<a class="biz-card" href="/business/menu/"><div class="biz-icon">🍽️</div><h2>Menu Maker</h2><p>Monte menus profissionais para o seu negócio.</p></a>
-<a class="biz-card" href="/business/business-page/"><div class="biz-icon">🏢</div><h2>Business Page</h2><p>Crie uma página para apresentar o seu negócio.</p></a>
-<a class="biz-card" href="/business/qr-code/"><div class="biz-icon">🔳</div><h2>QR Code Maker</h2><p>Gere códigos QR para links e informações.</p></a>
-<a class="biz-card" href="/business/copywriter/"><div class="biz-icon">✍️</div><h2>Business Copywriter</h2><p>Crie textos comerciais para o seu negócio.</p></a>
-<a class="biz-card" href="/studios/business/invoice-generator/"><div class="biz-icon">🧾</div><h2>Invoice Generator</h2><p>Crie faturas profissionais com itens, impostos e totais.</p></a>
-<a class="biz-card" href="/studios/business/quote-generator/"><div class="biz-icon">💵</div><h2>Quote Generator</h2><p>Prepare orçamentos claros com serviços, quantidades, preços e totais.</p></a>
-<a class="biz-card" href="/studios/business/business-document-generator/"><div class="biz-icon">📄</div><h2>Business Document Generator</h2><p>Crie documentos empresariais limpos, copie ou imprima.</p></a>
-<a class="biz-card" href="/studios/business/meeting-agenda/"><div class="biz-icon">📅</div><h2>Meeting Agenda</h2><p>Organize tópicos de reuniões, responsáveis e ações.</p></a>
-<a class="biz-card" href="/studios/business/business-calculator/"><div class="biz-icon">🧮</div><h2>Business Calculator</h2><p>Calcule receita, custos, lucro, margens, markup e ponto de equilíbrio.</p></a>
-<a class="biz-card coming" href="#" aria-disabled="true"><div class="biz-icon">🤖</div><h2>Business Assistant</h2><p>Em breve.</p></a>
+<section class="biz-section">
+<h2>Em breve</h2><p>Estas ideias ficam visíveis sem criar links quebrados ou páginas 404.</p>
+<div class="biz-grid">
+<div class="biz-card soon"><span class="biz-icon">📦</span><h3>Business Catalog</h3><p>Catálogo de produtos para apresentar o seu negócio.</p><span class="biz-open">Em breve</span></div>
+<div class="biz-card soon"><span class="biz-icon">📱</span><h3>Social Post Maker</h3><p>Criação de publicações para redes sociais.</p><span class="biz-open">Em breve</span></div>
+<div class="biz-card soon"><span class="biz-icon">🎨</span><h3>Flyer Maker</h3><p>Flyers para divulgar produtos e serviços.</p><span class="biz-open">Em breve</span></div>
+<div class="biz-card soon"><span class="biz-icon">🍽️</span><h3>Menu Maker</h3><p>Menus profissionais para restaurantes e negócios.</p><span class="biz-open">Em breve</span></div>
+<div class="biz-card soon"><span class="biz-icon">🏢</span><h3>Business Page</h3><p>Uma página simples para apresentar o seu negócio.</p><span class="biz-open">Em breve</span></div>
+<div class="biz-card soon"><span class="biz-icon">🔳</span><h3>QR Code Maker</h3><p>Códigos QR para links e informações do negócio.</p><span class="biz-open">Em breve</span></div>
+</div>
+<div class="biz-note">Nenhum cartão acima aponta para uma página inexistente. Quando uma ferramenta estiver pronta, o link será ativado.</div>
 </section>
 </main>
 <footer id="site-footer"></footer>
 <script src="/js/app.js" defer></script>
-<script src="/js/business-i18n.js"></script>
 </body>
 </html>
