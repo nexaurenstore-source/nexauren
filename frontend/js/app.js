@@ -9,6 +9,7 @@ if(!document.querySelector('link[data-nexa-widget-css]')){const l=document.creat
 window.Nexauren=window.Nexauren||{};
 window.Nexauren.trackTool=window.Nexauren.trackTool||(()=>{});
 window.Nexauren.loadTools=()=>fetch('/data/tools.json',{cache:'default'}).then(r=>r.ok?r.json():Promise.reject(new Error('Tools unavailable'))).then(d=>Array.isArray(d.tools)?d.tools:[]);
+document.addEventListener('click',async e=>{const logout=e.target.closest?.('[data-logout]');if(!logout)return;e.preventDefault();try{await fetch('/api/auth/logout',{method:'POST',credentials:'include'})}finally{location.reload()}});
 // i18n owns the global shell so every public HTML page uses one navigation/footer.
 load('/js/i18n.js','data-nexauren-i18n');
 })();
