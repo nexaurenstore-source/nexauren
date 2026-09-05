@@ -10,8 +10,14 @@ const errors = [];
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const studiosDoc = readJson(path.join(data, 'studios.json'));
 const toolsDoc = readJson(path.join(data, 'tools.json'));
+const extrasPath = path.join(data, 'tools-extra.json');
+const extrasDoc = fs.existsSync(extrasPath) ? readJson(extrasPath) : { tools: [] };
 const studios = Array.isArray(studiosDoc.studios) ? studiosDoc.studios : [];
-const tools = Array.isArray(toolsDoc.tools) ? toolsDoc.tools : [];
+const legacyAliasIds = new Set(['document-studio', 'document-templates']);
+const tools = [
+  ...(Array.isArray(toolsDoc.tools) ? toolsDoc.tools : []).filter(tool => !legacyAliasIds.has(tool?.id)),
+  ...(Array.isArray(extrasDoc.tools) ? extrasDoc.tools : [])
+];
 const worker = fs.existsSync(workerPath) ? fs.readFileSync(workerPath, 'utf8') : '';
 const fail = (message) => errors.push(message);
 const unique = (values, label) => {
