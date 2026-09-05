@@ -5,27 +5,64 @@ function businessCopywriterJson(data, status, request) {
   return json(data, status, cors(request));
 }
 
+async function ensureBusinessCopywriterSchema(e) {
+  await e.DB.batch([
+    e.DB.prepare(`CREATE TABLE IF NOT EXISTS business_copywriter_daily_usage (
+      user_id TEXT NOT NULL,
+      usage_date TEXT NOT NULL,
+      free_generations INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, usage_date)
+    )`),
+    e.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_business_copywriter_usage_date
+      ON business_copywriter_daily_usage (usage_date)`),
+    e.DB.prepare(`CREATE TABLE IF NOT EXISTS business_copywriter_generations (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      reference TEXT NOT NULL,
+      credits INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      UNIQUE(user_id, reference)
+    )`),
+    e.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_business_copywriter_generations_user_created
+      ON business_copywriter_generations(user_id, created_at DESC)`),
+    e.DB.prepare(`INSERT OR IGNORE INTO tool_billing
+      (tool_id, credit_cost, enabled, updated_at)
+      VALUES (?, ?, 1, ?)`)
+      .bind(NEXAUREN_BUSINESS_COPYWRITER_TOOL, 5, Math.floor(Date.now() / 1000)),
+  ]);
+}
+
 async function businessCopywriterUsage(r, e) {
   const user = await currentUser(r, e);
-  if (!user) return businessCopywriterJson({ error: 'Authentication required' }, 401, r);
+  if (!user) return businessCopywriterJson({ error: 'Authentication required', code: 'AUTH_REQUIRED' }, 401, r);
 
-  const usageDate = new Date().toISOString().slice(0, 10);
-  const row = await e.DB.prepare(
-    'SELECT free_generations FROM business_copywriter_daily_usage WHERE user_id=? AND usage_date=? LIMIT 1'
-  ).bind(user.id, usageDate).first();
-  const used = Number(row?.free_generations || 0);
-  const balance = await e.DB.prepare(
-    'SELECT balance FROM credit_balances WHERE user_id=? LIMIT 1'
-  ).bind(user.id).first();
+  try {
+    await ensureBusinessCopywriterSchema(e);
+    const usageDate = new Date().toISOString().slice(0, 10);
+    const row = await e.DB.prepare(
+      'SELECT free_generations FROM business_copywriter_daily_usage WHERE user_id=? AND usage_date=? LIMIT 1'
+    ).bind(user.id, usageDate).first();
+    const balance = await e.DB.prepare(
+      'SELECT balance FROM credit_balances WHERE user_id=? LIMIT 1'
+    ).bind(user.id).first();
+    const used = Number(row?.free_generations || 0);
 
-  return businessCopywriterJson({
-    success: true,
-    free_generations_used: used,
-    free_generations_limit: NEXAUREN_BUSINESS_COPYWRITER_FREE_DAILY,
-    free_generations_remaining: Math.max(0, NEXAUREN_BUSINESS_COPYWRITER_FREE_DAILY - used),
-    credit_cost: 5,
-    balance: Number(balance?.balance || 0),
-  }, 200, r);
+    return businessCopywriterJson({
+      success: true,
+      authenticated: true,
+      user: { id: user.id, email: user.email, username: user.username },
+      free_generations_used: used,
+      free_generations_limit: NEXAUREN_BUSINESS_COPYWRITER_FREE_DAILY,
+      free_generations_remaining: Math.max(0, NEXAUREN_BUSINESS_COPYWRITER_FREE_DAILY - used),
+      credit_cost: 5,
+      balance: Number(balance?.balance || 0),
+    }, 200, r);
+  } catch (error) {
+    console.error('Business Copywriter usage failed:', error);
+    return businessCopywriterJson({ error: 'Unable to load your Business Copywriter account.', code: 'ACCOUNT_LOAD_FAILED' }, 500, r);
+  }
 }
 
 async function businessCopywriterConsume(r, e) {
@@ -39,41 +76,43 @@ async function businessCopywriterConsume(r, e) {
     return businessCopywriterJson({ error: 'A valid generation reference is required.', code: 'INVALID_REFERENCE' }, 400, r);
   }
 
-  const existing = await e.DB.prepare(
-    'SELECT id,credits,status FROM business_copywriter_generations WHERE user_id=? AND reference=? LIMIT 1'
-  ).bind(user.id, reference).first();
-  if (existing) {
-    if (String(existing.status) === 'pending') {
-      return businessCopywriterJson({ error: 'This generation is already being processed.', code: 'GENERATION_IN_PROGRESS' }, 409, r);
-    }
-    const usageDate = new Date().toISOString().slice(0, 10);
-    const row = await e.DB.prepare(
-      'SELECT free_generations FROM business_copywriter_daily_usage WHERE user_id=? AND usage_date=? LIMIT 1'
-    ).bind(user.id, usageDate).first();
-    const balance = await e.DB.prepare('SELECT balance FROM credit_balances WHERE user_id=? LIMIT 1').bind(user.id).first();
-    const used = Number(row?.free_generations || 0);
-    return businessCopywriterJson({
-      success: true,
-      idempotent: true,
-      charged: Number(existing.credits || 0) > 0,
-      credits_used: Number(existing.credits || 0),
-      free_generations_used: used,
-      free_generations_remaining: Math.max(0, NEXAUREN_BUSINESS_COPYWRITER_FREE_DAILY - used),
-      balance: Number(balance?.balance || 0),
-    }, 200, r);
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  const usageDate = new Date().toISOString().slice(0, 10);
-  const costRow = await e.DB.prepare(
-    'SELECT credit_cost,enabled FROM tool_billing WHERE tool_id=? LIMIT 1'
-  ).bind(NEXAUREN_BUSINESS_COPYWRITER_TOOL).first();
-  const creditCost = Math.max(0, Number(costRow?.credit_cost ?? 5));
-  if (Number(costRow?.enabled ?? 1) !== 1) {
-    return businessCopywriterJson({ error: 'This tool is temporarily unavailable.', code: 'TOOL_DISABLED' }, 503, r);
-  }
-
   try {
+    await ensureBusinessCopywriterSchema(e);
+
+    const existing = await e.DB.prepare(
+      'SELECT id,credits,status FROM business_copywriter_generations WHERE user_id=? AND reference=? LIMIT 1'
+    ).bind(user.id, reference).first();
+    if (existing) {
+      if (String(existing.status) === 'pending') {
+        return businessCopywriterJson({ error: 'This generation is already being processed.', code: 'GENERATION_IN_PROGRESS' }, 409, r);
+      }
+      const usageDate = new Date().toISOString().slice(0, 10);
+      const row = await e.DB.prepare(
+        'SELECT free_generations FROM business_copywriter_daily_usage WHERE user_id=? AND usage_date=? LIMIT 1'
+      ).bind(user.id, usageDate).first();
+      const balance = await e.DB.prepare('SELECT balance FROM credit_balances WHERE user_id=? LIMIT 1').bind(user.id).first();
+      const used = Number(row?.free_generations || 0);
+      return businessCopywriterJson({
+        success: true,
+        idempotent: true,
+        charged: Number(existing.credits || 0) > 0,
+        credits_used: Number(existing.credits || 0),
+        free_generations_used: used,
+        free_generations_remaining: Math.max(0, NEXAUREN_BUSINESS_COPYWRITER_FREE_DAILY - used),
+        balance: Number(balance?.balance || 0),
+      }, 200, r);
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const usageDate = new Date().toISOString().slice(0, 10);
+    const costRow = await e.DB.prepare(
+      'SELECT credit_cost,enabled FROM tool_billing WHERE tool_id=? LIMIT 1'
+    ).bind(NEXAUREN_BUSINESS_COPYWRITER_TOOL).first();
+    const creditCost = Math.max(0, Number(costRow?.credit_cost ?? 5));
+    if (Number(costRow?.enabled ?? 1) !== 1) {
+      return businessCopywriterJson({ error: 'This tool is temporarily unavailable.', code: 'TOOL_DISABLED' }, 503, r);
+    }
+
     const reservation = await e.DB.prepare(
       'INSERT OR IGNORE INTO business_copywriter_generations (id,user_id,reference,credits,status,created_at) VALUES (?,?,?,?,?,?)'
     ).bind(uuid(), user.id, reference, 0, 'pending', now).run();
