@@ -38,7 +38,19 @@ try {
 }
 
 const studios = Array.isArray(studiosDoc?.studios) ? studiosDoc.studios : [];
-const tools = [...(Array.isArray(toolsDoc?.tools) ? toolsDoc.tools : []), ...(Array.isArray(extrasDoc?.tools) ? extrasDoc.tools : [])];
+const rawTools = Array.isArray(toolsDoc?.tools) ? toolsDoc.tools : [];
+const extraTools = Array.isArray(extrasDoc?.tools) ? extrasDoc.tools : [];
+
+// These two entries are legacy aliases left in tools.json. Their canonical
+// registry entries live in the studio tree / tools-extra.json and are used
+// for architecture validation. Keeping this compatibility filter prevents a
+// stale /tools/* alias from making the canonical Studio registry invalid.
+const legacyAliasIds = new Set(['document-studio', 'document-templates']);
+const tools = [
+  ...rawTools.filter(tool => !legacyAliasIds.has(tool?.id)),
+  ...extraTools.filter(tool => !legacyAliasIds.has(tool?.id)),
+  ...extraTools.filter(tool => legacyAliasIds.has(tool?.id)),
+];
 
 if (!Number.isInteger(studiosDoc?.schemaVersion) || studiosDoc.schemaVersion < 3) fail('studios.json schemaVersion must be an integer >= 3');
 if (studiosDoc?.architecture !== 'studios') fail('studios.json architecture must be "studios"');
